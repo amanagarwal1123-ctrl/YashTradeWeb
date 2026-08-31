@@ -1,0 +1,6 @@
+/* App-level styles. Design tokens live in index.css */
+
+.admin-row-hover:hover {
+  background: rgba(11, 31, 59, 0.035);
+  box-shadow: inset 3px 0 0 #0b1f3b;
+}
