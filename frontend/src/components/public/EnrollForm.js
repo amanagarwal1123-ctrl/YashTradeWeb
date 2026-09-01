@@ -12,8 +12,7 @@ const initial = { name: "", phone: "", shop_name: "", location: "" };
 
 export const EnrollForm = ({ onOtpSent, defaults }) => {
   const [form, setForm] = useState({ ...initial, ...(defaults || {}) });
-  const [consentTerms, setConsentTerms] = useState(false);
-  const [consentPrivacy, setConsentPrivacy] = useState(false);
+  const [consent, setConsent] = useState(false);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
 
@@ -33,8 +32,7 @@ export const EnrollForm = ({ onOtpSent, defaults }) => {
         : "Please enter a valid Indian mobile number";
     if (form.shop_name.trim().length < 2) er.shop_name = "Please enter your shop name";
     if (form.location.trim().length < 2) er.location = "Please enter your location";
-    if (!consentTerms) er.consent_terms = "Please accept the Terms to continue";
-    if (!consentPrivacy) er.consent_privacy = "Please accept the Privacy Policy to continue";
+    if (!consent) er.consent = "Please accept the Terms & Conditions and Privacy Policy to continue";
     setErrors(er);
     return Object.keys(er).length === 0;
   };
@@ -49,8 +47,8 @@ export const EnrollForm = ({ onOtpSent, defaults }) => {
         name: form.name.trim(),
         shop_name: form.shop_name.trim(),
         location: form.location.trim(),
-        consent_terms: consentTerms,
-        consent_privacy: consentPrivacy,
+        consent_terms: consent,
+        consent_privacy: consent,
       });
       toast.success(res.data.message || "OTP sent");
       onOtpSent(form);
@@ -126,36 +124,24 @@ export const EnrollForm = ({ onOtpSent, defaults }) => {
       <div className="space-y-2.5 rounded-lg bg-[#FBF7F0] p-3.5 border border-[#C8A96A]/30">
         <div className="flex items-start gap-2.5">
           <Checkbox
-            id="consent-terms"
-            checked={consentTerms}
-            onCheckedChange={(v) => { setConsentTerms(!!v); setErrors((er) => ({ ...er, consent_terms: undefined })); }}
+            id="consent"
+            checked={consent}
+            onCheckedChange={(v) => { setConsent(!!v); setErrors((er) => ({ ...er, consent: undefined })); }}
             className="mt-0.5"
-            data-testid="public-consent-terms-checkbox"
+            data-testid="public-consent-checkbox"
           />
-          <Label htmlFor="consent-terms" className="text-xs sm:text-sm leading-snug text-slate-700 font-normal cursor-pointer">
+          <Label htmlFor="consent" className="text-xs sm:text-sm leading-snug text-slate-700 font-normal cursor-pointer">
             I agree to the{" "}
             <Link to="/terms" target="_blank" className="font-semibold text-[#0B1F3B] underline underline-offset-2" data-testid="public-terms-link">
               Terms &amp; Conditions
-            </Link>
-          </Label>
-        </div>
-        {errors.consent_terms && <p className="text-xs font-medium text-[#C21F2B] pl-7" data-testid="public-consent-terms-error">{errors.consent_terms}</p>}
-        <div className="flex items-start gap-2.5">
-          <Checkbox
-            id="consent-privacy"
-            checked={consentPrivacy}
-            onCheckedChange={(v) => { setConsentPrivacy(!!v); setErrors((er) => ({ ...er, consent_privacy: undefined })); }}
-            className="mt-0.5"
-            data-testid="public-consent-privacy-checkbox"
-          />
-          <Label htmlFor="consent-privacy" className="text-xs sm:text-sm leading-snug text-slate-700 font-normal cursor-pointer">
-            I agree to the{" "}
+            </Link>{" "}
+            and the{" "}
             <Link to="/privacy" target="_blank" className="font-semibold text-[#0B1F3B] underline underline-offset-2" data-testid="public-privacy-link">
               Privacy Policy
             </Link>
           </Label>
         </div>
-        {errors.consent_privacy && <p className="text-xs font-medium text-[#C21F2B] pl-7" data-testid="public-consent-privacy-error">{errors.consent_privacy}</p>}
+        {errors.consent && <p className="text-xs font-medium text-[#C21F2B] pl-7" data-testid="public-consent-error">{errors.consent}</p>}
       </div>
 
       <Button
