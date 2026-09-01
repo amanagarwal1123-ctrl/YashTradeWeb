@@ -37,6 +37,9 @@ from live_client import (  # noqa: E402
 # Setup
 # ------------------------------------------------------------------
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s %(message)s')
+# Never log provider URLs (they contain the OTP value and auth key)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 logger = logging.getLogger("yash.server")
 
 mongo_url = os.environ['MONGO_URL']
@@ -182,8 +185,6 @@ async def create_otp_challenge(phone: str, purpose: str, ip: str, pending_data: 
     await db.otp_challenges.insert_one(challenge)
 
     sms = await send_otp_sms(phone, otp)
-    if not IS_PROD:
-        logger.info("[DEV ONLY] OTP for %s (%s): %s", mask_phone(phone), purpose, otp)
     return {"challenge_id": challenge["id"], "sms_sent": sms.get("sent", False)}
 
 
@@ -206,8 +207,6 @@ async def resend_otp_challenge(phone: str, purpose: str) -> dict:
         "attempts": 0,
     }, "$inc": {"resend_count": 1}})
     sms = await send_otp_sms(phone, otp)
-    if not IS_PROD:
-        logger.info("[DEV ONLY] OTP (resend) for %s (%s): %s", mask_phone(phone), purpose, otp)
     return {"sms_sent": sms.get("sent", False), "resends_left": MAX_RESENDS_PER_CHALLENGE - ch["resend_count"] - 1}
 
 
@@ -222,7 +221,7 @@ async def verify_otp_challenge(phone: str, purpose: str, otp: str) -> dict:
     if ch["attempts"] >= MAX_VERIFY_ATTEMPTS:
         raise HTTPException(429, "Too many incorrect attempts. Please request a new OTP.")
 
-    dev_bypass = (not IS_PROD) and otp == "1234"
+    dev_bypass = False  # demo OTP permanently disabled - real MSG91 OTPs only
     valid = dev_bypass or hmac.compare_digest(ch["otp_hash"], hash_otp(phone, otp))
     if not valid:
         await db.otp_challenges.update_one({"id": ch["id"]}, {"$inc": {"attempts": 1}})
@@ -303,7 +302,7 @@ class PhoneChangeVerify(BaseModel):
 async def public_config():
     return {
         "environment": ENVIRONMENT,
-        "dev_otp_enabled": not IS_PROD,
+        "dev_otp_enabled": False,
         "android_url": ANDROID_APP_URL,
         "ios_url": IOS_APP_URL,
         "otp_ttl_seconds": OTP_TTL_SECONDS,
@@ -585,16 +584,17 @@ async def admin_stats(sess: dict = Depends(require_admin)):
     inactive = await db.enrollments.count_documents({"account_status": "inactive"})
     sync_failed = await db.enrollments.count_documents({"live_sync_status": {"$ne": "ok"}})
 
-    # 30-day registration trend (IST days)
+    # 30-day registration trend (IST days) - aggregated server-side, bounded output
     thirty_days_ago = (now_ist - timedelta(days=29)).replace(hour=0, minute=0, second=0, microsecond=0)
     trend_map = {}
-    cursor = db.enrollments.find({"registered_at": {"$gte": thirty_days_ago.astimezone(timezone.utc).isoformat()}}, {"registered_at": 1})
-    async for docu in cursor:
-        try:
-            d = datetime.fromisoformat(docu["registered_at"]).astimezone(IST).strftime("%Y-%m-%d")
-            trend_map[d] = trend_map.get(d, 0) + 1
-        except Exception:
-            continue
+    pipeline = [
+        {"$match": {"registered_at": {"$gte": thirty_days_ago.astimezone(timezone.utc).isoformat()}}},
+        {"$project": {"day": {"$substrCP": ["$registered_at", 0, 10]}}},
+        {"$group": {"_id": "$day", "count": {"$sum": 1}}},
+        {"$limit": 100},
+    ]
+    async for row in db.enrollments.aggregate(pipeline):
+        trend_map[row["_id"]] = row["count"]
     trend = []
     for i in range(30):
         day = (thirty_days_ago + timedelta(days=i)).strftime("%Y-%m-%d")
@@ -706,7 +706,7 @@ async def admin_customers_export(
     writer.writerow(["S.No", "Name", "Phone", "Shop Name", "Location", "Enrollment Status",
                      "Login Status", "Account Status", "Registered At", "First Login", "Last Login", "Live Sync"])
     i = 0
-    async for d in db.enrollments.find(query, sort=[("registered_at", -1)]):
+    async for d in db.enrollments.find(query, sort=[("registered_at", -1)], limit=50000):
         i += 1
         writer.writerow([
             i, d.get("name", ""), d.get("phone", ""), d.get("shop_name", ""), d.get("location", ""),

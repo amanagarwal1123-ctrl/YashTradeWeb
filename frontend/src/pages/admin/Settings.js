@@ -36,7 +36,7 @@ export default function Settings() {
           </div>
           <div className="flex justify-between border-b border-slate-50 py-1.5">
             <span className="text-slate-500">Demo OTP (1234)</span>
-            <span className="font-medium">{config?.dev_otp_enabled ? "Enabled (dev/staging only)" : "Disabled"}</span>
+            <span className="font-medium">Permanently disabled — real MSG91 OTPs only</span>
           </div>
           <div className="flex justify-between py-1.5">
             <span className="text-slate-500">Admin session</span>

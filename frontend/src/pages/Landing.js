@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import { PublicHeader } from "@/components/public/PublicHeader";
@@ -8,7 +8,6 @@ import { EnrollForm } from "@/components/public/EnrollForm";
 import { OtpVerify } from "@/components/public/OtpVerify";
 import { SuccessStep } from "@/components/public/SuccessStep";
 import { Card, CardContent } from "@/components/ui/card";
-import { api } from "@/lib/api";
 
 const HERO_IMG = "https://images.unsplash.com/photo-1580582183555-3224a02343c8?crop=entropy&cs=srgb&fm=jpg&ixlib=rb-4.1.0&q=85&w=900";
 
@@ -16,11 +15,6 @@ export default function Landing() {
   const [phase, setPhase] = useState("form"); // form | otp | success
   const [formData, setFormData] = useState(null);
   const [result, setResult] = useState(null);
-  const [config, setConfig] = useState({ dev_otp_enabled: false });
-
-  useEffect(() => {
-    api.get("/public/config").then((r) => setConfig(r.data)).catch(() => {});
-  }, []);
 
   const stepNumber = phase === "success" ? 2 : 1;
 
@@ -80,7 +74,6 @@ export default function Landing() {
                   <motion.div key="otp" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={{ duration: 0.28 }}>
                     <OtpVerify
                       phone={formData?.phone}
-                      devOtpEnabled={config.dev_otp_enabled}
                       onVerified={(data) => { setResult(data); setPhase("success"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
                       onChangeDetails={() => setPhase("form")}
                     />

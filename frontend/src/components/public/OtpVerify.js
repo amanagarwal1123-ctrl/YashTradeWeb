@@ -8,7 +8,7 @@ import { toast } from "sonner";
 const RESEND_COOLDOWN = 30;
 const OTP_TTL = 300;
 
-export const OtpVerify = ({ phone, devOtpEnabled, onVerified, onChangeDetails }) => {
+export const OtpVerify = ({ phone, onVerified, onChangeDetails }) => {
   const [otp, setOtp] = useState("");
   const [verifying, setVerifying] = useState(false);
   const [resending, setResending] = useState(false);
@@ -79,12 +79,6 @@ export const OtpVerify = ({ phone, devOtpEnabled, onVerified, onChangeDetails })
           <span className="font-mono-nums font-semibold text-[#0B1F3B]" data-testid="public-otp-phone-display">+91 {phone}</span>
         </p>
       </div>
-
-      {devOtpEnabled && (
-        <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-center text-xs font-medium text-amber-800" data-testid="public-dev-otp-hint">
-          Development mode — demo OTP 1234 is accepted. Disabled automatically in production.
-        </p>
-      )}
 
       <div className={`flex justify-center ${shake ? "otp-shake" : ""}`} data-testid="public-otp-input">
         <InputOTP maxLength={4} value={otp} onChange={(v) => { setOtp(v); setError(""); if (v.length === 4) verify(v); }} disabled={verifying}>
