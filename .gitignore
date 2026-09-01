@@ -86,3 +86,4 @@ memory/test_credentials.md
 test_reports/
 backend_test_output.log
 frontend/node_modules/.cache/default-development/3.pack
+frontend/node_modules/.cache/default-development/4.pack

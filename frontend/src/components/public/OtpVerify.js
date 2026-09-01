@@ -6,7 +6,7 @@ import { api, errMsg } from "@/lib/api";
 import { toast } from "sonner";
 
 const RESEND_COOLDOWN = 30;
-const OTP_TTL = 300;
+const OTP_TTL = 600;
 
 export const OtpVerify = ({ phone, onVerified, onChangeDetails }) => {
   const [otp, setOtp] = useState("");

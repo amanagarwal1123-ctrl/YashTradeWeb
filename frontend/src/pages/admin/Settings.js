@@ -85,7 +85,7 @@ export default function Settings() {
       <Card className="rounded-xl border-slate-200">
         <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm font-bold text-[#0B1F3B]"><ShieldCheck className="h-4 w-4" /> Security</CardTitle></CardHeader>
         <CardContent className="space-y-1.5 text-xs text-slate-600">
-          <p>• OTPs are stored hashed and expire after 5 minutes; max 5 verification attempts and 3 resends.</p>
+          <p>• OTPs are stored hashed and expire after 10 minutes; max 5 verification attempts and 3 resends.</p>
           <p>• Admin sessions use HTTP-only secure cookies with 12-hour expiry and 2-hour idle timeout.</p>
           <p>• Failed admin logins are rate-limited (lockout after 5 failures in 15 minutes) and audit-logged.</p>
           <p>• Customers and telecallers receive 403 Forbidden on all admin routes.</p>

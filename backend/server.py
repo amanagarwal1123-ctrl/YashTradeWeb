@@ -55,7 +55,7 @@ ANDROID_APP_URL = os.environ.get("ANDROID_APP_URL", "https://play.google.com/sto
 IOS_APP_URL = os.environ.get("IOS_APP_URL", "https://apps.apple.com/app/yash-trade/id0000000000")
 
 IST = ZoneInfo("Asia/Kolkata")
-OTP_TTL_SECONDS = 300
+OTP_TTL_SECONDS = 600  # 10 minutes - matches the DLT-approved SMS template text
 MAX_VERIFY_ATTEMPTS = 5
 MAX_SENDS_PER_10MIN = 5
 MAX_RESENDS_PER_CHALLENGE = 3
