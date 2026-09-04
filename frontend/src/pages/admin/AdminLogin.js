@@ -26,7 +26,11 @@ export default function AdminLogin() {
     setLoading(true);
     setError("");
     try {
-      await api.post("/admin/auth/send-otp", { phone });
+      const res = await api.post("/admin/auth/send-otp", { phone });
+      if (res.data?.sms_sent === false) {
+        setError("OTP could not be sent right now. Please try again in a moment.");
+        return;
+      }
       toast.success("OTP sent");
       setPhase("otp");
     } catch (err) {

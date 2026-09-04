@@ -56,12 +56,16 @@ export const OtpVerify = ({ phone, onVerified, onChangeDetails }) => {
     setError("");
     try {
       const res = await api.post("/enroll/resend-otp", { phone });
+      if (res.data?.sms_sent === false) {
+        toast.error("OTP could not be resent right now. Please try again in a moment.");
+        return;
+      }
       toast.success(res.data.message || "OTP resent");
       setCooldown(RESEND_COOLDOWN);
       setTtl(OTP_TTL);
       setOtp("");
     } catch (err) {
-      toast.error(errMsg(err));
+      toast.error(errMsg(err), { duration: 8000 });
     } finally {
       setResending(false);
     }

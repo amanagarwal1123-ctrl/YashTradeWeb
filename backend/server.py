@@ -9,6 +9,7 @@ import re
 import csv
 import io
 import hmac
+import asyncio
 import hashlib
 import secrets
 import logging
@@ -28,10 +29,16 @@ from pydantic import BaseModel, Field, field_validator
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-from sms import send_otp_sms  # noqa: E402
+from sms import (  # noqa: E402
+    send_otp_sms, sms_config_status, check_msg91_connectivity, friendly_sms_error,
+    fetch_delivery_status, preflight_provider_check,
+)
 from live_client import (  # noqa: E402
     live_admin_request, get_customer_token, sync_enrollment_to_live, live_get_me,
 )
+
+# Bump on every SMS/OTP-related change so the deployed build can be verified via /api/health
+APP_BUILD = "2026.09.04-sms-v4"
 
 # ------------------------------------------------------------------
 # Setup
@@ -60,6 +67,10 @@ MAX_VERIFY_ATTEMPTS = 5
 MAX_SENDS_PER_10MIN = 5
 MAX_RESENDS_PER_CHALLENGE = 3
 SEND_COOLDOWN_SECONDS = 30
+# Per-IP guard. Behind some ingresses every visitor shares one IP, so keep this generous.
+IP_SENDS_PER_HOUR = int(os.environ.get("IP_SENDS_PER_HOUR", "40"))
+SMS_LOG_RETENTION_DAYS = 30
+SMS_FAIL_STATUS = 503  # 4xx/503 pass through Cloudflare untouched; 502/504 do NOT
 ADMIN_SESSION_HOURS = 12
 ADMIN_IDLE_MINUTES = 120
 ADMIN_MAX_FAILED = 5
@@ -146,6 +157,105 @@ def client_ip(request: Request) -> str:
 # OTP challenge engine
 # ------------------------------------------------------------------
 
+async def log_sms(phone: str, purpose: str, result: dict, ip: str = "", kind: str = "otp") -> dict:
+    """Persist every SMS attempt (never the OTP itself) so admins can see exactly
+    what MSG91 answered from the DEPLOYED environment."""
+    now = now_utc()
+    entry = {
+        "id": str(uuid.uuid4()),
+        "phone": phone,
+        "purpose": purpose,
+        "kind": kind,
+        "sent": bool(result.get("sent")),
+        "request_id": result.get("request_id"),
+        "endpoint": result.get("endpoint"),
+        "http_status": result.get("http_status"),
+        "error": result.get("error"),
+        "error_detail": result.get("error_detail"),
+        "attempts": result.get("attempts"),
+        "ip": ip,
+        "created_at": now.isoformat(),
+        "expire_marker": now + timedelta(days=SMS_LOG_RETENTION_DAYS),
+    }
+    try:
+        await db.sms_logs.insert_one(dict(entry))
+    except Exception as e:  # logging must never break the OTP flow
+        logger.error("sms_logs insert failed: %s", e)
+    entry.pop("expire_marker", None)
+    entry.pop("_id", None)
+    if entry["sent"] and entry.get("request_id"):
+        schedule_delivery_check(entry["id"], entry["request_id"])
+    return entry
+
+
+DELIVERY_POLL_DELAYS = (6, 20, 60)  # seconds after send; MSG91 usually reports within ~5s
+_background_tasks: set = set()
+PENDING_STATUSES = {"pending", "submitted", "queued", "sent", "scheduled", "processing"}
+
+
+async def refresh_delivery_status(log_id: str, request_id: str) -> dict:
+    """Query MSG91's log API once and persist the real operator status on the sms_log."""
+    res = await fetch_delivery_status(request_id)
+    now_iso = iso_now()
+    upd = {"delivery_checked_at": now_iso}
+    if res.get("found"):
+        upd.update({
+            "delivery_status": res.get("status") or "unknown",
+            "delivery_status_code": res.get("status_code"),
+            "delivered_at": res.get("delivered_at"),
+            "failure_reason": res.get("failure_reason"),
+            "telecom_circle": res.get("circle"),
+            "provider_logged": True,
+        })
+    elif res.get("error"):
+        upd.update({"delivery_status": "check_error", "delivery_error": res["error"]})
+    else:
+        # MSG91 has NO record of this request id -> it was accepted and silently dropped
+        upd.update({"delivery_status": "not_logged", "provider_logged": False})
+    await db.sms_logs.update_one({"id": log_id}, {"$set": upd, "$inc": {"delivery_checks": 1}})
+    return upd
+
+
+async def _delivery_check_worker(log_id: str, request_id: str):
+    try:
+        for delay in DELIVERY_POLL_DELAYS:
+            await asyncio.sleep(delay)
+            upd = await refresh_delivery_status(log_id, request_id)
+            status = str(upd.get("delivery_status") or "").lower()
+            if upd.get("provider_logged") and status not in PENDING_STATUSES:
+                return  # final answer from the operator
+        final = await db.sms_logs.find_one({"id": log_id})
+        if final and not final.get("provider_logged"):
+            logger.error("MSG91 has NO log entry for request %s (%s) after %ss - message was silently dropped. "
+                         "Check authkey/template in this environment.", request_id, mask_phone(final.get("phone", "")), sum(DELIVERY_POLL_DELAYS))
+    except Exception as e:
+        logger.error("delivery check worker failed for %s: %s", request_id, e)
+
+
+def schedule_delivery_check(log_id: str, request_id: str):
+    try:
+        task = asyncio.get_running_loop().create_task(_delivery_check_worker(log_id, request_id))
+        _background_tasks.add(task)
+        task.add_done_callback(_background_tasks.discard)
+    except RuntimeError:
+        pass
+
+
+async def deliver_otp_or_fail(phone: str, otp: str, purpose: str, ip: str) -> dict:
+    """Send the OTP SMS. On ANY failure raise a 502 with a clear reason instead of
+    pretending the OTP was sent."""
+    sms = await send_otp_sms(phone, otp)
+    await log_sms(phone, purpose, sms, ip)
+    if not sms.get("sent"):
+        logger.error("OTP SMS NOT SENT for %s purpose=%s error=%s detail=%s", mask_phone(phone), purpose,
+                     sms.get("error"), sms.get("error_detail"))
+        # NOTE: never use 502/504 here - Cloudflare (in front of the preview AND the
+        # deployed domain) replaces those with its own HTML page and the customer
+        # would only see a generic error instead of the real reason.
+        raise HTTPException(SMS_FAIL_STATUS, friendly_sms_error(sms))
+    return sms
+
+
 async def create_otp_challenge(phone: str, purpose: str, ip: str, pending_data: dict = None) -> dict:
     now = now_utc()
     ten_min_ago = (now - timedelta(minutes=10)).isoformat()
@@ -157,7 +267,7 @@ async def create_otp_challenge(phone: str, purpose: str, ip: str, pending_data: 
         raise HTTPException(429, "Too many OTP requests for this number. Please try again after 10 minutes.")
 
     ip_sends = await db.otp_challenges.count_documents({"ip": ip, "created_at": {"$gt": hour_ago}})
-    if ip_sends >= 15:
+    if ip_sends >= IP_SENDS_PER_HOUR:
         raise HTTPException(429, "Too many OTP requests. Please try again later.")
 
     last = await db.otp_challenges.find_one({"phone": phone, "purpose": purpose}, sort=[("created_at", -1)])
@@ -167,6 +277,11 @@ async def create_otp_challenge(phone: str, purpose: str, ip: str, pending_data: 
             raise HTTPException(429, f"Please wait {SEND_COOLDOWN_SECONDS} seconds before requesting another OTP.")
 
     otp = gen_otp()
+    # Deliver FIRST. Only when MSG91 has genuinely accepted the message do we store
+    # the challenge - a failed send must not start the cooldown or eat rate limits.
+    sms = await deliver_otp_or_fail(phone, otp, purpose, ip)
+
+    now = now_utc()
     challenge = {
         "id": str(uuid.uuid4()),
         "phone": phone,
@@ -178,17 +293,16 @@ async def create_otp_challenge(phone: str, purpose: str, ip: str, pending_data: 
         "consumed": False,
         "ip": ip,
         "pending_data": pending_data or {},
+        "sms_request_id": sms.get("request_id"),
         "created_at": now.isoformat(),
         "expires_at": (now + timedelta(seconds=OTP_TTL_SECONDS)).isoformat(),
         "expire_marker": now + timedelta(hours=2),  # TTL cleanup
     }
     await db.otp_challenges.insert_one(challenge)
-
-    sms = await send_otp_sms(phone, otp)
-    return {"challenge_id": challenge["id"], "sms_sent": sms.get("sent", False)}
+    return {"challenge_id": challenge["id"], "sms_sent": True, "sms_request_id": sms.get("request_id")}
 
 
-async def resend_otp_challenge(phone: str, purpose: str) -> dict:
+async def resend_otp_challenge(phone: str, purpose: str, ip: str = "") -> dict:
     ch = await db.otp_challenges.find_one(
         {"phone": phone, "purpose": purpose, "consumed": False}, sort=[("created_at", -1)])
     if not ch:
@@ -200,14 +314,17 @@ async def resend_otp_challenge(phone: str, purpose: str) -> dict:
     if (now - last_send).total_seconds() < SEND_COOLDOWN_SECONDS:
         raise HTTPException(429, f"Please wait {SEND_COOLDOWN_SECONDS} seconds before resending.")
     otp = gen_otp()
+    # Deliver first; if it fails the previous OTP stays valid and no resend is consumed.
+    sms = await deliver_otp_or_fail(phone, otp, f"{purpose}:resend", ip or ch.get("ip", ""))
+    now = now_utc()
     await db.otp_challenges.update_one({"id": ch["id"]}, {"$set": {
         "otp_hash": hash_otp(phone, otp),
         "expires_at": (now + timedelta(seconds=OTP_TTL_SECONDS)).isoformat(),
         "last_resend_at": now.isoformat(),
+        "sms_request_id": sms.get("request_id"),
         "attempts": 0,
     }, "$inc": {"resend_count": 1}})
-    sms = await send_otp_sms(phone, otp)
-    return {"sms_sent": sms.get("sent", False), "resends_left": MAX_RESENDS_PER_CHALLENGE - ch["resend_count"] - 1}
+    return {"sms_sent": True, "resends_left": MAX_RESENDS_PER_CHALLENGE - ch["resend_count"] - 1}
 
 
 async def verify_otp_challenge(phone: str, purpose: str, otp: str) -> dict:
@@ -295,14 +412,46 @@ class PhoneChangeVerify(BaseModel):
 
 
 # ------------------------------------------------------------------
-# PUBLIC: config
+# PUBLIC: health + config
 # ------------------------------------------------------------------
+
+@api.get("/health")
+async def health():
+    """Open the deployed URL + /api/health in a browser to confirm which build is
+    running and whether the SMS provider is configured there. No secrets exposed."""
+    try:
+        await db.command("ping")
+        db_ok = True
+    except Exception:
+        db_ok = False
+    cfg = sms_config_status()
+    pre = await preflight_provider_check() if cfg["ready"] else {"ok": False, "error": "not configured"}
+    sms_ok = cfg["ready"] and pre.get("ok") is not False
+    return {
+        "status": "ok" if db_ok and sms_ok else "degraded",
+        "build": APP_BUILD,
+        "environment": ENVIRONMENT,
+        "database": "ok" if db_ok else "error",
+        "sms": {
+            "ready": cfg["ready"],
+            "authkey_configured": cfg["authkey_configured"],
+            "template_configured": cfg["template_configured"],
+            "template_id": cfg["template_id"],
+            "primary_endpoint": cfg["primary_endpoint"],
+            "provider_check": "ok" if pre.get("ok") is True else ("unreachable" if pre.get("ok") is None else "FAILED"),
+            "provider_error": pre.get("error"),
+        },
+        "time": iso_now(),
+    }
+
 
 @api.get("/public/config")
 async def public_config():
     return {
         "environment": ENVIRONMENT,
+        "build": APP_BUILD,
         "dev_otp_enabled": False,
+        "sms_ready": sms_config_status()["ready"],
         "android_url": ANDROID_APP_URL,
         "ios_url": IOS_APP_URL,
         "otp_ttl_seconds": OTP_TTL_SECONDS,
@@ -344,11 +493,11 @@ async def enroll_send_otp(body: EnrollStart, request: Request):
 
 
 @api.post("/enroll/resend-otp")
-async def enroll_resend_otp(body: PhoneOnly):
+async def enroll_resend_otp(body: PhoneOnly, request: Request):
     phone = normalize_phone(body.phone)
     if not phone:
         raise HTTPException(422, "Invalid phone number.")
-    result = await resend_otp_challenge(phone, "enroll")
+    result = await resend_otp_challenge(phone, "enroll", client_ip(request))
     return {"message": f"OTP resent to {mask_phone(phone)}", **result}
 
 
@@ -924,6 +1073,115 @@ async def admin_audit_logs(sess: dict = Depends(require_admin), page: int = Quer
 
 
 # ------------------------------------------------------------------
+# ADMIN: SMS provider diagnostics (run FROM the deployed environment)
+# ------------------------------------------------------------------
+
+class SmsTest(BaseModel):
+    phone: str
+
+
+@api.get("/admin/sms/diagnostics")
+async def admin_sms_diagnostics(sess: dict = Depends(require_admin)):
+    """Config + live MSG91 authkey/template validation + 24h delivery counters."""
+    check = await check_msg91_connectivity()
+    await preflight_provider_check(force=True)  # refresh the send-path cache too
+    day_ago = (now_utc() - timedelta(hours=24)).isoformat()
+    base = {"created_at": {"$gt": day_ago}}
+    sent_24h = await db.sms_logs.count_documents({**base, "sent": True})
+    failed_24h = await db.sms_logs.count_documents({**base, "sent": False})
+    delivered_24h = await db.sms_logs.count_documents({**base, "delivery_status": {"$regex": "^delivered$", "$options": "i"}})
+    dropped_24h = await db.sms_logs.count_documents({**base, "delivery_status": "not_logged"})
+    op_failed_24h = await db.sms_logs.count_documents({**base, "provider_logged": True,
+                                                       "delivery_status": {"$not": {"$regex": "^(delivered|pending|submitted|queued|sent)$", "$options": "i"}}})
+    last_failure = clean(await db.sms_logs.find_one({"$or": [{"sent": False}, {"delivery_status": "not_logged"}]}, sort=[("created_at", -1)]))
+    if last_failure:
+        last_failure.pop("expire_marker", None)
+    healthy = bool(check["reachable"] and check["authkey_valid"] and not check["error"])
+    warning = None
+    if dropped_24h:
+        warning = (f"{dropped_24h} message(s) in the last 24 hours were 'accepted' by MSG91 but never appeared in its logs - "
+                   "they were silently dropped. This happens when the authkey or template ID sent from this server is wrong.")
+    elif op_failed_24h:
+        warning = f"{op_failed_24h} message(s) in the last 24 hours reached MSG91 but the operator reported a failure (DND / invalid number / DLT). See the log below."
+    return {
+        "build": APP_BUILD,
+        "environment": ENVIRONMENT,
+        "config": check["config"],
+        "provider_check": {
+            "reachable": check["reachable"],
+            "authkey_valid": check["authkey_valid"],
+            "template": check["template"],
+            "error": check["error"],
+            "healthy": healthy,
+            "warning": warning,
+        },
+        "last_24h": {"sent": sent_24h, "failed": failed_24h, "delivered": delivered_24h,
+                     "dropped_by_provider": dropped_24h, "operator_failed": op_failed_24h},
+        "last_failure": last_failure,
+    }
+
+
+@api.post("/admin/sms/logs/{log_id}/refresh")
+async def admin_sms_log_refresh(log_id: str, sess: dict = Depends(require_admin)):
+    """Re-query MSG91's log API for one attempt and return the updated row."""
+    row = await db.sms_logs.find_one({"id": log_id})
+    if not row:
+        raise HTTPException(404, "SMS log entry not found")
+    if not row.get("request_id"):
+        raise HTTPException(400, "This attempt was never accepted by MSG91, so there is no delivery status to fetch.")
+    await refresh_delivery_status(log_id, row["request_id"])
+    row = clean(await db.sms_logs.find_one({"id": log_id}))
+    row.pop("expire_marker", None)
+    return row
+
+
+@api.get("/admin/sms/logs")
+async def admin_sms_logs(sess: dict = Depends(require_admin), page: int = Query(1, ge=1), page_size: int = Query(25, ge=5, le=100),
+                         status: Optional[str] = Query(None, pattern="^(sent|failed)$")):
+    query = {}
+    if status == "sent":
+        query["sent"] = True
+    elif status == "failed":
+        query["sent"] = False
+    total = await db.sms_logs.count_documents(query)
+    skip = (page - 1) * page_size
+    items = []
+    async for d in db.sms_logs.find(query, sort=[("created_at", -1)], skip=skip, limit=page_size):
+        d = clean(d)
+        d.pop("expire_marker", None)
+        items.append(d)
+    return {"items": items, "total": total, "page": page, "pages": max(1, -(-total // page_size))}
+
+
+@api.post("/admin/sms/test")
+async def admin_sms_test(body: SmsTest, request: Request, sess: dict = Depends(require_admin)):
+    """Send a real test OTP SMS to any number and return MSG91's exact answer.
+    The code is NOT stored - it cannot be used to log in or enroll."""
+    phone = normalize_phone(body.phone)
+    if not phone:
+        raise HTTPException(422, "Please enter a valid 10-digit mobile number.")
+    minute_ago = (now_utc() - timedelta(seconds=SEND_COOLDOWN_SECONDS)).isoformat()
+    recent = await db.sms_logs.count_documents({"phone": phone, "kind": "test", "created_at": {"$gt": minute_ago}})
+    if recent:
+        raise HTTPException(429, f"Please wait {SEND_COOLDOWN_SECONDS} seconds between test messages to the same number.")
+    otp = gen_otp()
+    sms = await send_otp_sms(phone, otp)
+    entry = await log_sms(phone, "admin_test", sms, client_ip(request), kind="test")
+    await audit(sess["phone"], "sms_test_sent", details={"to": mask_phone(phone), "sent": sms.get("sent"), "error": sms.get("error")})
+    return {
+        "sent": bool(sms.get("sent")),
+        "request_id": sms.get("request_id"),
+        "endpoint": sms.get("endpoint"),
+        "error": sms.get("error"),
+        "error_detail": sms.get("error_detail"),
+        "provider_response": sms.get("provider_response"),
+        "message": (f"MSG91 accepted the test SMS for +91 {phone} (Request ID {sms.get('request_id')}). Operator delivery status will appear in the log below within ~10 seconds - press Re-check."
+                    if sms.get("sent") else friendly_sms_error(sms)),
+        "log": entry,
+    }
+
+
+# ------------------------------------------------------------------
 # ADMIN: live backend module proxy (read + write, whitelisted)
 # Excludes removed workflows: Live Bhav (live-rates) and AI Try-On (ai/*)
 # ------------------------------------------------------------------
@@ -999,7 +1257,22 @@ async def startup():
     await db.audit_logs.create_index([("created_at", -1)])
     await db.audit_logs.create_index("target")
     await db.admin_notes.create_index("customer_id")
-    logger.info("Yash Ornaments enrollment backend ready (env=%s)", ENVIRONMENT)
+    await db.sms_logs.create_index("expire_marker", expireAfterSeconds=0)
+    await db.sms_logs.create_index([("created_at", -1)])
+    await db.sms_logs.create_index([("phone", 1), ("kind", 1), ("created_at", -1)])
+    cfg = sms_config_status()
+    logger.info("Yash Ornaments enrollment backend ready (env=%s build=%s sms_ready=%s template=%s endpoint=%s)",
+                ENVIRONMENT, APP_BUILD, cfg["ready"], cfg["template_id"], cfg["primary_endpoint"])
+    if not cfg["ready"]:
+        logger.error("SMS PROVIDER NOT CONFIGURED: MSG91_AUTHKEY/MSG91_TEMPLATE_ID missing - OTPs will FAIL with a clear 503 error")
+    else:
+        pre = await preflight_provider_check(force=True)
+        if pre.get("ok") is True:
+            logger.info("MSG91 pre-flight OK: authkey accepted and template approved/enabled")
+        elif pre.get("ok") is None:
+            logger.warning("MSG91 pre-flight could not reach MSG91: %s", pre.get("error"))
+        else:
+            logger.error("MSG91 PRE-FLIGHT FAILED - OTPs will FAIL with a clear 503 error: %s", pre.get("error"))
 
 
 @app.on_event("shutdown")

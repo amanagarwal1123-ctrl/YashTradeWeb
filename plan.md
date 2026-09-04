@@ -4,6 +4,13 @@
 - Phase 1 POC: DONE (MSG91 send works w/o template_id; live sync verify-otp(1234)->PUT profile->GET me OK, name+city persist; admin phone role=customer on live -> local-first admin + auto-unlock proxy; MSG91 balance=0 so no real SMS delivery yet)
 - Phase 2 V1: BUILT (backend server.py+sms.py+live_client.py; public landing form->otp->success; admin login/dashboard/users/detail/reports/settings/live modules; DEMO_LOGIN_CREDENTIALS.txt)
 - Testing agent E2E: PASSED 99% (66/67). Fixed: strict country-code rejection on /api/enroll/send-otp, chart sizing warning. V1 COMPLETE & DELIVERED.
+- 2026-09-01: Demo OTP 1234 removed; MSG91 moved to Flow API (template is a Flow template).
+- Phase 5 (2026-09-04) "OTP not arriving on deployed site" — COMPLETED (build 2026.09.04-sms-v4):
+  - ROOT CAUSE: MSG91 flow API answers {"type":"success"} + request id even for a wrong authkey/template and then silently drops the SMS (no dashboard log). Old code trusted that answer; frontend ignored `sms_sent`; so the site said "OTP sent" while nothing was sent. Deployed env evidently sends with a config MSG91 does not accept (or runs an older build).
+  - FIX: pre-flight authkey/template validation (flow-detail API, cached 5 min) before every send; challenge persisted only after MSG91 accepts; 503 JSON error with the real reason (not 502 - Cloudflare rewrites 502); every attempt logged in `sms_logs`; background delivery confirmation via MSG91 log API (+6s/+20s/+60s) -> Delivered / Failed / not_logged(dropped); GET /api/health with build+provider check; admin Settings "SMS Provider (MSG91) - Live Diagnostics" (status, DLT approval, 24h counters, test send, per-message delivery status + re-check).
+  - VERIFIED: OTPs to 9711881372 and 9999813334 confirmed Delivered by MSG91 log API. Regression suite tests/test_sms_pipeline.py (12 pass, safe). Testing agent iteration_2: all pass.
+  - USER ACTION: Redeploy, then open https://<deployed-domain>/api/health -> must show build 2026.09.04-sms-v4 and sms.provider_check "ok"; Admin > Settings shows the same diagnostics from the deployed server.
+- Backlog: real Play Store / App Store links; admin alert (SMS/WhatsApp) on each new enrollment.
 
 ## 1) Objectives
 - Deliver a mobile-first Yash Ornaments enrollment website (public) that verifies phone via OTP (MSG91) and then syncs the verified customer profile into the live Yash Trade App backend.

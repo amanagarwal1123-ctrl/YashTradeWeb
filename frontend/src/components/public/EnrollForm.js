@@ -50,10 +50,14 @@ export const EnrollForm = ({ onOtpSent, defaults }) => {
         consent_terms: consent,
         consent_privacy: consent,
       });
+      if (res.data?.sms_sent === false) {
+        toast.error("OTP could not be sent right now. Please try again in a moment.");
+        return;
+      }
       toast.success(res.data.message || "OTP sent");
       onOtpSent(form);
     } catch (err) {
-      toast.error(errMsg(err));
+      toast.error(errMsg(err), { duration: 8000 });
     } finally {
       setLoading(false);
     }

@@ -1,0 +1,22 @@
+[
+  {
+    "content": "Rewrite sms.py: primary api.msg91.com (sync validation), fallback control host on network errors only, env sanitization, structured results, connectivity check helper",
+    "status": "completed"
+  },
+  {
+    "content": "server.py: fail loudly on SMS failure (503), send-before-persist challenge, sms_logs collection w/ TTL, /api/health w/ build version, admin SMS diagnostics/test/logs endpoints, delivery confirmation via MSG91 log API",
+    "status": "completed"
+  },
+  {
+    "content": "Frontend: handle sms_sent=false in EnrollForm/OtpVerify/AdminLogin; Settings page SMS diagnostics card + test send + recent log w/ delivery status",
+    "status": "completed"
+  },
+  {
+    "content": "Test end-to-end via preview API: real OTP to 9711881372 & 9999813334 (Delivered confirmed), fault-injection, pytest suite, testing agent regression (all pass)",
+    "status": "completed"
+  },
+  {
+    "content": "Update plan.md + test_credentials.md; ask user to confirm receipt and REDEPLOY",
+    "status": "completed"
+  }
+]
