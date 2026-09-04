@@ -37,7 +37,12 @@ def _env(name: str, default: str = "") -> str:
 
 
 MSG91_AUTHKEY = _env("MSG91_AUTHKEY")
-MSG91_TEMPLATE_ID = _env("MSG91_TEMPLATE_ID")
+# The flow template id is NOT a secret (it is useless without the authkey) and is a fixed
+# business constant: Yash Ornaments' DLT-approved "Login OTP" flow (sender YSILVR).
+# Defaulting it here means a deployment that only carries MSG91_AUTHKEY still works.
+DEFAULT_TEMPLATE_ID = "61baece18e964726da04e8c5"
+MSG91_TEMPLATE_ID = _env("MSG91_TEMPLATE_ID") or DEFAULT_TEMPLATE_ID
+MSG91_TEMPLATE_FROM_ENV = bool(_env("MSG91_TEMPLATE_ID"))
 MSG91_PRIMARY_URL = _env("MSG91_FLOW_URL", "https://api.msg91.com/api/v5/flow/")
 MSG91_FALLBACK_URL = _env("MSG91_FLOW_FALLBACK_URL", "https://control.msg91.com/api/v5/flow")
 MSG91_FLOW_DETAIL_URL = "https://control.msg91.com/api/v5/flows/{template_id}"
@@ -60,6 +65,7 @@ def sms_config_status() -> dict:
         "authkey_hint": f"{MSG91_AUTHKEY[:4]}…{MSG91_AUTHKEY[-3:]}" if len(MSG91_AUTHKEY) >= 8 else ("set" if MSG91_AUTHKEY else None),
         "template_configured": bool(MSG91_TEMPLATE_ID),
         "template_id": MSG91_TEMPLATE_ID or None,
+        "template_source": "environment" if MSG91_TEMPLATE_FROM_ENV else "built-in default",
         "primary_endpoint": MSG91_PRIMARY_URL,
         "fallback_endpoint": MSG91_FALLBACK_URL,
     }
@@ -251,7 +257,7 @@ def friendly_sms_error(res: dict) -> str:
     code = (res or {}).get("error")
     detail = (res or {}).get("error_detail") or ""
     if code == "sms_not_configured":
-        return "OTP service is not configured on the server (MSG91 credentials missing). Please contact Yash Ornaments support."
+        return f"OTP service is not configured on the server ({detail or 'MSG91 credentials missing'}). Please contact Yash Ornaments support."
     if code == "config_invalid":
         return f"OTP could not be sent - MSG91 rejected the server's SMS configuration ({detail[:120]}). Please contact Yash Ornaments support."
     if code == "provider_rejected":

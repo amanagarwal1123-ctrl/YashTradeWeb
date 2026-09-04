@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Loader2, User, Phone, Store, MapPin } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -8,13 +8,23 @@ import { Button } from "@/components/ui/button";
 import { api, errMsg } from "@/lib/api";
 import { toast } from "sonner";
 
-const initial = { name: "", phone: "", shop_name: "", location: "" };
-
-export const EnrollForm = ({ onOtpSent, defaults }) => {
-  const [form, setForm] = useState({ ...initial, ...(defaults || {}) });
-  const [consent, setConsent] = useState(false);
+export const EnrollForm = ({ onOtpSent, defaults, onChange }) => {
+  const [form, setForm] = useState({
+    name: defaults?.name || "",
+    phone: defaults?.phone || "",
+    shop_name: defaults?.shop_name || "",
+    location: defaults?.location || "",
+  });
+  const [consent, setConsent] = useState(!!defaults?.consent);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+
+  // Report every keystroke to the parent so a half-filled form survives a reload,
+  // a switch to the SMS app, or the browser back button.
+  useEffect(() => {
+    onChange?.({ ...form, consent });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form, consent]);
 
   const set = (k) => (e) => {
     let v = e.target.value;
@@ -55,7 +65,7 @@ export const EnrollForm = ({ onOtpSent, defaults }) => {
         return;
       }
       toast.success(res.data.message || "OTP sent");
-      onOtpSent(form);
+      onOtpSent({ ...form, consent: true });
     } catch (err) {
       toast.error(errMsg(err), { duration: 8000 });
     } finally {

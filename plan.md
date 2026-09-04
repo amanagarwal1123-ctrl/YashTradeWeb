@@ -10,6 +10,11 @@
   - FIX: pre-flight authkey/template validation (flow-detail API, cached 5 min) before every send; challenge persisted only after MSG91 accepts; 503 JSON error with the real reason (not 502 - Cloudflare rewrites 502); every attempt logged in `sms_logs`; background delivery confirmation via MSG91 log API (+6s/+20s/+60s) -> Delivered / Failed / not_logged(dropped); GET /api/health with build+provider check; admin Settings "SMS Provider (MSG91) - Live Diagnostics" (status, DLT approval, 24h counters, test send, per-message delivery status + re-check).
   - VERIFIED: OTPs to 9711881372 and 9999813334 confirmed Delivered by MSG91 log API. Regression suite tests/test_sms_pipeline.py (12 pass, safe). Testing agent iteration_2: all pass.
   - USER ACTION: Redeploy, then open https://<deployed-domain>/api/health -> must show build 2026.09.04-sms-v4 and sms.provider_check "ok"; Admin > Settings shows the same diagnostics from the deployed server.
+- Phase 6 (2026-09-04, build 2026.09.04-sms-v5) — COMPLETED:
+  - Deployed instance https://yash-register.emergent.host: /api/health proved MSG91_TEMPLATE_ID (added to .env after first deploy) + ENVIRONMENT are absent there (Emergent snapshots deployment secrets at first deploy; new keys must be added in Deployments > app > Secrets > Edit > Custom Keys, then Redeploy).
+  - Code hardening: MSG91_TEMPLATE_ID now defaults in code (non-secret business constant 61baece18e964726da04e8c5, env overrides); /api/health lists env_keys_present (names only); not-configured error names the missing key.
+  - Public enrollment UX: full flow state (form values + consent, step, OTP send time, success payload) persisted in localStorage (src/lib/enrollState.js) -> survives reload / switching to SMS app; OTP timers derived from timestamps; browser back on OTP screen returns to pre-filled form (history pushState/popstate); "Change details" keeps consent; expired-OTP restore falls back to filled form; success screen kept 30 min with "Enroll another customer"; OTP input has autocomplete=one-time-code.
+  - USER ACTION: Redeploy (works immediately thanks to the default); additionally add MSG91_TEMPLATE_ID + ENVIRONMENT=production as custom secret keys for cleanliness.
 - Backlog: real Play Store / App Store links; admin alert (SMS/WhatsApp) on each new enrollment.
 
 ## 1) Objectives

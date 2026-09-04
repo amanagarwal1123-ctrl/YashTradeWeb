@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles } from "lucide-react";
+import { toast } from "sonner";
 import { PublicHeader } from "@/components/public/PublicHeader";
 import { PublicFooter } from "@/components/public/PublicFooter";
 import { Stepper } from "@/components/public/Stepper";
@@ -8,15 +9,84 @@ import { EnrollForm } from "@/components/public/EnrollForm";
 import { OtpVerify } from "@/components/public/OtpVerify";
 import { SuccessStep } from "@/components/public/SuccessStep";
 import { Card, CardContent } from "@/components/ui/card";
+import { loadEnrollState, saveEnrollState, clearEnrollState, emptyForm } from "@/lib/enrollState";
 
 const HERO_IMG = "https://images.unsplash.com/photo-1580582183555-3224a02343c8?crop=entropy&cs=srgb&fm=jpg&ixlib=rb-4.1.0&q=85&w=900";
 
+const OTP_HISTORY_STATE = { yashEnroll: "otp" };
+
 export default function Landing() {
-  const [phase, setPhase] = useState("form"); // form | otp | success
-  const [formData, setFormData] = useState(null);
-  const [result, setResult] = useState(null);
+  // Restore exactly where the customer left off (they often switch to the SMS app
+  // to read the OTP and the mobile browser reloads the page when they return).
+  const restored = useRef(loadEnrollState());
+  const [phase, setPhase] = useState(restored.current?.phase || "form"); // form | otp | success
+  const [formData, setFormData] = useState(restored.current?.formData || emptyForm);
+  const [otpSentAt, setOtpSentAt] = useState(restored.current?.otpSentAt || null);
+  const [result, setResult] = useState(restored.current?.result || null);
+  const [completedAt, setCompletedAt] = useState(restored.current?.completedAt || null);
 
   const stepNumber = phase === "success" ? 2 : 1;
+
+  // Persist every change so nothing is lost on reload / tab discard.
+  useEffect(() => {
+    saveEnrollState({ phase, formData, otpSentAt, result, completedAt });
+  }, [phase, formData, otpSentAt, result, completedAt]);
+
+  // One-time notices after a restore
+  useEffect(() => {
+    const r = restored.current;
+    if (!r) return;
+    if (r.otpExpired) {
+      toast.info("Your previous OTP expired while you were away. Your details are saved - just request a new OTP.", { duration: 6000 });
+    } else if (r.phase === "otp") {
+      toast.info("Welcome back - enter the OTP we sent you.", { duration: 4000 });
+      // Make sure the browser back button returns to the form, not off the site.
+      if (window.history.state?.yashEnroll !== "otp") window.history.pushState(OTP_HISTORY_STATE, "");
+    }
+    restored.current = null;
+  }, []);
+
+  // Browser back button while on the OTP screen -> go back to the (pre-filled) form.
+  useEffect(() => {
+    const onPop = () => {
+      setPhase((p) => (p === "otp" ? "form" : p));
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  const goToOtp = useCallback((data) => {
+    setFormData({ ...data, consent: true });
+    setOtpSentAt(Date.now());
+    setPhase("otp");
+    if (window.history.state?.yashEnroll !== "otp") window.history.pushState(OTP_HISTORY_STATE, "");
+  }, []);
+
+  const backToForm = useCallback(() => {
+    if (window.history.state?.yashEnroll === "otp") {
+      window.history.back(); // popstate handler switches the phase
+    } else {
+      setPhase("form");
+    }
+  }, []);
+
+  const onVerified = useCallback((data) => {
+    setResult(data);
+    setCompletedAt(Date.now());
+    setPhase("success");
+    if (window.history.state?.yashEnroll === "otp") window.history.replaceState({ yashEnroll: "success" }, "");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
+
+  const startOver = useCallback(() => {
+    clearEnrollState();
+    setResult(null);
+    setCompletedAt(null);
+    setOtpSentAt(null);
+    setFormData(emptyForm);
+    setPhase("form");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
 
   return (
     <div className="min-h-screen flex flex-col hero-wash relative">
@@ -66,7 +136,8 @@ export default function Landing() {
                     </div>
                     <EnrollForm
                       defaults={formData}
-                      onOtpSent={(data) => { setFormData(data); setPhase("otp"); }}
+                      onChange={setFormData}
+                      onOtpSent={goToOtp}
                     />
                   </motion.div>
                 )}
@@ -74,14 +145,16 @@ export default function Landing() {
                   <motion.div key="otp" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={{ duration: 0.28 }}>
                     <OtpVerify
                       phone={formData?.phone}
-                      onVerified={(data) => { setResult(data); setPhase("success"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
-                      onChangeDetails={() => setPhase("form")}
+                      sentAt={otpSentAt}
+                      onResent={(ts) => setOtpSentAt(ts)}
+                      onVerified={onVerified}
+                      onChangeDetails={backToForm}
                     />
                   </motion.div>
                 )}
                 {phase === "success" && (
                   <motion.div key="success" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
-                    <SuccessStep customer={result?.customer} download={result?.download} />
+                    <SuccessStep customer={result?.customer} download={result?.download} onStartOver={startOver} />
                   </motion.div>
                 )}
               </AnimatePresence>

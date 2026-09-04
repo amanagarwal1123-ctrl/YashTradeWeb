@@ -1,6 +1,6 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { CheckCircle2, Smartphone } from "lucide-react";
+import { CheckCircle2, Smartphone, RotateCcw } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 
 const AndroidIcon = ({ className }) => (
@@ -15,7 +15,7 @@ const AppleIcon = ({ className }) => (
   </svg>
 );
 
-export const SuccessStep = ({ customer, download }) => {
+export const SuccessStep = ({ customer, download, onStartOver }) => {
   const androidUrl = download?.android_url || "#";
   const iosUrl = download?.ios_url || "#";
   return (
@@ -88,6 +88,17 @@ export const SuccessStep = ({ customer, download }) => {
         </div>
         <p className="text-xs text-slate-500">Scan to download the Yash Trade App</p>
       </div>
+
+      {onStartOver && (
+        <button
+          type="button"
+          onClick={onStartOver}
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-[#0B1F3B] underline underline-offset-2 transition-colors"
+          data-testid="public-success-start-over-button"
+        >
+          <RotateCcw className="h-3 w-3" /> Enroll another customer
+        </button>
+      )}
     </div>
   );
 };

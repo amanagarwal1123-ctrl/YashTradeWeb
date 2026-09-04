@@ -38,7 +38,7 @@ from live_client import (  # noqa: E402
 )
 
 # Bump on every SMS/OTP-related change so the deployed build can be verified via /api/health
-APP_BUILD = "2026.09.04-sms-v4"
+APP_BUILD = "2026.09.04-sms-v5"
 
 # ------------------------------------------------------------------
 # Setup
@@ -427,6 +427,11 @@ async def health():
     cfg = sms_config_status()
     pre = await preflight_provider_check() if cfg["ready"] else {"ok": False, "error": "not configured"}
     sms_ok = cfg["ready"] and pre.get("ok") is not False
+    # Which deployment env keys are present (names only - never values). Helps spot a
+    # deployment whose secrets were snapshotted before a key was added to backend/.env.
+    env_keys = {k: bool((os.environ.get(k) or "").strip()) for k in (
+        "MSG91_AUTHKEY", "MSG91_TEMPLATE_ID", "ENVIRONMENT", "ADMIN_PHONES", "TELECALLER_PHONES",
+        "LIVE_BACKEND_BASE", "SESSION_SECRET", "ANDROID_APP_URL", "IOS_APP_URL")}
     return {
         "status": "ok" if db_ok and sms_ok else "degraded",
         "build": APP_BUILD,
@@ -437,10 +442,12 @@ async def health():
             "authkey_configured": cfg["authkey_configured"],
             "template_configured": cfg["template_configured"],
             "template_id": cfg["template_id"],
+            "template_source": cfg["template_source"],
             "primary_endpoint": cfg["primary_endpoint"],
             "provider_check": "ok" if pre.get("ok") is True else ("unreachable" if pre.get("ok") is None else "FAILED"),
             "provider_error": pre.get("error"),
         },
+        "env_keys_present": env_keys,
         "time": iso_now(),
     }
 

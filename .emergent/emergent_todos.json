@@ -1,22 +1,22 @@
 [
   {
-    "content": "Rewrite sms.py: primary api.msg91.com (sync validation), fallback control host on network errors only, env sanitization, structured results, connectivity check helper",
+    "content": "Backend: default MSG91_TEMPLATE_ID in code (non-secret), health shows which env keys exist, clearer not-configured message naming the missing key",
     "status": "completed"
   },
   {
-    "content": "server.py: fail loudly on SMS failure (503), send-before-persist challenge, sms_logs collection w/ TTL, /api/health w/ build version, admin SMS diagnostics/test/logs endpoints, delivery confirmation via MSG91 log API",
+    "content": "Frontend: persist enrollment state (form values + consent, OTP phase, timestamps, success) in localStorage with TTL; restore on reload/return from SMS app",
     "status": "completed"
   },
   {
-    "content": "Frontend: handle sms_sent=false in EnrollForm/OtpVerify/AdminLogin; Settings page SMS diagnostics card + test send + recent log w/ delivery status",
+    "content": "Frontend: browser back button returns to form with data retained (history pushState/popstate); in-app Change details keeps consent",
     "status": "completed"
   },
   {
-    "content": "Test end-to-end via preview API: real OTP to 9711881372 & 9999813334 (Delivered confirmed), fault-injection, pytest suite, testing agent regression (all pass)",
+    "content": "Frontend: timestamp-based OTP countdown/cooldown (survives tab throttling/reload), autocomplete=one-time-code, 'Enroll another' on success",
     "status": "completed"
   },
   {
-    "content": "Update plan.md + test_credentials.md; ask user to confirm receipt and REDEPLOY",
+    "content": "Test: esbuild, reload persistence, seeded OTP-phase restore, browser back; update docs; finish with deploy-secrets instructions",
     "status": "completed"
   }
 ]

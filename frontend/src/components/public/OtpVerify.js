@@ -1,30 +1,44 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Loader2, PencilLine, ShieldCheck } from "lucide-react";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { Button } from "@/components/ui/button";
 import { api, errMsg } from "@/lib/api";
+import { OTP_TTL_SECONDS, RESEND_COOLDOWN_SECONDS } from "@/lib/enrollState";
 import { toast } from "sonner";
 
-const RESEND_COOLDOWN = 30;
-const OTP_TTL = 600;
+// Timers are derived from the real send timestamp (not a local counter) so they stay
+// correct after the customer switches to the SMS app, the tab is throttled, or the
+// page reloads.
+const remaining = (sentAt) => {
+  const elapsed = sentAt ? Math.floor((Date.now() - sentAt) / 1000) : 0;
+  return {
+    cooldown: Math.max(0, RESEND_COOLDOWN_SECONDS - elapsed),
+    ttl: Math.max(0, OTP_TTL_SECONDS - elapsed),
+  };
+};
 
-export const OtpVerify = ({ phone, onVerified, onChangeDetails }) => {
+export const OtpVerify = ({ phone, sentAt, onResent, onVerified, onChangeDetails }) => {
   const [otp, setOtp] = useState("");
   const [verifying, setVerifying] = useState(false);
   const [resending, setResending] = useState(false);
-  const [cooldown, setCooldown] = useState(RESEND_COOLDOWN);
-  const [ttl, setTtl] = useState(OTP_TTL);
+  const [timers, setTimers] = useState(() => remaining(sentAt));
   const [shake, setShake] = useState(false);
   const [error, setError] = useState("");
-  const timerRef = useRef(null);
+
+  const tick = useCallback(() => setTimers(remaining(sentAt)), [sentAt]);
 
   useEffect(() => {
-    timerRef.current = setInterval(() => {
-      setCooldown((c) => (c > 0 ? c - 1 : 0));
-      setTtl((t) => (t > 0 ? t - 1 : 0));
-    }, 1000);
-    return () => clearInterval(timerRef.current);
-  }, []);
+    tick();
+    const id = setInterval(tick, 1000);
+    const onVisible = () => { if (document.visibilityState === "visible") tick(); };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", tick);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", tick);
+    };
+  }, [tick]);
 
   const fmt = (s) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
@@ -61,15 +75,24 @@ export const OtpVerify = ({ phone, onVerified, onChangeDetails }) => {
         return;
       }
       toast.success(res.data.message || "OTP resent");
-      setCooldown(RESEND_COOLDOWN);
-      setTtl(OTP_TTL);
+      onResent?.(Date.now());
       setOtp("");
     } catch (err) {
-      toast.error(errMsg(err), { duration: 8000 });
+      const msg = errMsg(err);
+      // If the server says there is no active OTP (e.g. it expired), send the customer back
+      // to the pre-filled form so a single tap requests a fresh one.
+      if (err?.response?.status === 400 && /no active otp/i.test(msg)) {
+        toast.error("Your OTP session expired. Your details are saved - please send a new OTP.", { duration: 6000 });
+        onChangeDetails?.();
+        return;
+      }
+      toast.error(msg, { duration: 8000 });
     } finally {
       setResending(false);
     }
   };
+
+  const { cooldown, ttl } = timers;
 
   return (
     <div className="space-y-5">
@@ -82,10 +105,19 @@ export const OtpVerify = ({ phone, onVerified, onChangeDetails }) => {
           Enter the 4-digit OTP sent to{" "}
           <span className="font-mono-nums font-semibold text-[#0B1F3B]" data-testid="public-otp-phone-display">+91 {phone}</span>
         </p>
+        <p className="text-xs text-slate-500">You can switch to your messages and come back — this page will be waiting for you.</p>
       </div>
 
       <div className={`flex justify-center ${shake ? "otp-shake" : ""}`} data-testid="public-otp-input">
-        <InputOTP maxLength={4} value={otp} onChange={(v) => { setOtp(v); setError(""); if (v.length === 4) verify(v); }} disabled={verifying}>
+        <InputOTP
+          maxLength={4}
+          value={otp}
+          onChange={(v) => { setOtp(v); setError(""); if (v.length === 4) verify(v); }}
+          disabled={verifying}
+          autoFocus
+          autoComplete="one-time-code"
+          inputMode="numeric"
+        >
           <InputOTPGroup className="gap-2.5">
             {[0, 1, 2, 3].map((i) => (
               <InputOTPSlot
@@ -108,7 +140,7 @@ export const OtpVerify = ({ phone, onVerified, onChangeDetails }) => {
             OTP expires in <span className="font-mono-nums font-semibold text-[#0B1F3B]" data-testid="public-otp-timer">{fmt(ttl)}</span>
           </span>
         ) : (
-          <span className="font-medium text-[#C21F2B]">OTP expired — please resend</span>
+          <span className="font-medium text-[#C21F2B]" data-testid="public-otp-expired">OTP expired — please resend</span>
         )}
       </div>
 
