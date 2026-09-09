@@ -14,6 +14,9 @@ export const PublicFooter = () => (
         <Link to="/privacy" className="text-xs font-medium text-slate-600 hover:text-[#0B1F3B] transition-colors" data-testid="public-footer-privacy-link">
           Privacy Policy
         </Link>
+        <Link to="/delete-account" className="text-xs font-medium text-slate-600 hover:text-[#0B1F3B] transition-colors" data-testid="public-footer-delete-account-link">
+          Delete Account
+        </Link>
       </div>
     </div>
   </footer>

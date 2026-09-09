@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, FileClock } from "lucide-react";
+import { ChevronLeft, ChevronRight, FileClock, Trash2, CheckCircle2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { api } from "@/lib/api";
+import { api, errMsg } from "@/lib/api";
+import { toast } from "sonner";
 
 const fmt = (iso) => {
   if (!iso) return "—";
@@ -21,6 +22,12 @@ export default function Reports() {
   const [data, setData] = useState({ items: [], total: 0, page: 1, pages: 1 });
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [del, setDel] = useState(null);
+  const [delBusy, setDelBusy] = useState(null);
+
+  const loadDeletions = () => api.get("/admin/deletion-requests", { params: { page_size: 50 } }).then((r) => setDel(r.data)).catch(() => setDel({ items: [], total: 0, pending: 0, overdue: 0 }));
+
+  useEffect(() => { loadDeletions(); }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -28,6 +35,19 @@ export default function Reports() {
       .then((r) => setData(r.data))
       .finally(() => setLoading(false));
   }, [page]);
+
+  const completeDeletion = async (id) => {
+    setDelBusy(id);
+    try {
+      await api.post(`/admin/deletion-requests/${id}/complete`);
+      toast.success("Marked as completed - phone number purged from the request");
+      loadDeletions();
+    } catch (e) {
+      toast.error(errMsg(e));
+    } finally {
+      setDelBusy(null);
+    }
+  };
 
   return (
     <div className="space-y-5">
@@ -38,6 +58,69 @@ export default function Reports() {
           <p className="text-sm text-slate-500">Every sensitive administrative action is recorded here</p>
         </div>
       </div>
+
+      {/* Account deletion requests (Google Play / App Store compliance) */}
+      <Card className={`rounded-xl overflow-hidden ${del?.overdue ? "border-red-300" : del?.pending ? "border-amber-300" : "border-slate-200"}`} data-testid="admin-deletion-requests-card">
+        <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-100">
+          <div className="flex items-center gap-2">
+            <Trash2 className="h-4 w-4 text-[#0B1F3B]" />
+            <h2 className="text-sm font-bold text-[#0B1F3B]">Account deletion requests</h2>
+            {del && (
+              <>
+                <Badge variant="outline" className={del.pending ? "border-amber-200 bg-amber-50 text-amber-700" : "border-emerald-200 bg-emerald-50 text-emerald-700"} data-testid="admin-deletion-pending-badge">{del.pending} pending</Badge>
+                {del.overdue > 0 && <Badge variant="outline" className="border-red-200 bg-red-50 text-red-700" data-testid="admin-deletion-overdue-badge">{del.overdue} overdue</Badge>}
+              </>
+            )}
+          </div>
+          <p className="text-xs text-slate-500 hidden sm:block">Customers request deletion at /delete-account. Remove the record from the Yash Trade App backend, then mark completed within {del?.sla_days ?? 30} days.</p>
+        </div>
+        {del && del.items.length === 0 ? (
+          <p className="px-4 py-4 text-sm text-slate-500" data-testid="admin-deletion-empty">No deletion requests yet.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table data-testid="admin-deletion-table">
+              <TableHeader>
+                <TableRow className="bg-slate-50">
+                  <TableHead className="text-xs">Reference</TableHead>
+                  <TableHead className="text-xs">Requested</TableHead>
+                  <TableHead className="text-xs">Phone</TableHead>
+                  <TableHead className="text-xs">Website data</TableHead>
+                  <TableHead className="text-xs">App backend</TableHead>
+                  <TableHead className="text-xs">Due by</TableHead>
+                  <TableHead className="text-xs">Reason</TableHead>
+                  <TableHead className="text-xs w-36"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(del?.items || []).map((r) => (
+                  <TableRow key={r.id} data-testid="admin-deletion-row">
+                    <TableCell className="font-mono-nums text-xs font-semibold">{r.reference}</TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{fmt(r.requested_at)}</TableCell>
+                    <TableCell className="font-mono-nums text-xs">{r.status === "completed" ? r.phone_masked : (r.phone || r.phone_masked)}</TableCell>
+                    <TableCell><Badge variant="outline" className="text-[10px] border-emerald-200 bg-emerald-50 text-emerald-700">{r.website_deleted ? "Deleted" : "n/a"}</Badge></TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={`text-[10px] ${r.status === "completed" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : r.live_status === "anonymized" ? "border-amber-200 bg-amber-50 text-amber-700" : "border-red-200 bg-red-50 text-red-700"}`}>
+                        {r.status === "completed" ? "Deleted" : r.live_status === "anonymized" ? "De-identified · removal pending" : "Removal pending"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className={`text-xs whitespace-nowrap ${r.status !== "completed" && r.due_by < new Date().toISOString() ? "text-red-700 font-semibold" : ""}`}>{fmt(r.due_by)}</TableCell>
+                    <TableCell className="text-xs max-w-[200px] truncate" title={r.reason}>{r.reason || "—"}</TableCell>
+                    <TableCell>
+                      {r.status !== "completed" ? (
+                        <Button size="sm" variant="outline" className="h-7 text-xs gap-1" disabled={delBusy === r.id} onClick={() => completeDeletion(r.id)} data-testid="admin-deletion-complete-button">
+                          <CheckCircle2 className="h-3.5 w-3.5" /> Mark completed
+                        </Button>
+                      ) : (
+                        <span className="text-[11px] text-slate-500">Done {fmt(r.completed_at)}</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </Card>
 
       <Card className="rounded-xl border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">

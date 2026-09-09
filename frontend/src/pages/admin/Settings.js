@@ -74,11 +74,26 @@ export default function Settings() {
     }
   }, []);
 
+  const [liveHealth, setLiveHealth] = useState(null);
+  const [liveLoading, setLiveLoading] = useState(true);
+  const loadLive = useCallback(async () => {
+    setLiveLoading(true);
+    try {
+      const r = await api.get("/admin/live/health");
+      setLiveHealth(r.data);
+    } catch {
+      setLiveHealth(null);
+    } finally {
+      setLiveLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     api.get("/public/config").then((r) => setConfig(r.data)).catch(() => {});
     api.get("/admin/live/status").then((r) => setLiveStatus(r.data)).catch(() => {});
     loadDiagnostics();
-  }, [loadDiagnostics]);
+    loadLive();
+  }, [loadDiagnostics, loadLive]);
 
   const sendTest = async (e) => {
     e.preventDefault();
@@ -316,18 +331,56 @@ export default function Settings() {
         </CardContent>
       </Card>
 
-      <Card className="rounded-xl border-slate-200">
-        <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm font-bold text-[#0B1F3B]"><Link2 className="h-4 w-4" /> Shared Yash Trade App Backend</CardTitle></CardHeader>
-        <CardContent className="space-y-2 text-sm" data-testid="admin-settings-live-backend">
-          <Row label="Backend URL"><span className="font-mono-nums text-xs">{liveStatus?.live_backend || "…"}</span></Row>
-          <Row label="Customer sync"><Badge variant="outline" className={okBadge}>Connected</Badge></Row>
-          <Row label="Live admin modules" last>
-            <Badge variant="outline" className={liveStatus?.live_admin_unlocked ? okBadge : warnBadge}>
-              {liveStatus?.live_admin_unlocked ? "Unlocked" : "Pending admin role"}
-            </Badge>
-          </Row>
-          {liveStatus?.note && (
-            <p className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">{liveStatus.note}</p>
+      <Card className="rounded-xl border-slate-200" data-testid="admin-settings-live-backend">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between gap-3">
+            <CardTitle className="flex items-center gap-2 text-sm font-bold text-[#0B1F3B]"><Link2 className="h-4 w-4" /> Shared Yash Trade App Backend — Data Sharing Check</CardTitle>
+            <div className="flex items-center gap-2">
+              {liveHealth && (
+                <StatusBadge ok={!!liveHealth.health?.reachable && !liveHealth.warnings?.length} okText="Healthy" badText={liveHealth.health?.reachable ? "Attention" : "Unreachable"} testId="admin-live-overall-status" />
+              )}
+              <Button variant="outline" size="sm" onClick={loadLive} disabled={liveLoading} className="gap-1.5" data-testid="admin-live-recheck-button">
+                <RefreshCw className={`h-3.5 w-3.5 ${liveLoading ? "animate-spin" : ""}`} /> Re-check
+              </Button>
+            </div>
+          </div>
+          <p className="text-xs text-slate-500">Reads the app backend's own health endpoint and summarises how website enrollments are landing there.</p>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          {liveLoading && !liveHealth ? (
+            <div className="space-y-2"><Skeleton className="h-5 w-full" /><Skeleton className="h-5 w-3/4" /></div>
+          ) : liveHealth ? (
+            <>
+              <div className="space-y-1">
+                <Row label="Backend URL"><span className="font-mono-nums text-xs">{liveHealth.live_backend || liveStatus?.live_backend || "…"}</span></Row>
+                <Row label="Reachable"><StatusBadge ok={!!liveHealth.health?.reachable} okText="Yes" badText="No" testId="admin-live-reachable" /></Row>
+                {liveHealth.health?.build && <Row label="App backend build"><span className="font-mono-nums text-xs">{liveHealth.health.build}</span></Row>}
+                <Row label="App OTP mode">
+                  <Badge variant="outline" className={liveHealth.health?.demo_mode ? warnBadge : okBadge} data-testid="admin-live-demo-mode">
+                    {liveHealth.health?.demo_mode ? "DEMO (1234, no SMS)" : liveHealth.health?.demo_mode === false ? "Real OTPs" : "unknown"}
+                  </Badge>
+                </Row>
+                <Row label="Sync method">
+                  <span className="text-xs">{liveHealth.sync_method === "integration_key" ? "Server-to-server integration key" : "Customer OTP login (demo-mode dependent)"}</span>
+                </Row>
+                <Row label="Website enrollments" last>
+                  <span className="inline-flex flex-wrap justify-end items-center gap-1.5">
+                    <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-600" data-testid="admin-live-total">{liveHealth.stats?.total ?? 0} total</Badge>
+                    <Badge variant="outline" className={okBadge} data-testid="admin-live-synced">{liveHealth.stats?.synced_ok ?? 0} synced</Badge>
+                    <Badge variant="outline" className={(liveHealth.stats?.partial ?? 0) > 0 ? warnBadge : "border-slate-200 bg-slate-50 text-slate-600"} data-testid="admin-live-partial">{liveHealth.stats?.partial ?? 0} partial</Badge>
+                    <Badge variant="outline" className={(liveHealth.stats?.failed_or_pending ?? 0) > 0 ? badBadge : "border-slate-200 bg-slate-50 text-slate-600"} data-testid="admin-live-failed">{liveHealth.stats?.failed_or_pending ?? 0} failed</Badge>
+                  </span>
+                </Row>
+              </div>
+              {(liveHealth.warnings || []).map((w, i) => (
+                <p key={i} className="flex items-start gap-2 rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800" data-testid="admin-live-warning">
+                  <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" /> <span>{w}</span>
+                </p>
+              ))}
+              <p className="text-[11px] text-slate-500">To verify one customer field-by-field, open the customer and press "Verify on app backend".</p>
+            </>
+          ) : (
+            <p className="text-xs text-[#C21F2B]">Could not load the shared backend status.</p>
           )}
         </CardContent>
       </Card>

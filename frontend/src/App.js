@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/sonner";
 import Landing from "@/pages/Landing";
 import Terms from "@/pages/Terms";
 import Privacy from "@/pages/Privacy";
+import DeleteAccount from "@/pages/DeleteAccount";
 import AdminLogin from "@/pages/admin/AdminLogin";
 import AdminLayout from "@/components/admin/AdminLayout";
 import Dashboard from "@/pages/admin/Dashboard";
@@ -21,6 +22,7 @@ export default function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/terms" element={<Terms />} />
         <Route path="/privacy" element={<Privacy />} />
+        <Route path="/delete-account" element={<DeleteAccount />} />
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<Dashboard />} />

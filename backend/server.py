@@ -35,10 +35,11 @@ from sms import (  # noqa: E402
 )
 from live_client import (  # noqa: E402
     live_admin_request, get_customer_token, sync_enrollment_to_live, live_get_me,
+    live_health, compare_profile, sync_method, SYNC_FIELDS,
 )
 
 # Bump on every SMS/OTP-related change so the deployed build can be verified via /api/health
-APP_BUILD = "2026.09.04-sms-v5"
+APP_BUILD = "2026.09.09-privacy-v6"
 
 # ------------------------------------------------------------------
 # Setup
@@ -60,6 +61,14 @@ ADMIN_PHONES = {p.strip() for p in os.environ.get("ADMIN_PHONES", "").split(",")
 TELECALLER_PHONES = {p.strip() for p in os.environ.get("TELECALLER_PHONES", "").split(",") if p.strip()}
 ANDROID_APP_URL = os.environ.get("ANDROID_APP_URL", "https://play.google.com/store/apps/details?id=in.yashornaments.trade")
 IOS_APP_URL = os.environ.get("IOS_APP_URL", "https://apps.apple.com/app/yash-trade/id0000000000")
+COMPANY_NAME = os.environ.get("COMPANY_NAME", "Yash Ornaments")
+LEGAL_ENTITY = os.environ.get("LEGAL_ENTITY", "Yash Silver House Pvt. Ltd.")
+COMPANY_ADDRESS = os.environ.get("COMPANY_ADDRESS", "Yash Wali Building, 1159/1114, Kucha Mahajani, Chandni Chowk, New Delhi, Delhi 110006, India")
+SUPPORT_EMAIL = os.environ.get("SUPPORT_EMAIL", "info@yashornaments.in")
+SUPPORT_PHONE = os.environ.get("SUPPORT_PHONE", "+91 97118 81372, +91 99998 13334")
+PRIVACY_UPDATED = os.environ.get("PRIVACY_UPDATED", "2026-09-09")
+APP_NAME = os.environ.get("APP_NAME", "Yash Trade App")
+DELETION_SLA_DAYS = 30
 
 IST = ZoneInfo("Asia/Kolkata")
 OTP_TTL_SECONDS = 600  # 10 minutes - matches the DLT-approved SMS template text
@@ -463,12 +472,46 @@ async def public_config():
         "ios_url": IOS_APP_URL,
         "otp_ttl_seconds": OTP_TTL_SECONDS,
         "resend_cooldown_seconds": SEND_COOLDOWN_SECONDS,
+        "company": {
+            "name": COMPANY_NAME,
+            "legal_entity": LEGAL_ENTITY,
+            "app_name": APP_NAME,
+            "address": COMPANY_ADDRESS,
+            "support_email": SUPPORT_EMAIL or None,
+            "support_phone": SUPPORT_PHONE or None,
+            "privacy_updated": PRIVACY_UPDATED,
+            "deletion_sla_days": DELETION_SLA_DAYS,
+        },
     }
 
 
 # ------------------------------------------------------------------
 # PUBLIC: enrollment flow
 # ------------------------------------------------------------------
+
+async def apply_sync_result(phone: str, sync: dict) -> dict:
+    """Persist the outcome of a live-backend sync on the local mirror, including the
+    field-by-field check so admins can see exactly what the app backend kept."""
+    sync_set = {
+        "live_sync_status": sync["status"],
+        "live_sync_method": sync.get("method"),
+        "live_synced_at": iso_now(),
+    }
+    if sync["status"] == "ok":
+        fc = sync.get("field_check") or []
+        sync_set.update({
+            "live_user_id": sync.get("live_user_id"),
+            "live_snapshot": sync.get("snapshot"),
+            "synced_last_login": sync.get("synced_last_login"),
+            "live_field_check": fc,
+            "live_fields_unsynced": [f["field"] for f in fc if not f["match"]],
+            "live_sync_error": None,
+        })
+    else:
+        sync_set["live_sync_error"] = sync.get("error")
+        logger.error("Live sync failed for %s: %s", mask_phone(phone), sync.get("error"))
+    await db.enrollments.update_one({"phone": phone}, {"$set": sync_set})
+    return sync_set
 
 @api.post("/enroll/send-otp")
 async def enroll_send_otp(body: EnrollStart, request: Request):
@@ -555,22 +598,7 @@ async def enroll_verify_otp(body: OtpVerify):
     sync = await sync_enrollment_to_live(
         phone=phone, name=enrollment["name"], shop_name=enrollment["shop_name"],
         location=enrollment["location"], city=enrollment["city"], registered_at=registered_at)
-
-    sync_set = {
-        "live_sync_status": sync["status"],
-        "live_synced_at": iso_now(),
-    }
-    if sync["status"] == "ok":
-        sync_set.update({
-            "live_user_id": sync.get("live_user_id"),
-            "live_snapshot": sync.get("snapshot"),
-            "synced_last_login": sync.get("synced_last_login"),
-            "live_sync_error": None,
-        })
-    else:
-        sync_set["live_sync_error"] = sync.get("error")
-        logger.error("Live sync failed for %s: %s", mask_phone(phone), sync.get("error"))
-    await db.enrollments.update_one({"phone": phone}, {"$set": sync_set})
+    await apply_sync_result(phone, sync)
 
     doc = clean(await db.enrollments.find_one({"phone": phone}))
     return {
@@ -583,6 +611,112 @@ async def enroll_verify_otp(body: OtpVerify):
             "location": doc["location"],
         },
         "download": {"android_url": ANDROID_APP_URL, "ios_url": IOS_APP_URL},
+    }
+
+
+# ------------------------------------------------------------------
+# PUBLIC: account & data deletion (Google Play / App Store requirement)
+# ------------------------------------------------------------------
+
+class DeleteConfirm(BaseModel):
+    phone: str
+    otp: str = Field(pattern=r"^\d{4}$")
+    reason: Optional[str] = Field(default="", max_length=500)
+
+
+@api.post("/account/delete/send-otp")
+async def account_delete_send_otp(body: PhoneOnly, request: Request):
+    """Step 1 of the external account-deletion flow: prove ownership of the number."""
+    phone = strict_public_phone((body.phone or "").strip())
+    if not phone:
+        raise HTTPException(422, "Please enter a valid 10-digit mobile number (no spaces or country code).")
+    result = await create_otp_challenge(phone, "delete", client_ip(request))
+    return {"message": f"OTP sent to {mask_phone(phone)}", "phone": phone, "expires_in": OTP_TTL_SECONDS,
+            "resend_after": SEND_COOLDOWN_SECONDS, "sms_sent": result["sms_sent"]}
+
+
+@api.post("/account/delete/resend-otp")
+async def account_delete_resend_otp(body: PhoneOnly, request: Request):
+    phone = normalize_phone(body.phone)
+    if not phone:
+        raise HTTPException(422, "Invalid phone number.")
+    result = await resend_otp_challenge(phone, "delete", client_ip(request))
+    return {"message": f"OTP resent to {mask_phone(phone)}", **result}
+
+
+async def anonymize_live_profile(phone: str) -> dict:
+    """Best effort: blank the customer's personal fields on the shared app backend.
+    Full record removal there is completed by Yash Ornaments staff (tracked in deletion_requests)."""
+    try:
+        auth = await get_customer_token(phone)
+        if not auth:
+            return {"status": "pending_manual", "detail": "Could not authenticate to the app backend"}
+        from live_client import live_update_profile
+        res = await live_update_profile(auth["token"], {
+            "name": "Deleted User", "shop_name": "", "location": "", "city": "",
+            "account_status": "deleted", "onboarding_status": "deleted", "status": "inactive",
+        })
+        return {"status": "anonymized" if res else "pending_manual", "live_user_id": (auth.get("user") or {}).get("id")}
+    except Exception as e:
+        return {"status": "pending_manual", "detail": str(e)[:150]}
+
+
+@api.post("/account/delete/confirm")
+async def account_delete_confirm(body: DeleteConfirm, request: Request):
+    """Step 2: OTP verified -> delete website data immediately, anonymize the app profile,
+    and queue the full app-backend removal for staff. Returns a reference number."""
+    phone = normalize_phone(body.phone)
+    if not phone:
+        raise HTTPException(422, "Invalid phone number.")
+    await verify_otp_challenge(phone, "delete", body.otp)
+
+    now_iso = iso_now()
+    existing = clean(await db.enrollments.find_one({"phone": phone}))
+    live_user_id = (existing or {}).get("live_user_id")
+
+    # 1) Website data: hard delete (not freeze) everything tied to this number
+    deleted_local = 0
+    if existing:
+        r = await db.enrollments.delete_one({"phone": phone})
+        deleted_local = r.deleted_count
+        await db.admin_notes.delete_many({"customer_id": existing.get("id")})
+    await db.otp_challenges.delete_many({"phone": phone})
+    await db.sms_logs.update_many({"phone": phone}, {"$set": {"phone": mask_phone(phone)}})
+
+    # 2) Shared app backend: anonymize now, full removal tracked below
+    live = await anonymize_live_profile(phone)
+    live_user_id = live.get("live_user_id") or live_user_id
+
+    ref = f"DEL-{datetime.now(IST).strftime('%Y%m%d')}-{secrets.token_hex(3).upper()}"
+    req = {
+        "id": str(uuid.uuid4()),
+        "reference": ref,
+        "phone": phone,  # kept only until staff complete the app-backend removal
+        "phone_masked": mask_phone(phone),
+        "reason": (body.reason or "").strip()[:500],
+        "had_website_record": bool(existing),
+        "website_deleted": deleted_local == 1 or not existing,
+        "live_user_id": live_user_id,
+        "live_status": live.get("status"),
+        "live_detail": live.get("detail"),
+        "status": "pending" if live.get("status") != "deleted" else "completed",
+        "requested_at": now_iso,
+        "due_by": (now_utc() + timedelta(days=DELETION_SLA_DAYS)).isoformat(),
+        "ip": client_ip(request),
+    }
+    await db.deletion_requests.insert_one(dict(req))
+    await audit(mask_phone(phone), "account_deletion_requested", target=req["id"],
+                details={"reference": ref, "website_deleted": req["website_deleted"], "live_status": live.get("status")}, actor_role="customer")
+    logger.info("Account deletion requested %s for %s (live=%s)", ref, mask_phone(phone), live.get("status"))
+    return {
+        "success": True,
+        "reference": ref,
+        "website_data_deleted": req["website_deleted"],
+        "app_profile_status": live.get("status"),
+        "completion_within_days": DELETION_SLA_DAYS,
+        "message": (f"Your request {ref} has been recorded. Data held by this enrollment website has been deleted now; "
+                    f"your {APP_NAME} account and remaining data will be permanently removed within {DELETION_SLA_DAYS} days. "
+                    f"Keep this reference number for any follow-up."),
     }
 
 
@@ -1004,15 +1138,49 @@ async def admin_retry_sync(customer_id: str, sess: dict = Depends(require_admin)
     sync = await sync_enrollment_to_live(
         phone=customer["phone"], name=customer["name"], shop_name=customer["shop_name"],
         location=customer["location"], city=customer.get("city", ""), registered_at=customer["registered_at"])
-    sync_set = {"live_sync_status": sync["status"], "live_synced_at": iso_now()}
-    if sync["status"] == "ok":
-        sync_set.update({"live_user_id": sync.get("live_user_id"), "live_snapshot": sync.get("snapshot"),
-                         "synced_last_login": sync.get("synced_last_login"), "live_sync_error": None})
-    else:
-        sync_set["live_sync_error"] = sync.get("error")
-    await db.enrollments.update_one({"id": customer_id}, {"$set": sync_set})
-    await audit(sess["phone"], "sync_retried", target=customer_id, details={"result": sync["status"]})
-    return {"success": sync["status"] == "ok", "status": sync["status"], "error": sync.get("error")}
+    await apply_sync_result(customer["phone"], sync)
+    await audit(sess["phone"], "sync_retried", target=customer_id, details={"result": sync["status"], "method": sync.get("method")})
+    return {"success": sync["status"] == "ok", "status": sync["status"], "method": sync.get("method"),
+            "error": sync.get("error"), "field_check": sync.get("field_check")}
+
+
+@api.post("/admin/customers/{customer_id}/verify-sync")
+async def admin_verify_sync(customer_id: str, sess: dict = Depends(require_admin)):
+    """Re-read this customer's record from the shared Yash Trade App backend and compare
+    it field by field with what the website submitted. Read-only on the app backend
+    (apart from the login timestamp the app records when we fetch the profile)."""
+    customer = clean(await db.enrollments.find_one({"id": customer_id}))
+    if not customer:
+        raise HTTPException(404, "Customer not found")
+    live = None
+    source = None
+    # Prefer the admin proxy (no customer login involved) when unlocked
+    if sess.get("live_role") == "admin" and customer.get("live_user_id"):
+        code, body = await live_admin_request("GET", f"/api/customers/{customer['live_user_id']}", sess["live_token"])
+        if code == 200 and isinstance(body, dict):
+            live, source = body, "admin_read"
+    if live is None:
+        auth = await get_customer_token(customer["phone"])
+        if auth:
+            live = await live_get_me(auth["token"]) or auth.get("user")
+            source = "customer_login"
+    if live is None:
+        return {"found": False, "error": "Could not read this customer from the app backend (it may no longer accept the demo OTP, or the record does not exist there yet).",
+                "live_backend": os.environ.get("LIVE_BACKEND_BASE")}
+    sent = {
+        "name": customer.get("name"), "shop_name": customer.get("shop_name"), "location": customer.get("location"),
+        "city": customer.get("city") or customer.get("location"), "registration_source": "website",
+        "onboarding_status": "registered", "registered_at": customer.get("registered_at"),
+    }
+    fc = compare_profile(sent, live)
+    upd = {"live_snapshot": live, "live_field_check": fc, "live_fields_unsynced": [f["field"] for f in fc if not f["match"]],
+           "live_user_id": live.get("id") or customer.get("live_user_id"), "live_verified_at": iso_now()}
+    if source == "customer_login":
+        upd["synced_last_login"] = live.get("last_login")  # do not count our own read as an app login
+    await db.enrollments.update_one({"id": customer_id}, {"$set": upd})
+    await audit(sess["phone"], "sync_verified", target=customer_id, details={"source": source, "mismatches": upd["live_fields_unsynced"]})
+    return {"found": True, "source": source, "live_user_id": upd["live_user_id"], "field_check": fc,
+            "all_match": all(f["match"] for f in fc), "live_profile": live, "checked_at": upd["live_verified_at"]}
 
 
 # --- Protected phone change (OTP re-verification to the NEW number) ---
@@ -1060,10 +1228,7 @@ async def admin_phone_change_verify(customer_id: str, body: PhoneChangeVerify, s
         phone=new_phone, name=customer["name"], shop_name=customer["shop_name"],
         location=customer["location"], city=customer.get("city", ""), registered_at=customer["registered_at"])
     if sync["status"] == "ok":
-        await db.enrollments.update_one({"id": customer_id}, {"$set": {
-            "live_sync_status": "ok", "live_user_id": sync.get("live_user_id"),
-            "live_snapshot": sync.get("snapshot"), "synced_last_login": sync.get("synced_last_login"),
-            "live_sync_error": None, "live_synced_at": iso_now()}})
+        await apply_sync_result(new_phone, sync)
     return {"success": True, "phone": new_phone}
 
 
@@ -1189,6 +1354,78 @@ async def admin_sms_test(body: SmsTest, request: Request, sess: dict = Depends(r
 
 
 # ------------------------------------------------------------------
+# ADMIN: account deletion requests (must be completed within DELETION_SLA_DAYS)
+# ------------------------------------------------------------------
+
+@api.get("/admin/deletion-requests")
+async def admin_deletion_requests(sess: dict = Depends(require_admin), status: Optional[str] = Query(None, pattern="^(pending|completed)$"),
+                                  page: int = Query(1, ge=1), page_size: int = Query(25, ge=5, le=100)):
+    query = {"status": status} if status else {}
+    total = await db.deletion_requests.count_documents(query)
+    pending = await db.deletion_requests.count_documents({"status": "pending"})
+    overdue = await db.deletion_requests.count_documents({"status": "pending", "due_by": {"$lt": iso_now()}})
+    skip = (page - 1) * page_size
+    items = [clean(d) async for d in db.deletion_requests.find(query, sort=[("requested_at", -1)], skip=skip, limit=page_size)]
+    return {"items": items, "total": total, "pending": pending, "overdue": overdue, "page": page,
+            "pages": max(1, -(-total // page_size)), "sla_days": DELETION_SLA_DAYS}
+
+
+@api.post("/admin/deletion-requests/{req_id}/complete")
+async def admin_deletion_complete(req_id: str, sess: dict = Depends(require_admin)):
+    """Staff confirm the customer's record has been removed from the Yash Trade App backend.
+    We then purge the phone number from the request itself (only the masked form is kept)."""
+    req = await db.deletion_requests.find_one({"id": req_id})
+    if not req:
+        raise HTTPException(404, "Deletion request not found")
+    if req.get("status") == "completed":
+        return {"success": True, "already": True}
+    await db.deletion_requests.update_one({"id": req_id}, {
+        "$set": {"status": "completed", "completed_at": iso_now(), "completed_by": sess["phone"], "live_status": "deleted"},
+        "$unset": {"phone": "", "ip": ""},
+    })
+    await audit(sess["phone"], "account_deletion_completed", target=req_id, details={"reference": req.get("reference")})
+    return {"success": True}
+
+
+# ------------------------------------------------------------------
+# ADMIN: shared Yash Trade App backend - health + sync verification
+# ------------------------------------------------------------------
+
+@api.get("/admin/live/health")
+async def admin_live_health(sess: dict = Depends(require_admin)):
+    """What the shared backend reports about itself + how our syncs are doing."""
+    health = await live_health()
+    total = await db.enrollments.count_documents({})
+    ok = await db.enrollments.count_documents({"live_sync_status": "ok"})
+    failed = await db.enrollments.count_documents({"live_sync_status": {"$in": ["failed", "pending"]}})
+    partial = await db.enrollments.count_documents({"live_sync_status": "ok", "live_fields_unsynced.0": {"$exists": True}})
+    last = await db.enrollments.find_one({"live_synced_at": {"$ne": None}}, sort=[("live_synced_at", -1)])
+    # Which fields are most often dropped by the app backend
+    pipeline = [{"$match": {"live_fields_unsynced.0": {"$exists": True}}}, {"$unwind": "$live_fields_unsynced"},
+                {"$group": {"_id": "$live_fields_unsynced", "count": {"$sum": 1}}}, {"$limit": 20}]
+    dropped = {row["_id"]: row["count"] async for row in db.enrollments.aggregate(pipeline)}
+    warnings = []
+    if health.get("reachable") and health.get("demo_mode"):
+        warnings.append("The app backend is in OTP DEMO MODE (every number accepts 1234, no SMS). The website's sync currently relies on this. "
+                        "Before the app switches to real OTPs, the app backend must expose the integration endpoint (see docs/YASH_TRADE_APP_INTEGRATION.md) "
+                        "and LIVE_INTEGRATION_KEY must be configured here - otherwise every enrollment sync will fail and customers will receive a duplicate OTP SMS from the app.")
+    if dropped:
+        warnings.append("The app backend's profile endpoint ignores these website fields: " + ", ".join(f"{k} ({v})" for k, v in dropped.items()) +
+                        ". They are stored on the website only until the app backend accepts them.")
+    if not health.get("reachable"):
+        warnings.append("The app backend could not be reached from this server.")
+    return {
+        "live_backend": os.environ.get("LIVE_BACKEND_BASE"),
+        "sync_method": sync_method(),
+        "sync_fields": list(SYNC_FIELDS),
+        "health": health,
+        "stats": {"total": total, "synced_ok": ok, "failed_or_pending": failed, "partial": partial,
+                  "last_synced_at": (last or {}).get("live_synced_at"), "fields_dropped_by_app": dropped},
+        "warnings": warnings,
+    }
+
+
+# ------------------------------------------------------------------
 # ADMIN: live backend module proxy (read + write, whitelisted)
 # Excludes removed workflows: Live Bhav (live-rates) and AI Try-On (ai/*)
 # ------------------------------------------------------------------
@@ -1267,6 +1504,8 @@ async def startup():
     await db.sms_logs.create_index("expire_marker", expireAfterSeconds=0)
     await db.sms_logs.create_index([("created_at", -1)])
     await db.sms_logs.create_index([("phone", 1), ("kind", 1), ("created_at", -1)])
+    await db.deletion_requests.create_index([("status", 1), ("requested_at", -1)])
+    await db.deletion_requests.create_index("reference", unique=True)
     cfg = sms_config_status()
     logger.info("Yash Ornaments enrollment backend ready (env=%s build=%s sms_ready=%s template=%s endpoint=%s)",
                 ENVIRONMENT, APP_BUILD, cfg["ready"], cfg["template_id"], cfg["primary_endpoint"])

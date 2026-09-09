@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
   ArrowLeft, PencilLine, Power, RefreshCcw, StickyNote, Loader2, PhoneCall, ShieldAlert, Store, MapPin, CircleCheck, CircleX, Clock3,
+  CheckCircle2, XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +36,7 @@ export default function UserDetail() {
   const [newPhone, setNewPhone] = useState("");
   const [phoneOtpSent, setPhoneOtpSent] = useState(false);
   const [phoneOtp, setPhoneOtp] = useState("");
+  const [verify, setVerify] = useState(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -88,6 +90,18 @@ export default function UserDetail() {
     try {
       const r = await api.post(`/admin/customers/${id}/retry-sync`);
       r.data.success ? toast.success("Synced to Yash Trade App backend") : toast.error(r.data.error || "Sync failed");
+      load();
+    } catch (e) { toast.error(errMsg(e)); } finally { setBusy(false); }
+  };
+
+  const verifySync = async () => {
+    setBusy(true);
+    try {
+      const r = await api.post(`/admin/customers/${id}/verify-sync`);
+      setVerify(r.data);
+      if (!r.data.found) toast.error(r.data.error || "Could not read the app backend");
+      else if (r.data.all_match) toast.success("All fields match on the Yash Trade App backend");
+      else toast.warning(`${r.data.field_check.filter((f) => !f.match).length} field(s) differ on the app backend`);
       load();
     } catch (e) { toast.error(errMsg(e)); } finally { setBusy(false); }
   };
@@ -208,6 +222,9 @@ export default function UserDetail() {
                 <RefreshCcw className="h-3.5 w-3.5" /> Retry app sync
               </Button>
             )}
+            <Button variant="outline" size="sm" onClick={verifySync} disabled={busy} className="gap-1.5" data-testid="admin-user-verify-sync-button">
+              <RefreshCcw className={`h-3.5 w-3.5 ${busy ? "animate-spin" : ""}`} /> Verify on app backend
+            </Button>
 
             <AlertDialog>
               <AlertDialogTrigger asChild>
@@ -277,6 +294,51 @@ export default function UserDetail() {
               ))}
             </CardContent>
           </Card>
+          {(() => {
+            const fc = verify?.field_check || c.live_field_check || [];
+            if (!fc.length) return null;
+            const mismatches = fc.filter((f) => !f.match);
+            return (
+              <Card className={`rounded-xl ${mismatches.length ? "border-amber-300" : "border-emerald-200"}`} data-testid="admin-user-field-check">
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <CardTitle className="text-sm font-bold text-[#0B1F3B]">Website → App backend: field check</CardTitle>
+                    <Badge variant="outline" className={mismatches.length ? "border-amber-200 bg-amber-50 text-amber-700" : "border-emerald-200 bg-emerald-50 text-emerald-700"} data-testid="admin-user-field-check-status">
+                      {mismatches.length ? `${mismatches.length} not stored by app` : "All fields match"}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    Last checked {verify?.checked_at ? new Date(verify.checked_at).toLocaleString("en-IN") : c.live_verified_at ? new Date(c.live_verified_at).toLocaleString("en-IN") : c.live_synced_at ? new Date(c.live_synced_at).toLocaleString("en-IN") : "—"}
+                    {verify?.source ? ` · read via ${verify.source === "admin_read" ? "admin API" : "customer login"}` : ""}
+                  </p>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <div className="overflow-x-auto rounded-lg border border-slate-200">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                        <tr><th className="px-3 py-2">Field</th><th className="px-3 py-2">Website sent</th><th className="px-3 py-2">App backend stored</th><th className="px-3 py-2">Match</th></tr>
+                      </thead>
+                      <tbody>
+                        {fc.map((f) => (
+                          <tr key={f.field} className="border-t border-slate-100" data-testid="admin-user-field-check-row">
+                            <td className="px-3 py-1.5 font-mono-nums text-xs">{f.field}</td>
+                            <td className="px-3 py-1.5">{String(f.sent ?? "—")}</td>
+                            <td className={`px-3 py-1.5 ${f.match ? "" : "text-[#C21F2B]"}`}>{f.stored == null ? "— (empty)" : String(f.stored)}</td>
+                            <td className="px-3 py-1.5">{f.match ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <XCircle className="h-4 w-4 text-[#C21F2B]" />}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {mismatches.length > 0 && (
+                    <p className="mt-2 text-xs text-amber-800">
+                      The Yash Trade App backend's profile endpoint currently ignores these fields. They remain stored here on the website; ask the app team to accept them (see docs/YASH_TRADE_APP_INTEGRATION.md).
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })()}
           {data.live_profile && (
             <Card className="rounded-xl border-slate-200">
               <CardHeader className="pb-2"><CardTitle className="text-sm font-bold text-[#0B1F3B]">Yash Trade App profile (shared backend record)</CardTitle></CardHeader>

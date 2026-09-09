@@ -1,22 +1,22 @@
 [
   {
-    "content": "Backend: default MSG91_TEMPLATE_ID in code (non-secret), health shows which env keys exist, clearer not-configured message naming the missing key",
+    "content": "Backend: company/legal contact config defaults; account deletion API; admin deletion-requests list/complete; admin live health + sync stats endpoint",
     "status": "completed"
   },
   {
-    "content": "Frontend: persist enrollment state (form values + consent, OTP phase, timestamps, success) in localStorage with TTL; restore on reload/return from SMS app",
+    "content": "Frontend: Google Play/App Store compliant Privacy Policy page (/privacy) + Delete Account page (/delete-account) + footer links",
     "status": "completed"
   },
   {
-    "content": "Frontend: browser back button returns to form with data retained (history pushState/popstate); in-app Change details keeps consent",
+    "content": "Frontend admin: Settings shared-backend card; UserDetail verify-sync + field comparison; Reports deletion requests",
     "status": "completed"
   },
   {
-    "content": "Frontend: timestamp-based OTP countdown/cooldown (survives tab throttling/reload), autocomplete=one-time-code, 'Enroll another' on success",
+    "content": "Integration spec doc for Yash Trade App backend (docs/YASH_TRADE_APP_INTEGRATION.md)",
     "status": "completed"
   },
   {
-    "content": "Test: esbuild, reload persistence, seeded OTP-phase restore, browser back; update docs; finish with deploy-secrets instructions",
+    "content": "Test: pytest suites (19 pass), testing agent iteration_3 (17/17 pass); docs updated; cleanup done",
     "status": "completed"
   }
 ]
