@@ -39,8 +39,9 @@ export default function Reports() {
   const completeDeletion = async (id) => {
     setDelBusy(id);
     try {
-      await api.post(`/admin/deletion-requests/${id}/complete`);
-      toast.success("Marked as completed - phone number purged from the request");
+      const r = await api.post(`/admin/deletion-requests/${id}/complete`);
+      if (r.data.success) toast.success("Completed - customer removed on the app backend and phone purged from the request");
+      else toast.error(r.data.error || "App backend deletion failed", { duration: 9000 });
       loadDeletions();
     } catch (e) {
       toast.error(errMsg(e));
@@ -99,9 +100,14 @@ export default function Reports() {
                     <TableCell className="font-mono-nums text-xs">{r.status === "completed" ? r.phone_masked : (r.phone || r.phone_masked)}</TableCell>
                     <TableCell><Badge variant="outline" className="text-[10px] border-emerald-200 bg-emerald-50 text-emerald-700">{r.website_deleted ? "Deleted" : "n/a"}</Badge></TableCell>
                     <TableCell>
-                      <Badge variant="outline" className={`text-[10px] ${r.status === "completed" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : r.live_status === "anonymized" ? "border-amber-200 bg-amber-50 text-amber-700" : "border-red-200 bg-red-50 text-red-700"}`}>
-                        {r.status === "completed" ? "Deleted" : r.live_status === "anonymized" ? "De-identified · removal pending" : "Removal pending"}
-                      </Badge>
+                      <div className="flex flex-col gap-0.5">
+                        <Badge variant="outline" className={`text-[10px] w-fit ${r.status === "completed" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : r.live_status === "anonymized" ? "border-amber-200 bg-amber-50 text-amber-700" : "border-red-200 bg-red-50 text-red-700"}`}>
+                          {r.status === "completed" ? (r.live_status === "no_app_record" ? "No app account" : "Deleted") : r.live_status === "anonymized" ? "De-identified · removal pending" : "Removal pending"}
+                        </Badge>
+                        {r.app_reference && <span className="text-[10px] text-slate-500 font-mono-nums">app ref {r.app_reference}</span>}
+                        {r.app_kept_fields?.length > 0 && <span className="text-[10px] text-slate-500">app kept: {r.app_kept_fields.join(", ")}</span>}
+                        {r.status !== "completed" && r.live_detail && <span className="text-[10px] text-red-700 max-w-[220px]">{r.live_detail}</span>}
+                      </div>
                     </TableCell>
                     <TableCell className={`text-xs whitespace-nowrap ${r.status !== "completed" && r.due_by < new Date().toISOString() ? "text-red-700 font-semibold" : ""}`}>{fmt(r.due_by)}</TableCell>
                     <TableCell className="text-xs max-w-[200px] truncate" title={r.reason}>{r.reason || "—"}</TableCell>

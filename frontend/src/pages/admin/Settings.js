@@ -76,17 +76,41 @@ export default function Settings() {
 
   const [liveHealth, setLiveHealth] = useState(null);
   const [liveLoading, setLiveLoading] = useState(true);
+  const [integForm, setIntegForm] = useState({ base_url: "", enrollments_path: "", api_key: "" });
+  const [integOpen, setIntegOpen] = useState(false);
+  const [integSaving, setIntegSaving] = useState(false);
   const loadLive = useCallback(async () => {
     setLiveLoading(true);
     try {
       const r = await api.get("/admin/live/health");
       setLiveHealth(r.data);
+      const c = r.data?.integration?.config;
+      if (c) setIntegForm((f) => ({ ...f, base_url: c.base_url || "", enrollments_path: c.enrollments_path || "" }));
     } catch {
       setLiveHealth(null);
     } finally {
       setLiveLoading(false);
     }
   }, []);
+
+  const saveIntegration = async (e) => {
+    e.preventDefault();
+    setIntegSaving(true);
+    try {
+      const payload = { base_url: integForm.base_url, enrollments_path: integForm.enrollments_path };
+      if (integForm.api_key) payload.api_key = integForm.api_key;
+      const r = await api.put("/admin/integration", payload);
+      const p = r.data.probe || {};
+      if (p.endpoint_live && p.key_accepted) toast.success("Integration saved - endpoint live and key accepted");
+      else toast.warning(`Saved. ${p.detail || "Endpoint check inconclusive."}`, { duration: 9000 });
+      setIntegForm((f) => ({ ...f, api_key: "" }));
+      loadLive();
+    } catch (err) {
+      toast.error(errMsg(err, "Could not save integration settings"), { duration: 8000 });
+    } finally {
+      setIntegSaving(false);
+    }
+  };
 
   useEffect(() => {
     api.get("/public/config").then((r) => setConfig(r.data)).catch(() => {});
@@ -337,7 +361,7 @@ export default function Settings() {
             <CardTitle className="flex items-center gap-2 text-sm font-bold text-[#0B1F3B]"><Link2 className="h-4 w-4" /> Shared Yash Trade App Backend — Data Sharing Check</CardTitle>
             <div className="flex items-center gap-2">
               {liveHealth && (
-                <StatusBadge ok={!!liveHealth.health?.reachable && !liveHealth.warnings?.length} okText="Healthy" badText={liveHealth.health?.reachable ? "Attention" : "Unreachable"} testId="admin-live-overall-status" />
+                <StatusBadge ok={!!liveHealth.health?.reachable && !liveHealth.errors?.length} okText="Healthy" badText={liveHealth.health?.reachable ? "Action needed" : "Unreachable"} testId="admin-live-overall-status" />
               )}
               <Button variant="outline" size="sm" onClick={loadLive} disabled={liveLoading} className="gap-1.5" data-testid="admin-live-recheck-button">
                 <RefreshCw className={`h-3.5 w-3.5 ${liveLoading ? "animate-spin" : ""}`} /> Re-check
@@ -361,7 +385,23 @@ export default function Settings() {
                   </Badge>
                 </Row>
                 <Row label="Sync method">
-                  <span className="text-xs">{liveHealth.sync_method === "integration_key" ? "Server-to-server integration key" : "Customer OTP login (demo-mode dependent)"}</span>
+                  <Badge variant="outline" className={liveHealth.sync_method === "integration_key" ? okBadge : badBadge} data-testid="admin-live-sync-method">
+                    {liveHealth.sync_method_label || liveHealth.sync_method}
+                  </Badge>
+                </Row>
+                <Row label="Integration key on this server">
+                  <span className="inline-flex items-center gap-2">
+                    <span className="font-mono-nums text-xs text-slate-500">{liveHealth.integration?.config?.key_hint || "not set"}</span>
+                    <StatusBadge ok={!!liveHealth.integration?.config?.key_configured} okText={`Configured (${liveHealth.integration?.config?.source})`} badText="Missing" testId="admin-live-key-status" />
+                  </span>
+                </Row>
+                <Row label="Integration endpoint on app">
+                  {(() => {
+                    const p = liveHealth.integration?.probe || {};
+                    const ok = p.endpoint_live === true && p.key_accepted === true;
+                    const label = ok ? "Live · key accepted" : p.endpoint_live === false ? "Not deployed yet" : p.key_accepted === false ? "Key rejected" : p.configured === false ? "Key missing" : "Unknown";
+                    return <StatusBadge ok={ok} okText={label} badText={label} testId="admin-live-endpoint-status" />;
+                  })()}
                 </Row>
                 <Row label="Website enrollments" last>
                   <span className="inline-flex flex-wrap justify-end items-center gap-1.5">
@@ -372,11 +412,48 @@ export default function Settings() {
                   </span>
                 </Row>
               </div>
+              {(liveHealth.errors || []).map((w, i) => (
+                <p key={`e${i}`} className="flex items-start gap-2 rounded-md bg-red-50 border border-red-200 px-3 py-2 text-xs text-[#C21F2B]" data-testid="admin-live-error">
+                  <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" /> <span>{w}</span>
+                </p>
+              ))}
               {(liveHealth.warnings || []).map((w, i) => (
                 <p key={i} className="flex items-start gap-2 rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800" data-testid="admin-live-warning">
                   <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" /> <span>{w}</span>
                 </p>
               ))}
+
+              {/* Integration settings (override deployment secrets from the admin panel) */}
+              <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+                <button type="button" onClick={() => setIntegOpen((o) => !o)} className="flex w-full items-center justify-between text-xs font-semibold text-[#0B1F3B]" data-testid="admin-integration-toggle">
+                  <span>Integration settings (app backend URL &amp; key)</span>
+                  <span className="text-slate-500">{integOpen ? "Hide" : "Edit"}</span>
+                </button>
+                {integOpen && (
+                  <form onSubmit={saveIntegration} className="mt-3 space-y-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-semibold text-slate-600" htmlFor="integ-base">App backend base URL</label>
+                        <Input id="integ-base" value={integForm.base_url} onChange={(e) => setIntegForm({ ...integForm, base_url: e.target.value })} placeholder="https://yash-tryon-test.emergent.host" className="h-9 bg-white font-mono-nums text-xs" data-testid="admin-integration-base-input" />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-semibold text-slate-600" htmlFor="integ-path">Enrollments path</label>
+                        <Input id="integ-path" value={integForm.enrollments_path} onChange={(e) => setIntegForm({ ...integForm, enrollments_path: e.target.value })} placeholder="/api/integrations/enrollments" className="h-9 bg-white font-mono-nums text-xs" data-testid="admin-integration-path-input" />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-semibold text-slate-600" htmlFor="integ-key">Integration key (leave blank to keep the current one)</label>
+                      <Input id="integ-key" type="password" autoComplete="off" value={integForm.api_key} onChange={(e) => setIntegForm({ ...integForm, api_key: e.target.value })} placeholder="X-Integration-Key value shared by the app backend" className="h-9 bg-white font-mono-nums text-xs" data-testid="admin-integration-key-input" />
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[11px] text-slate-500">Saved values override deployment secrets on this server and are tested immediately.</p>
+                      <Button type="submit" size="sm" disabled={integSaving} className="h-8 gap-1.5 bg-[#0B1F3B] hover:bg-[#081a31]" data-testid="admin-integration-save-button">
+                        {integSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />} Save &amp; test
+                      </Button>
+                    </div>
+                  </form>
+                )}
+              </div>
               <p className="text-[11px] text-slate-500">To verify one customer field-by-field, open the customer and press "Verify on app backend".</p>
             </>
           ) : (

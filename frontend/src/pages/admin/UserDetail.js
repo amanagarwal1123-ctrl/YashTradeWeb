@@ -309,7 +309,7 @@ export default function UserDetail() {
                   </div>
                   <p className="text-xs text-slate-500">
                     Last checked {verify?.checked_at ? new Date(verify.checked_at).toLocaleString("en-IN") : c.live_verified_at ? new Date(c.live_verified_at).toLocaleString("en-IN") : c.live_synced_at ? new Date(c.live_synced_at).toLocaleString("en-IN") : "—"}
-                    {verify?.source ? ` · read via ${verify.source === "admin_read" ? "admin API" : "customer login"}` : ""}
+                    {verify?.source ? ` · read via ${verify.source === "integration" ? "integration API" : verify.source === "admin_read" ? "admin API" : "customer login"}` : ""}
                   </p>
                 </CardHeader>
                 <CardContent className="pt-0">

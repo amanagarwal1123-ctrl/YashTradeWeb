@@ -11,21 +11,77 @@ import httpx
 
 logger = logging.getLogger("yash.live")
 
-LIVE_BASE = os.environ.get("LIVE_BACKEND_BASE", "https://yash-tryon-test.emergent.host").rstrip("/")
 LIVE_DEMO_OTP = os.environ.get("LIVE_BACKEND_DEMO_OTP", "1234")
-# Production-safe server-to-server path (see docs/YASH_TRADE_APP_INTEGRATION.md).
-# When the Yash Trade App backend exposes the integration endpoint and this key is
-# configured, enrollments are upserted directly - no customer OTP login is needed.
-LIVE_INTEGRATION_KEY = (os.environ.get("LIVE_INTEGRATION_KEY") or "").strip()
-LIVE_INTEGRATION_PATH = os.environ.get("LIVE_INTEGRATION_PATH", "/api/integrations/enrollments")
 TIMEOUT = 25
+
+# ---------------------------------------------------------------------------
+# Server-to-server integration (see docs/YASH_TRADE_APP_INTEGRATION.md)
+# Config comes from env, and can be overridden at runtime from the admin panel
+# (stored in Mongo) so a deployment can be pointed at the app backend without
+# touching deployment secrets. Env is the baseline; DB values win when present.
+# ---------------------------------------------------------------------------
+_cfg = {
+    "base": (os.environ.get("LIVE_BACKEND_BASE") or "https://yash-tryon-test.emergent.host").rstrip("/"),
+    "enroll_path": os.environ.get("LIVE_INTEGRATION_PATH") or "/api/integrations/enrollments",
+    "customer_path": os.environ.get("LIVE_INTEGRATION_CUSTOMER_PATH") or "/api/integrations/customers/{phone}",
+    "key": (os.environ.get("LIVE_INTEGRATION_KEY") or "").strip(),
+    "source": "environment",
+}
+# Emergency-only: the old "log in as the customer with the demo OTP" method. Off by default.
+ALLOW_OTP_FALLBACK = (os.environ.get("LIVE_ALLOW_OTP_FALLBACK") or "false").lower() in ("1", "true", "yes")
+
+# Backwards-compatible aliases used elsewhere
+LIVE_BASE = _cfg["base"]
+LIVE_INTEGRATION_KEY = _cfg["key"]
+LIVE_INTEGRATION_PATH = _cfg["enroll_path"]
+
+
+def configure_integration(base: str = None, enroll_path: str = None, key: str = None, source: str = "admin"):
+    """Apply runtime overrides (called at startup from the DB and when an admin saves settings)."""
+    global LIVE_BASE, LIVE_INTEGRATION_KEY, LIVE_INTEGRATION_PATH
+    if base:
+        _cfg["base"] = base.strip().rstrip("/")
+    if enroll_path:
+        _cfg["enroll_path"] = enroll_path.strip() if enroll_path.strip().startswith("/") else "/" + enroll_path.strip()
+    if key is not None:
+        _cfg["key"] = key.strip()
+    _cfg["source"] = source
+    LIVE_BASE, LIVE_INTEGRATION_KEY, LIVE_INTEGRATION_PATH = _cfg["base"], _cfg["key"], _cfg["enroll_path"]
+
+
+def integration_config() -> dict:
+    """Non-secret view of the current integration configuration."""
+    k = _cfg["key"]
+    return {
+        "base_url": _cfg["base"],
+        "enrollments_path": _cfg["enroll_path"],
+        "customer_path": _cfg["customer_path"],
+        "key_configured": bool(k),
+        "key_hint": f"{k[:4]}…{k[-4:]}" if len(k) >= 12 else ("set" if k else None),
+        "source": _cfg["source"],
+        "otp_fallback_allowed": ALLOW_OTP_FALLBACK,
+    }
+
+
+def _hdr() -> dict:
+    return {"X-Integration-Key": _cfg["key"], "Content-Type": "application/json", "Accept": "application/json"}
+
+
+def _body(r: httpx.Response):
+    try:
+        b = r.json()
+        return b if isinstance(b, dict) else {"raw": b}
+    except Exception:
+        return {"raw": (r.text or "")[:300]}
 
 # Fields the website sends and expects the shared backend to store verbatim
 SYNC_FIELDS = ("name", "shop_name", "location", "city", "registration_source", "onboarding_status", "registered_at")
 
 
 def sync_method() -> str:
-    return "integration_key" if LIVE_INTEGRATION_KEY else "customer_otp_login"
+    if _cfg["key"]:
+        return "integration_key"
+    return "customer_otp_login" if ALLOW_OTP_FALLBACK else "not_configured"
 
 
 def compare_profile(sent: dict, stored: dict) -> list:
@@ -71,20 +127,83 @@ async def live_integration_upsert(payload: dict):
     """POST the enrollment to the shared backend's integration endpoint. Returns (status, body)."""
     try:
         async with await _client() as c:
-            r = await c.post(LIVE_INTEGRATION_PATH, json=payload,
-                             headers={"X-Integration-Key": LIVE_INTEGRATION_KEY, "Content-Type": "application/json"})
-        try:
-            body = r.json()
-        except Exception:
-            body = {"raw": r.text[:300]}
-        return r.status_code, body
+            r = await c.post(_cfg["enroll_path"], json=payload, headers=_hdr())
+        return r.status_code, _body(r)
     except Exception as e:
         logger.error("live integration upsert failed: %s", e)
         return 502, {"detail": f"Live backend unreachable: {type(e).__name__}"}
 
 
+async def live_integration_get(phone: str):
+    """GET /api/integrations/customers/{phone}. Returns (status, body)."""
+    try:
+        async with await _client() as c:
+            r = await c.get(_cfg["customer_path"].format(phone=phone), headers=_hdr())
+        return r.status_code, _body(r)
+    except Exception as e:
+        logger.error("live integration get failed: %s", e)
+        return 502, {"detail": f"Live backend unreachable: {type(e).__name__}"}
+
+
+async def live_integration_delete(phone: str):
+    """DELETE /api/integrations/customers/{phone}. Returns (status, body)."""
+    try:
+        async with await _client() as c:
+            r = await c.delete(_cfg["customer_path"].format(phone=phone), headers=_hdr())
+        return r.status_code, _body(r)
+    except Exception as e:
+        logger.error("live integration delete failed: %s", e)
+        return 502, {"detail": f"Live backend unreachable: {type(e).__name__}"}
+
+
+def _explain(code: int, body: dict, action: str) -> str:
+    detail = str((body or {}).get("detail") or (body or {}).get("raw") or "")[:160]
+    if code == 401 or code == 403:
+        return f"App backend rejected the integration key ({code}). Check LIVE_INTEGRATION_KEY matches the app's ENROLLMENT_INTEGRATION_KEY."
+    if code == 404 and ("not found" in detail.lower() and "customer" not in detail.lower() or detail.strip('"') in ("Not Found", "Route Missing", "")):
+        return "Integration endpoint not found on the app backend - its build with /api/integrations/* is not deployed yet."
+    if code == 404:
+        return f"App backend has no record for this customer ({detail})."
+    if code == 409:
+        return f"App backend refused: {detail or 'this number belongs to a staff account'}."
+    if code == 400 or code == 422:
+        return f"App backend rejected the data: {detail}"
+    if code >= 500:
+        return f"App backend error {code} during {action}: {detail}"
+    return f"Unexpected {code} from app backend during {action}: {detail}"
+
+
+async def integration_probe() -> dict:
+    """Is the app backend's integration endpoint live and does it accept our key?
+    Uses a synthetic phone that can never exist, so nothing is created or changed."""
+    cfg = integration_config()
+    res = {"configured": cfg["key_configured"], "endpoint_live": None, "key_accepted": None, "detail": None}
+    if not cfg["key_configured"]:
+        res["detail"] = "LIVE_INTEGRATION_KEY is not configured on this server."
+        return res
+    health = await live_health()
+    integ = health.get("integration") if isinstance(health.get("integration"), dict) else None
+    res["app_reports_integration"] = integ
+    code, body = await live_integration_get("9000000000")
+    if code == 401 or code == 403:
+        res.update(endpoint_live=True, key_accepted=False, detail="Endpoint is live but the app backend rejected our key.")
+    elif code == 404:
+        detail = str(body.get("detail") or body.get("raw") or "")
+        if integ or ("customer" in detail.lower()):
+            res.update(endpoint_live=True, key_accepted=True, detail="Endpoint live and key accepted.")
+        else:
+            res.update(endpoint_live=False, detail=f"App backend build {health.get('build')} does not expose /api/integrations/* yet (404 '{detail[:40]}').")
+    elif code == 200:
+        res.update(endpoint_live=True, key_accepted=True, detail="Endpoint live and key accepted.")
+    elif code == 502:
+        res.update(endpoint_live=None, detail=str(body.get("detail")))
+    else:
+        res.update(endpoint_live=True, key_accepted=None, detail=_explain(code, body, "probe"))
+    return res
+
+
 async def _client() -> httpx.AsyncClient:
-    return httpx.AsyncClient(base_url=LIVE_BASE, timeout=TIMEOUT)
+    return httpx.AsyncClient(base_url=_cfg["base"], timeout=TIMEOUT)
 
 
 async def live_send_otp(phone: str, retries: int = 3) -> bool:
@@ -188,23 +307,27 @@ async def sync_enrollment_to_live(phone: str, name: str, shop_name: str, locatio
         "account_status": "active",
     }
 
-    # 1) Preferred: server-to-server upsert (works even when the app uses real OTPs)
-    if LIVE_INTEGRATION_KEY:
+    # 1) Server-to-server upsert (the production method - works regardless of the app's OTP mode)
+    if _cfg["key"]:
         code, body = await live_integration_upsert({"phone": phone, **updates, "consent_terms": True, "consent_privacy": True})
         if code == 200 and isinstance(body, dict):
             cust = body.get("customer") or body
             return {
                 "status": "ok", "method": "integration_key",
                 "live_user_id": cust.get("id"), "snapshot": cust,
+                "created": body.get("created"),
                 "synced_last_login": cust.get("last_login"),
                 "field_check": compare_profile(updates, cust),
             }
-        if code != 404:  # 404 = endpoint not deployed yet on the app backend -> fall back below
-            return {"status": "failed", "method": "integration_key",
-                    "error": f"Integration endpoint returned {code}: {str(body.get('detail') if isinstance(body, dict) else body)[:150]}"}
-        logger.warning("Integration endpoint %s not available (404) - falling back to customer OTP login sync", LIVE_INTEGRATION_PATH)
+        return {"status": "failed", "method": "integration_key", "http_status": code,
+                "error": _explain(code, body, "enrollment upsert")}
 
-    # 2) Fallback: log in as the customer (only possible while the app backend accepts the demo OTP)
+    if not ALLOW_OTP_FALLBACK:
+        return {"status": "failed", "method": "not_configured",
+                "error": "LIVE_INTEGRATION_KEY is not configured - set it in the deployment secrets or in Admin > Settings > Integration."}
+
+    # 2) Emergency-only legacy path (LIVE_ALLOW_OTP_FALLBACK=true): log in as the customer with the demo OTP
+    logger.warning("Using legacy customer-OTP sync for %s (LIVE_ALLOW_OTP_FALLBACK=true)", phone[-4:])
     auth = await get_customer_token(phone)
     if not auth:
         return {"status": "failed", "method": "customer_otp_login",

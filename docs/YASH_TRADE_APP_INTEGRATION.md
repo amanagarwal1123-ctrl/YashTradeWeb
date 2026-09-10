@@ -1,5 +1,18 @@
 # Yash Trade App backend ↔ Enrollment website — integration spec
 
+> **Status 2026-09-10: IMPLEMENTED on both sides and verified against production.**
+> App backend build `2026.09.09-integration-v7` at `https://yash-tryon-test.emergent.host`
+> (integration enabled, demo mode OFF). Website build `2026.09.10-integration-v7`.
+> Verified: upsert → all 7 fields match; GET used by "Verify on app backend";
+> DELETE completes `/delete-account` requests automatically (app keeps name, shop_name,
+> location, phone as a de-activated record). The customer-OTP fallback is disabled
+> (`LIVE_ALLOW_OTP_FALLBACK=false`).
+>
+> **Website configuration** (either one works; the admin panel wins when both are set):
+> * Deployment secrets: `LIVE_BACKEND_BASE`, `LIVE_INTEGRATION_PATH`, `LIVE_INTEGRATION_KEY`
+> * Admin → Settings → "Data Sharing Check" → *Integration settings* → paste URL/path/key → **Save & test**
+>   (stored in Mongo `app_settings`, applied instantly, probed against the app backend).
+
 **Purpose:** make customer data sharing between the enrollment website
 (`https://yash-register.emergent.host`) and the Yash Trade App backend
 (`LIVE_BACKEND_BASE`, currently `https://yash-tryon-test.emergent.host`) work in

@@ -1,22 +1,18 @@
 [
   {
-    "content": "Backend: company/legal contact config defaults; account deletion API; admin deletion-requests list/complete; admin live health + sync stats endpoint",
+    "content": "live_client: runtime-configurable integration (env + DB override), server-to-server upsert/get/delete, customer-OTP fallback disabled, integration probe",
     "status": "completed"
   },
   {
-    "content": "Frontend: Google Play/App Store compliant Privacy Policy page (/privacy) + Delete Account page (/delete-account) + footer links",
+    "content": "server.py: DB-backed integration settings + admin GET/PUT; verify-sync + deletion + edit-customer use integration endpoints; live health reports integration state; .env keys",
     "status": "completed"
   },
   {
-    "content": "Frontend admin: Settings shared-backend card; UserDetail verify-sync + field comparison; Reports deletion requests",
+    "content": "Settings.js integration status + settings form; Reports deletion row app status; UserDetail source label",
     "status": "completed"
   },
   {
-    "content": "Integration spec doc for Yash Trade App backend (docs/YASH_TRADE_APP_INTEGRATION.md)",
-    "status": "completed"
-  },
-  {
-    "content": "Test: pytest suites (19 pass), testing agent iteration_3 (17/17 pass); docs updated; cleanup done",
+    "content": "Verified against mock + REAL production app backend (all 7 fields match, GET, DELETE); 27 pytest pass; testing agent 19/19; docs updated; cleanup",
     "status": "completed"
   }
 ]
