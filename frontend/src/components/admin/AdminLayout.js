@@ -74,16 +74,25 @@ export default function AdminLayout() {
   const [status, setStatus] = useState("loading"); // loading | ok | forbidden
 
   useEffect(() => {
-    api.get("/admin/auth/me")
-      .then((r) => {
-        if (r.data.role !== "admin") {
-          setStatus("forbidden");
-        } else {
-          setMe(r.data);
-          setStatus("ok");
-        }
-      })
-      .catch(() => navigate("/admin/login", { replace: true }));
+    let cancelled = false;
+    let timer = null;
+    const load = (attempt = 0) => {
+      api.get("/admin/auth/me")
+        .then((r) => {
+          if (cancelled) return;
+          if (r.data.role !== "admin") {
+            setStatus("forbidden");
+          } else {
+            setMe(r.data);
+            setStatus("ok");
+            // The live-modules unlock finishes in the background right after login - poll briefly.
+            if (r.data.live_unlock_pending && attempt < 4) timer = setTimeout(() => load(attempt + 1), 4000);
+          }
+        })
+        .catch(() => { if (!cancelled) navigate("/admin/login", { replace: true }); });
+    };
+    load();
+    return () => { cancelled = true; if (timer) clearTimeout(timer); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
 

@@ -280,12 +280,12 @@ async def live_admin_request(method: str, path: str, token: str, params: dict = 
         return 502, {"detail": "Live backend unreachable"}
 
 
-async def get_customer_token(phone: str) -> Optional[dict]:
+async def get_customer_token(phone: str, retries: int = 3) -> Optional[dict]:
     """Obtain a live-backend token for a given customer phone using the
     live backend's OTP flow (demo OTP works on the connected test host).
     Returns {token, user} or None. NOTE: this updates last_login on the live
     record, so callers must refresh the synced_last_login snapshot after use."""
-    ok = await live_send_otp(phone)
+    ok = await live_send_otp(phone, retries=retries)
     if not ok:
         return None
     return await live_verify_otp(phone)

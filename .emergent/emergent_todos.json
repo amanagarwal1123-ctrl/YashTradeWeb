@@ -1,18 +1,30 @@
 [
   {
-    "content": "live_client: runtime-configurable integration (env + DB override), server-to-server upsert/get/delete, customer-OTP fallback disabled, integration probe",
+    "content": "Verify login/CORS fix live on preview + production + custom domain (E2E, real browser) - PASS",
     "status": "completed"
   },
   {
-    "content": "server.py: DB-backed integration settings + admin GET/PUT; verify-sync + deletion + edit-customer use integration endpoints; live health reports integration state; .env keys",
+    "content": "Make admin login non-blocking: live-backend unlock in background with hard timeout (verify 2.0s -> 0.08s)",
     "status": "completed"
   },
   {
-    "content": "Settings.js integration status + settings form; Reports deletion row app status; UserDetail source label",
+    "content": "Add DB indexes for lockout/rate-limit hot queries (audit_logs, otp_challenges)",
     "status": "completed"
   },
   {
-    "content": "Verified against mock + REAL production app backend (all 7 fields match, GET, DELETE); 27 pytest pass; testing agent 19/19; docs updated; cleanup",
+    "content": "Aggressive load test (ab) local + edge; optimize admin/stats (205->316 RPS); document findings",
     "status": "completed"
+  },
+  {
+    "content": "Run testing_agent_v3 on login + CORS + enrollment flows (mandatory) - 16/16 PASS",
+    "status": "completed"
+  },
+  {
+    "content": "Fix any issues from testing agent report - none reported",
+    "status": "completed"
+  },
+  {
+    "content": "Report results to user; confirm Play/App Store links + admin alert next steps",
+    "status": "in_progress"
   }
 ]

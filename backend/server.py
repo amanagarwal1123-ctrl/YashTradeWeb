@@ -40,7 +40,7 @@ from live_client import (  # noqa: E402
 )
 
 # Bump on every SMS/OTP-related change so the deployed build can be verified via /api/health
-APP_BUILD = "2026.09.10-integration-v8"
+APP_BUILD = "2026.09.10-login-v10"
 
 # ------------------------------------------------------------------
 # Setup
@@ -85,6 +85,9 @@ ADMIN_SESSION_HOURS = 12
 ADMIN_IDLE_MINUTES = 120
 ADMIN_MAX_FAILED = 5
 ADMIN_LOCKOUT_MINUTES = 15
+# Best-effort unlock of the Yash Trade App "live modules" after admin login (background, time-boxed)
+LIVE_ADMIN_UNLOCK = (os.environ.get("LIVE_ADMIN_UNLOCK", "true").lower() in ("1", "true", "yes"))
+LIVE_ADMIN_UNLOCK_TIMEOUT = float(os.environ.get("LIVE_ADMIN_UNLOCK_TIMEOUT", "12"))
 
 PHONE_RE = re.compile(r"^[6-9]\d{9}$")
 
@@ -788,22 +791,18 @@ async def admin_verify_otp(body: AdminOtpVerify, request: Request, response: Res
 
     role = "admin" if phone in ADMIN_PHONES else "telecaller"
 
-    # Attempt to unlock live-backend admin capabilities for this session
-    live_token, live_role = None, None
-    if role == "admin":
-        auth = await get_customer_token(phone)
-        if auth:
-            live_token = auth["token"]
-            live_role = (auth.get("user") or {}).get("role")
-
+    # The portal session is created and returned IMMEDIATELY. Login must never depend on
+    # the Yash Trade App backend being reachable/fast - the optional "live modules" unlock
+    # runs in the background with a hard time limit and updates the session when done.
     now = now_utc()
     token = secrets.token_urlsafe(32)
     await db.admin_sessions.insert_one({
         "token": token,
         "phone": phone,
         "role": role,
-        "live_token": live_token,
-        "live_role": live_role,
+        "live_token": None,
+        "live_role": None,
+        "live_unlock_pending": role == "admin" and LIVE_ADMIN_UNLOCK,
         "created_at": now.isoformat(),
         "last_active": now.isoformat(),
         "expires_at": (now + timedelta(hours=ADMIN_SESSION_HOURS)).isoformat(),
@@ -812,13 +811,50 @@ async def admin_verify_otp(body: AdminOtpVerify, request: Request, response: Res
     })
     await audit(phone, "admin_login_success", details={"ip": ip, "role": role}, actor_role=role)
 
+    if role == "admin" and LIVE_ADMIN_UNLOCK:
+        _spawn_background(unlock_live_admin_session(token, phone), "live-admin-unlock")
+
     response.set_cookie(
         SESSION_COOKIE, token,
         max_age=ADMIN_SESSION_HOURS * 3600,
         httponly=True, secure=True, samesite="lax", path="/",
     )
-    return {"success": True, "role": role, "phone": phone,
-            "live_admin_unlocked": live_role == "admin"}
+    return {"success": True, "role": role, "phone": phone, "live_admin_unlocked": False}
+
+
+# Optional: try to obtain a Yash-Trade-App admin token so the "live modules" pages unlock.
+# It can only succeed while the app backend accepts the demo OTP for this phone, so it is
+# strictly best-effort, time-boxed and never on the login critical path.
+_background_tasks: set = set()
+
+
+def _spawn_background(coro, name: str):
+    """Fire-and-forget with a strong reference (so the task is not GC'd) and error logging."""
+    task = asyncio.create_task(coro, name=name)
+    _background_tasks.add(task)
+
+    def _done(t: asyncio.Task):
+        _background_tasks.discard(t)
+        if not t.cancelled() and t.exception():
+            logger.warning("background task %s failed: %s", name, t.exception())
+    task.add_done_callback(_done)
+    return task
+
+
+async def unlock_live_admin_session(token: str, phone: str):
+    live_token, live_role = None, None
+    try:
+        auth = await asyncio.wait_for(get_customer_token(phone, retries=1), timeout=LIVE_ADMIN_UNLOCK_TIMEOUT)
+        if auth:
+            live_token = auth.get("token")
+            live_role = (auth.get("user") or {}).get("role")
+    except asyncio.TimeoutError:
+        logger.info("live admin unlock for %s skipped: app backend did not answer within %ss", mask_phone(phone), LIVE_ADMIN_UNLOCK_TIMEOUT)
+    except Exception as e:  # never let this surface anywhere near login
+        logger.info("live admin unlock for %s skipped: %s", mask_phone(phone), e)
+    await db.admin_sessions.update_one({"token": token}, {"$set": {
+        "live_token": live_token, "live_role": live_role, "live_unlock_pending": False,
+    }})
 
 
 async def get_session(request: Request) -> dict:
@@ -865,6 +901,7 @@ async def admin_me(sess: dict = Depends(get_session)):
         "phone": sess["phone"],
         "role": sess["role"],
         "live_admin_unlocked": sess.get("live_role") == "admin",
+        "live_unlock_pending": bool(sess.get("live_unlock_pending")),
         "expires_at": sess["expires_at"],
     }
 
@@ -879,54 +916,55 @@ async def admin_stats(sess: dict = Depends(require_admin)):
     today_start = now_ist.replace(hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc).isoformat()
     week_start = (now_ist - timedelta(days=7)).astimezone(timezone.utc).isoformat()
     month_start = now_ist.replace(day=1, hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc).isoformat()
-
-    total = await db.enrollments.count_documents({})
-    today = await db.enrollments.count_documents({"registered_at": {"$gte": today_start}})
-    week = await db.enrollments.count_documents({"registered_at": {"$gte": week_start}})
-    month = await db.enrollments.count_documents({"registered_at": {"$gte": month_start}})
-    completed = await db.enrollments.count_documents({"phone_verified": True})
-    logged_in = await db.enrollments.count_documents({"has_logged_in": True})
-    never_logged = await db.enrollments.count_documents({"has_logged_in": {"$ne": True}})
-    active = await db.enrollments.count_documents({"account_status": "active"})
-    inactive = await db.enrollments.count_documents({"account_status": "inactive"})
-    sync_failed = await db.enrollments.count_documents({"live_sync_status": {"$ne": "ok"}})
-
-    # 30-day registration trend (IST days) - aggregated server-side, bounded output
     thirty_days_ago = (now_ist - timedelta(days=29)).replace(hour=0, minute=0, second=0, microsecond=0)
-    trend_map = {}
-    pipeline = [
+
+    # All 10 counters in ONE round-trip (conditional sums over a single pass) instead of
+    # 10 sequential count_documents calls - keeps the dashboard fast under load.
+    def _cond(expr):
+        return {"$sum": {"$cond": [expr, 1, 0]}}
+
+    totals_pipeline = [{"$group": {
+        "_id": None,
+        "total_customers": {"$sum": 1},
+        "registrations_today": _cond({"$gte": ["$registered_at", today_start]}),
+        "registrations_week": _cond({"$gte": ["$registered_at", week_start]}),
+        "registrations_month": _cond({"$gte": ["$registered_at", month_start]}),
+        "completed_enrollment": _cond({"$eq": ["$phone_verified", True]}),
+        "logged_in": _cond({"$eq": ["$has_logged_in", True]}),
+        "never_logged_in": _cond({"$ne": ["$has_logged_in", True]}),
+        "active": _cond({"$eq": ["$account_status", "active"]}),
+        "inactive": _cond({"$eq": ["$account_status", "inactive"]}),
+        "sync_failed": _cond({"$ne": ["$live_sync_status", "ok"]}),
+    }}]
+    trend_pipeline = [
         {"$match": {"registered_at": {"$gte": thirty_days_ago.astimezone(timezone.utc).isoformat()}}},
         {"$project": {"day": {"$substrCP": ["$registered_at", 0, 10]}}},
         {"$group": {"_id": "$day", "count": {"$sum": 1}}},
         {"$limit": 100},
     ]
-    async for row in db.enrollments.aggregate(pipeline):
-        trend_map[row["_id"]] = row["count"]
+
+    totals_rows, trend_rows, recent_regs, recent_logins = await asyncio.gather(
+        db.enrollments.aggregate(totals_pipeline).to_list(1),
+        db.enrollments.aggregate(trend_pipeline).to_list(100),
+        db.enrollments.find({}, sort=[("registered_at", -1)], limit=8).to_list(8),
+        db.enrollments.find({"has_logged_in": True, "last_login_at": {"$ne": None}},
+                            sort=[("last_login_at", -1)], limit=8).to_list(8),
+    )
+    keys = ["total_customers", "registrations_today", "registrations_week", "registrations_month", "completed_enrollment",
+            "logged_in", "never_logged_in", "active", "inactive", "sync_failed"]
+    totals = {k: int((totals_rows[0] if totals_rows else {}).get(k, 0)) for k in keys}
+
+    trend_map = {row["_id"]: row["count"] for row in trend_rows}
     trend = []
     for i in range(30):
         day = (thirty_days_ago + timedelta(days=i)).strftime("%Y-%m-%d")
         trend.append({"date": day, "count": trend_map.get(day, 0)})
 
-    recent_regs = [clean(d) async for d in db.enrollments.find({}, sort=[("registered_at", -1)], limit=8)]
-    recent_logins = [clean(d) async for d in db.enrollments.find(
-        {"has_logged_in": True, "last_login_at": {"$ne": None}}, sort=[("last_login_at", -1)], limit=8)]
-
     return {
-        "totals": {
-            "total_customers": total,
-            "registrations_today": today,
-            "registrations_week": week,
-            "registrations_month": month,
-            "completed_enrollment": completed,
-            "logged_in": logged_in,
-            "never_logged_in": never_logged,
-            "active": active,
-            "inactive": inactive,
-            "sync_failed": sync_failed,
-        },
+        "totals": totals,
         "trend": trend,
-        "recent_registrations": recent_regs,
-        "recent_logins": recent_logins,
+        "recent_registrations": [clean(d) for d in recent_regs],
+        "recent_logins": [clean(d) for d in recent_logins],
         "live_admin_unlocked": sess.get("live_role") == "admin",
     }
 
@@ -1569,13 +1607,24 @@ async def admin_live_proxy(path: str, request: Request, sess: dict = Depends(req
 
 app.include_router(api)
 
-cors_origins = os.environ.get("CORS_ORIGINS", "*")
+# CORS. The frontend calls the API same-origin, so CORS only matters for tooling and for
+# the case where the site is opened on one host while a build points at another. With
+# cookies (allow_credentials) browsers REJECT a literal "*" - the exact origin must be
+# echoed back. allow_origin_regex does that for every host we publish on; extra origins
+# can be added via CORS_ORIGINS (comma separated, exact origins).
+_cors_env = [o.strip() for o in os.environ.get("CORS_ORIGINS", "").split(",") if o.strip() and o.strip() != "*"]
+_cors_hosts = r"(localhost(:\d+)?|127\.0\.0\.1(:\d+)?|[a-z0-9-]+(\.[a-z0-9-]+)*\.(emergent\.host|emergentagent\.com|yashsilver\.com|yashornaments\.in))"
+CORS_ORIGIN_REGEX = r"^https?://" + _cors_hosts + r"$"
+if _cors_env:
+    CORS_ORIGIN_REGEX = r"^(" + r"|".join([r"https?://" + _cors_hosts] + [re.escape(o) for o in _cors_env]) + r")$"
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[o.strip() for o in cors_origins.split(",")] if cors_origins != "*" else ["*"],
+    allow_origin_regex=CORS_ORIGIN_REGEX,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Disposition"],
+    max_age=600,
 )
 
 
@@ -1592,6 +1641,11 @@ async def startup():
     await db.admin_sessions.create_index("token", unique=True)
     await db.audit_logs.create_index([("created_at", -1)])
     await db.audit_logs.create_index("target")
+    # Admin lockout / rate-limit counters must stay O(log n) as the logs grow
+    await db.audit_logs.create_index([("action", 1), ("created_at", -1)])
+    await db.audit_logs.create_index([("actor", 1), ("created_at", -1)])
+    await db.audit_logs.create_index([("details.ip", 1), ("created_at", -1)])
+    await db.otp_challenges.create_index([("ip", 1), ("created_at", -1)])
     await db.admin_notes.create_index("customer_id")
     await db.sms_logs.create_index("expire_marker", expireAfterSeconds=0)
     await db.sms_logs.create_index([("created_at", -1)])
