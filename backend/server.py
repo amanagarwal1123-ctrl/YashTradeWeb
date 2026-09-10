@@ -40,7 +40,7 @@ from live_client import (  # noqa: E402
 )
 
 # Bump on every SMS/OTP-related change so the deployed build can be verified via /api/health
-APP_BUILD = "2026.09.10-integration-v7"
+APP_BUILD = "2026.09.10-integration-v8"
 
 # ------------------------------------------------------------------
 # Setup
@@ -440,8 +440,9 @@ async def health():
     # Which deployment env keys are present (names only - never values). Helps spot a
     # deployment whose secrets were snapshotted before a key was added to backend/.env.
     env_keys = {k: bool((os.environ.get(k) or "").strip()) for k in (
-        "MSG91_AUTHKEY", "MSG91_TEMPLATE_ID", "ENVIRONMENT", "ADMIN_PHONES", "TELECALLER_PHONES",
-        "LIVE_BACKEND_BASE", "SESSION_SECRET", "ANDROID_APP_URL", "IOS_APP_URL")}
+        "MSG91_AUTHKEY", "MSG91_TEMPLATE_ID", "MSG91_FLOW_URL", "MSG91_FLOW_FALLBACK_URL", "ENVIRONMENT", "ADMIN_PHONES", "TELECALLER_PHONES",
+        "LIVE_BACKEND_BASE", "LIVE_INTEGRATION_PATH", "LIVE_INTEGRATION_KEY", "SESSION_SECRET", "ANDROID_APP_URL", "IOS_APP_URL")}
+    icfg = integration_config()
     return {
         "status": "ok" if db_ok and sms_ok else "degraded",
         "build": APP_BUILD,
@@ -458,6 +459,7 @@ async def health():
             "provider_error": pre.get("error"),
         },
         "env_keys_present": env_keys,
+        "app_integration": {"configured": icfg["key_configured"], "source": icfg["source"], "base_url": icfg["base_url"]},
         "time": iso_now(),
     }
 
@@ -1485,8 +1487,8 @@ async def admin_live_health(sess: dict = Depends(require_admin)):
     if not health.get("reachable"):
         errors.append("The app backend could not be reached from this server.")
     if method == "not_configured":
-        errors.append("LIVE_INTEGRATION_KEY is not configured on this server - enrollments will NOT reach the app until it is set "
-                      "(deployment secrets, or the Integration settings below).")
+        errors.append("LIVE_INTEGRATION_KEY is not configured on this server - enrollments will NOT reach the app until it is set. "
+                      "Fix: re-publish (backend/.env now carries the key) or paste it in the Integration settings below.")
     elif method == "integration_key":
         if probe.get("endpoint_live") is False:
             errors.append(f"The app backend at {cfg['base_url']} does not expose the integration endpoints yet (build {health.get('build')}). "

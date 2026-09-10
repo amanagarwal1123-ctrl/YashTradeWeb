@@ -88,10 +88,10 @@ backend_test_output.log
 frontend/node_modules/.cache/default-development/3.pack
 frontend/node_modules/.cache/default-development/4.pack
 frontend/node_modules/.cache/default-development/6.pack
-.env
-.env.*
-*.env
 credentials.json
 *.key
 .credentials
 frontend/node_modules/.cache/default-development/2.pack
+
+# .env files are intentionally tracked: the Emergent publish pipeline reads new secrets from
+# backend/.env and frontend/.env at re-publish time. Do NOT add .env ignore rules here.
