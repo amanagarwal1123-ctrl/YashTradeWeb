@@ -1,0 +1,1555 @@
+{
+  "bridge_events": [
+    {
+      "method": "GET",
+      "path": "/api/enroll/state",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/enroll/state",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/security/csrf",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/enroll/send-otp",
+      "native_len": 141,
+      "forwarded_len": 141,
+      "multipart_fallback": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/enroll/verify-otp",
+      "native_len": 85,
+      "forwarded_len": 85,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/security/csrf",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/auth/send-otp",
+      "native_len": 22,
+      "forwarded_len": 22,
+      "multipart_fallback": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/auth/verify-otp",
+      "native_len": 85,
+      "forwarded_len": 85,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/auth/me",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/auth/me",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/analytics/dashboard",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/analytics/dashboard",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/auth/me",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/integrations/staff?role=telecaller&status=active",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/customers?page=1&limit=20",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/integrations/staff?role=telecaller&status=active",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/customers?page=1&limit=20",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/auth/me",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests/catalog",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests/catalog",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/integrations/staff?role=telecaller&status=active",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/integrations/staff?role=telecaller&status=active",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests/staff-options",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests/staff-options",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests/metrics/summary?start=2026-09-11&end=2026-09-11&search=&request_type=",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests?page=1&limit=20&status=open&view=all&sort=oldest",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests?page=1&limit=20&status=open&view=all&sort=oldest",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests/metrics/summary?start=2026-09-11&end=2026-09-11&search=&request_type=",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/auth/me",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rates/history?days=7",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rate-list",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rates/history?days=7",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rates/latest",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rate-list",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rates/latest",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rates/audit?page=1&limit=30",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rates/audit?page=1&limit=30",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/bff/rates",
+      "native_len": 44,
+      "forwarded_len": 44,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rates/latest",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rates/audit?page=1&limit=30",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/bff/rate-list",
+      "native_len": 125,
+      "forwarded_len": 125,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rate-list",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/auth/me",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/telecaller/customers?page=1&limit=20",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/telecaller/customers?page=1&limit=20",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/telecaller/summary",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/telecaller/summary",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/auth/me",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/batches",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/batches",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/auth/me",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/categories",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/products?page=1&limit=40&mode=catalog&include_hidden=true&metal_type=silver",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/categories",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/products?page=1&limit=40&mode=catalog&include_hidden=true&metal_type=silver",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/bff/products/upload-image",
+      "native_len": 184,
+      "forwarded_len": 695080,
+      "multipart_fallback": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/files/yash-trade/products/manual/93dded5df101e93cdddd1980603950ca.jpg",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/bff/products",
+      "native_len": 315,
+      "forwarded_len": 315,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/products?page=1&limit=40&mode=catalog&include_hidden=true&metal_type=silver",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/files/yash-trade/products/manual/93dded5df101e93cdddd1980603950ca-thumb.jpg",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/auth/me",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/pdf-template/capabilities",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/pdf-template/capabilities",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/batches",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/batches",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/pdf-template/sample.pdf",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/pdf-template/authoring.json",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/bff/pdf-upload/init",
+      "native_len": 175,
+      "forwarded_len": 175,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/status",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/status",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/chunk?chunk_index=0",
+      "native_len": 1048771,
+      "forwarded_len": 1048771,
+      "multipart_fallback": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/chunk?chunk_index=1",
+      "native_len": 1048771,
+      "forwarded_len": 1048771,
+      "multipart_fallback": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/chunk?chunk_index=2",
+      "native_len": 1048771,
+      "forwarded_len": 1048771,
+      "multipart_fallback": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/chunk?chunk_index=3",
+      "native_len": 918864,
+      "forwarded_len": 918864,
+      "multipart_fallback": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/status",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/complete",
+      "native_len": 2,
+      "forwarded_len": 2,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/status",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/preview?page=1&limit=10",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/preview?page=1&limit=10",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/rows/246a2c91a0ec6277b7adef736e583ab7/image",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/rows/32b9a664f196f097b5410fd7c7751d80/image",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/rows/eff57f73669d50c867e0ce920cb63ea3/image",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/pages/2/image?metadata=true",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/pages/2/image?metadata=true",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/pages/2/image",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/rows/246a2c91a0ec6277b7adef736e583ab7",
+      "native_len": 631,
+      "forwarded_len": 631,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/preview?page=1&limit=10",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/status",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/status",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/commit",
+      "native_len": 66,
+      "forwarded_len": 66,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/status",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/preview?page=1&limit=10",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/auth/me",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/bff/products/upload-image",
+      "native_len": 184,
+      "forwarded_len": 695080,
+      "multipart_fallback": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/files/yash-trade/products/manual/b05fe2b4d143825f82288d0cee597fe1.jpg",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/bff/pdf-template/export",
+      "native_len": 333,
+      "forwarded_len": 333,
+      "multipart_fallback": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/auth/logout",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/auth/send-otp",
+      "native_len": 22,
+      "forwarded_len": 22,
+      "multipart_fallback": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/auth/verify-otp",
+      "native_len": 85,
+      "forwarded_len": 85,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/auth/me",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/auth/me",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests/catalog",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests/catalog",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests/staff-options",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests/metrics/summary?start=2026-09-11&end=2026-09-11&search=&request_type=",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests/metrics/summary?start=2026-09-11&end=2026-09-11&search=&request_type=",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests?page=1&limit=20&status=open&view=all&sort=oldest",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests?page=1&limit=20&status=open&view=all&sort=oldest",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests/staff-options",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/auth/logout",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/auth/send-otp",
+      "native_len": 22,
+      "forwarded_len": 22,
+      "multipart_fallback": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/auth/verify-otp",
+      "native_len": 85,
+      "forwarded_len": 85,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/auth/me",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/auth/me",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rates/latest",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rates/latest",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rate-list",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rates/history?days=7",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rate-list",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rates/history?days=7",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rates/audit?page=1&limit=30",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rates/audit?page=1&limit=30",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/auth/me",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests/catalog",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests/catalog",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests/staff-options",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests?page=1&limit=20&status=open&view=all&sort=oldest",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests/staff-options",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests?page=1&limit=20&status=open&view=all&sort=oldest",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    }
+  ],
+  "api_events": [
+    {
+      "method": "GET",
+      "path": "/api/enroll/state",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/enroll/state",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/security/csrf",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/enroll/send-otp",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/enroll/verify-otp",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/security/csrf",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/auth/send-otp",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/auth/verify-otp",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/auth/me",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/auth/me",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/analytics/dashboard",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/analytics/dashboard",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/auth/me",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/integrations/staff?role=telecaller&status=active",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/customers?page=1&limit=20",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/integrations/staff?role=telecaller&status=active",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/customers?page=1&limit=20",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/auth/me",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests/catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests/catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/integrations/staff?role=telecaller&status=active",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/integrations/staff?role=telecaller&status=active",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests/staff-options",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests/staff-options",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests/metrics/summary?start=2026-09-11&end=2026-09-11&search=&request_type=",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests?page=1&limit=20&status=open&view=all&sort=oldest",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests?page=1&limit=20&status=open&view=all&sort=oldest",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests/metrics/summary?start=2026-09-11&end=2026-09-11&search=&request_type=",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/auth/me",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rates/history?days=7",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rate-list",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rates/history?days=7",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rates/latest",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rate-list",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rates/latest",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rates/audit?page=1&limit=30",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rates/audit?page=1&limit=30",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/bff/rates",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rates/latest",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rates/audit?page=1&limit=30",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/bff/rate-list",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rate-list",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/auth/me",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/telecaller/customers?page=1&limit=20",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/telecaller/customers?page=1&limit=20",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/telecaller/summary",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/telecaller/summary",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/auth/me",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/batches",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/batches",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/auth/me",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/categories",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/products?page=1&limit=40&mode=catalog&include_hidden=true&metal_type=silver",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/categories",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/products?page=1&limit=40&mode=catalog&include_hidden=true&metal_type=silver",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/bff/products/upload-image",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/files/yash-trade/products/manual/93dded5df101e93cdddd1980603950ca.jpg",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/bff/products",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/products?page=1&limit=40&mode=catalog&include_hidden=true&metal_type=silver",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/files/yash-trade/products/manual/93dded5df101e93cdddd1980603950ca-thumb.jpg",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/auth/me",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/pdf-template/capabilities",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/pdf-template/capabilities",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/batches",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/batches",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/pdf-template/sample.pdf",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/pdf-template/authoring.json",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/bff/pdf-upload/init",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/status",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/status",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/chunk?chunk_index=0",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/chunk?chunk_index=1",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/chunk?chunk_index=2",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/chunk?chunk_index=3",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/status",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/complete",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/status",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/preview?page=1&limit=10",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/preview?page=1&limit=10",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/rows/246a2c91a0ec6277b7adef736e583ab7/image",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/rows/32b9a664f196f097b5410fd7c7751d80/image",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/rows/eff57f73669d50c867e0ce920cb63ea3/image",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/pages/2/image?metadata=true",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/pages/2/image?metadata=true",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/pages/2/image",
+      "status": 200
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/rows/246a2c91a0ec6277b7adef736e583ab7",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/preview?page=1&limit=10",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/status",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/status",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/commit",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/status",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/preview?page=1&limit=10",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/auth/me",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/bff/products/upload-image",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/files/yash-trade/products/manual/b05fe2b4d143825f82288d0cee597fe1.jpg",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/bff/pdf-template/export",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/auth/logout",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/auth/send-otp",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/auth/verify-otp",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/auth/me",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/auth/me",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests/catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests/catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests/staff-options",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests/metrics/summary?start=2026-09-11&end=2026-09-11&search=&request_type=",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests/metrics/summary?start=2026-09-11&end=2026-09-11&search=&request_type=",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests?page=1&limit=20&status=open&view=all&sort=oldest",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests?page=1&limit=20&status=open&view=all&sort=oldest",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests/staff-options",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/auth/logout",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/auth/send-otp",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/auth/verify-otp",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/auth/me",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/auth/me",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rates/latest",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rates/latest",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rate-list",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rates/history?days=7",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rate-list",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rates/history?days=7",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rates/audit?page=1&limit=30",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rates/audit?page=1&limit=30",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/auth/me",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests/catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests/catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests/staff-options",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests?page=1&limit=20&status=open&view=all&sort=oldest",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests/staff-options",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests?page=1&limit=20&status=open&view=all&sort=oldest",
+      "status": 200
+    }
+  ],
+  "issues": []
+}

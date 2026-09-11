@@ -216,9 +216,9 @@ export default function Privacy() {
           <Table
             head={["Data", "Retention"]}
             rows={[
-              ["Account and profile data (name, mobile, shop, location, preferences)", `For as long as your account is active. Deleted within ${co.deletion_sla_days} days of a deletion request.`],
-              ["One-time passwords", "Valid for 10 minutes; records are purged automatically within 2 hours."],
-              ["SMS delivery logs", "Up to 30 days, then deleted automatically."],
+              ["Account and profile data (name, mobile, shop, location, preferences)", "While active. Canonical account access is revoked and the profile anonymized after verified deletion. External erasure requires separate acknowledgements."],
+              ["One-time passwords", "Valid for 10 minutes; purpose-bound verification is performed by the canonical app service."],
+              ["SMS delivery logs and provider-held records", "Provider retention and erasure require operational confirmation; website deletion does not prove provider erasure."],
               ["Enquiries, orders, cart and wishlist", `While your account is active. Orders that resulted in a sale are retained as business/tax records (see below).`],
               ["Invoices, sales and tax records", "Up to 8 years as required by Indian income-tax, GST and company law, even after account deletion, in a form restricted to accounting use."],
               ["Support conversations and staff notes", "Up to 24 months after your last interaction, or until account deletion."],
@@ -247,12 +247,12 @@ export default function Privacy() {
           ]} />
           <P><strong>What happens next:</strong></P>
           <UL items={[
-            <>Data held by this enrollment website is deleted immediately and your profile in the {APP} is de-identified straight away.</>,
-            <>Your account, profile, cart, wishlist, enquiries, reward balance and support notes are permanently deleted from our systems within {co.deletion_sla_days} days. You receive a reference number to track the request.</>,
+            <>The canonical service revokes account access and anonymizes the local profile. Website sessions, drafts, caches and queued work are cleared before a website cleanup acknowledgement.</>,
+            <>You receive a reference with external_erasure_pending status. Provider-held media and historical backups are not proven erased. The current storage adapter does not support remote deletion; a lifecycle audit does not free storage.</>,
             <>We keep only what the law requires us to keep (invoices, tax and sales records – see Section 9), plus a masked record of the deletion request itself. This retained data is not used for any other purpose.</>,
-            <>Deletion is permanent. If you register again later, a new account is created.</>,
+            <>Deletion tombstones prevent automatic re-enrollment and retry-based restoration. Retention exceptions and historical linkage records require restricted review; missing dates or verification evidence are not inferred.</>,
           ]} />
-          <P>Deactivating or "freezing" an account is not the same as deletion; when you ask for deletion, we delete.</P>
+          <P>Deactivation is different from deletion. Provider and backup retention periods remain subject to a verified privacy review; we do not describe pending global erasure as completed.</P>
 
           <H2 id="children">12. Children</H2>
           <P>The {APP} and this website are intended for business users aged 18 and above. We do not knowingly collect personal data from children. If you believe a child has provided us data, contact us and we will delete it.</P>

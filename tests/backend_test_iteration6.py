@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime, timezone, timedelta
 
 # Base URL from frontend/.env
-BASE_URL = "https://yash-register.preview.emergentagent.com"
+BASE_URL = "https://yash-scheme-hub.preview.emergentagent.com"
 
 class BackendTester:
     def __init__(self, base_url=BASE_URL):

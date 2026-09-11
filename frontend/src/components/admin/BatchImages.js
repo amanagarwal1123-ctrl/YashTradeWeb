@@ -1,0 +1,10 @@
+import React,{useState} from 'react';
+import {useResource,State,Table,Pager,Notice,Check} from './SharedUI';
+import {PrivateImage} from './PrivateImage';
+import {shared,errMsg} from '@/lib/api';
+import {Button} from '@/components/ui/button';
+export const BatchImages=({batch,onClose,onChanged})=>{
+ const [page,setPage]=useState(1),[selected,setSelected]=useState([]),[error,setError]=useState(''),[busy,setBusy]=useState(false),r=useResource(`/batches/${batch.id}/images`,{page,limit:20});
+ const remove=async()=>{if(!window.confirm(`Soft-delete ${selected.length} selected batch products? Original media stays in canonical storage.`))return;setBusy(true);try{const result=await shared.write('post',`/batches/${batch.id}/images/delete`,{image_ids:selected});setSelected([]);setError(`${result.deleted} products soft-deleted. No provider files erased.`);await r.load();onChanged();}catch(e){setError(errMsg(e));}finally{setBusy(false);}};
+ return <section className="app-dialog" data-testid="batch-image-panel"><div className="flex justify-between"><h2>{batch.name} · products</h2><Button variant="ghost" data-testid="batch-images-close" onClick={onClose}>Close</Button></div><State resource={r} id="batch-images"/><Notice id="batch-images-result">{error}</Notice><Table id="batch-images" rows={r.data?.images||[]} columns={[{key:'select',title:'Select',render:p=><Check id={`batch-select-${p.id}`} value={selected.includes(p.id)} onChange={v=>setSelected(v?[...selected,p.id]:selected.filter(id=>id!==p.id))}>Select</Check>},{key:'photo',title:'Photo',render:p=><div className="w-20"><PrivateImage src={p.thumbnail_path||p.storage_path||p.images?.[0]} id={`batch-thumb-${p.id}`}/></div>},{key:'title',title:'Product'},{key:'product_code',title:'SKU'},{key:'visibility',title:'Visibility'}]}/><Pager id="batch-images" {...r.data} page={page} onPage={p=>{setPage(p);setSelected([]);}}/><Button variant="destructive" disabled={busy||!selected.length} data-testid="batch-delete-selected" onClick={remove}>Soft-delete selected products</Button></section>;
+};

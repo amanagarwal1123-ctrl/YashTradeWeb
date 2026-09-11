@@ -9,7 +9,8 @@ import { EnrollForm } from "@/components/public/EnrollForm";
 import { OtpVerify } from "@/components/public/OtpVerify";
 import { SuccessStep } from "@/components/public/SuccessStep";
 import { Card, CardContent } from "@/components/ui/card";
-import { loadEnrollState, saveEnrollState, clearEnrollState, emptyForm } from "@/lib/enrollState";
+import { emptyForm } from "@/lib/enrollState";
+import { api } from '@/lib/api';
 
 const HERO_IMG = "https://images.unsplash.com/photo-1580582183555-3224a02343c8?crop=entropy&cs=srgb&fm=jpg&ixlib=rb-4.1.0&q=85&w=900";
 
@@ -18,19 +19,28 @@ const OTP_HISTORY_STATE = { yashEnroll: "otp" };
 export default function Landing() {
   // Restore exactly where the customer left off (they often switch to the SMS app
   // to read the OTP and the mobile browser reloads the page when they return).
-  const restored = useRef(loadEnrollState());
+  const restored = useRef(null);
   const [phase, setPhase] = useState(restored.current?.phase || "form"); // form | otp | success
   const [formData, setFormData] = useState(restored.current?.formData || emptyForm);
   const [otpSentAt, setOtpSentAt] = useState(restored.current?.otpSentAt || null);
   const [result, setResult] = useState(restored.current?.result || null);
   const [completedAt, setCompletedAt] = useState(restored.current?.completedAt || null);
+  const [challenge, setChallenge] = useState(null);
+  const [pending, setPending] = useState(false);
 
   const stepNumber = phase === "success" ? 2 : 1;
 
   // Persist every change so nothing is lost on reload / tab discard.
   useEffect(() => {
-    saveEnrollState({ phase, formData, otpSentAt, result, completedAt });
-  }, [phase, formData, otpSentAt, result, completedAt]);
+    localStorage.removeItem('yash_enroll_state_v1');
+    api.get('/enroll/state').then(({data}) => {
+      if (data.phase === 'complete' && data.result) { setResult(data.result); setPhase('success'); }
+      else if (['otp', 'verified_pending', 'verification_required'].includes(data.phase)) {
+        setFormData(f => ({...f, phone: data.phone})); setChallenge(data.challenge); setOtpSentAt(data.sent_at * 1000);
+        setPending(data.phase === 'verified_pending'); setPhase('otp');
+      }
+    }).catch(() => {});
+  }, []);
 
   // One-time notices after a restore
   useEffect(() => {
@@ -55,8 +65,9 @@ export default function Landing() {
     return () => window.removeEventListener("popstate", onPop);
   }, []);
 
-  const goToOtp = useCallback((data) => {
+  const goToOtp = useCallback((data, canonicalChallenge) => {
     setFormData({ ...data, consent: true });
+    setChallenge(canonicalChallenge); setPending(false);
     setOtpSentAt(Date.now());
     setPhase("otp");
     if (window.history.state?.yashEnroll !== "otp") window.history.pushState(OTP_HISTORY_STATE, "");
@@ -79,7 +90,6 @@ export default function Landing() {
   }, []);
 
   const startOver = useCallback(() => {
-    clearEnrollState();
     setResult(null);
     setCompletedAt(null);
     setOtpSentAt(null);
@@ -145,8 +155,10 @@ export default function Landing() {
                   <motion.div key="otp" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={{ duration: 0.28 }}>
                     <OtpVerify
                       phone={formData?.phone}
+                      challenge={challenge}
+                      pending={pending}
                       sentAt={otpSentAt}
-                      onResent={(ts) => setOtpSentAt(ts)}
+                      onResent={(ch) => { setChallenge(ch); setOtpSentAt(Date.now()); }}
                       onVerified={onVerified}
                       onChangeDetails={backToForm}
                     />

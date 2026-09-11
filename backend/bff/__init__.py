@@ -1,0 +1,1 @@
+"""Website-owned sessions, drafts and bounded canonical adapters only."""

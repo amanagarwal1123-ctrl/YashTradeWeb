@@ -93,9 +93,11 @@ credentials.json
 .credentials
 frontend/node_modules/.cache/default-development/2.pack
 
-# .env files are intentionally tracked: the Emergent publish pipeline reads new secrets from
-# backend/.env and frontend/.env at re-publish time. Do NOT add .env ignore rules here.
+# Secrets and private identity evidence are never repository deliverables.
+private/
+**/private/
 frontend/node_modules/.cache/default-development/8.pack
 .env
 .env.*
 *.env
+!*.env.example

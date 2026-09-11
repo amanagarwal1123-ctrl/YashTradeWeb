@@ -65,7 +65,7 @@ export const EnrollForm = ({ onOtpSent, defaults, onChange }) => {
         return;
       }
       toast.success(res.data.message || "OTP sent");
-      onOtpSent({ ...form, consent: true });
+      onOtpSent({ ...form, consent: true }, res.data);
     } catch (err) {
       toast.error(errMsg(err), { duration: 8000 });
     } finally {

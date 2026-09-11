@@ -1,0 +1,10 @@
+import React,{useState} from 'react';
+import {PageTitle,State,useResource,Notice,Table,label} from '@/components/admin/SharedUI';
+import {shared,errMsg} from '@/lib/api';
+import {Button} from '@/components/ui/button';
+export default function MediaUsage(){const r=useResource('/admin/media/usage'),[result,setResult]=useState(null),[error,setError]=useState('');const audit=async()=>{try{setResult(await shared.write('post','/admin/media/lifecycle-audit',{}));await r.load();}catch(e){setError(errMsg(e));}};
+ return <><PageTitle>Shared media usage</PageTitle><State resource={r} id="media"/><Notice id="media-error">{error}</Notice><Notice id="media-capacity-warning">Tracked usage is incomplete. Application guards are not provider entitlement. 10,000 photos require at least 20,000 master/thumbnail objects, before sources and previews. Provider remote deletion is unsupported.</Notice>
+ {r.data&&<div className="metrics-strip">{Object.entries(r.data).filter(([,v])=>typeof v!=='object').map(([k,v])=><div key={k}>{label(k)}<strong className="break-all" data-testid={`media-${k}`}>{String(v)}</strong></div>)}</div>}
+ {r.data&&<><div className="metrics-strip">{Object.entries(r.data.tracked||{}).map(([k,v])=><div key={k}>Tracked {label(k)}<strong data-testid={`media-tracked-${k}`}>{String(v)}</strong></div>)}</div><Table id="media-purpose" rows={(r.data.groups||[]).map(v=>({id:v.purpose,...v}))} columns={[{key:'purpose',title:'Purpose'},{key:'bytes',title:'Tracked bytes'},{key:'objects',title:'Tracked objects'},{key:'unknown_size_objects',title:'Unknown sizes'}]}/></>}
+ <Button className="mt-5" data-testid="media-lifecycle-audit" onClick={audit}>Audit lifecycle candidates</Button>{result&&<p className="notice mt-4" data-testid="media-audit-result">Audited: {String(result.audited)} · Remote deletions: {result.remote_deletions} · {result.status}. This audit did not free storage.</p>}</>;
+}

@@ -1,0 +1,6 @@
+import React,{useState} from 'react';
+import {Field,Table,State,useResource,ist} from './SharedUI';
+export const RateHistory=()=>{
+ const [days,setDays]=useState('7'),r=useResource('/rates/history',{days});
+ return <section className="detail-section"><h2>Recent rate snapshots</h2><div className="filters"><Field name="rate-history-limit" title="Maximum records" value={days} options={[{value:'1',label:'3 snapshots'},{value:'7',label:'21 snapshots'},{value:'30',label:'90 snapshots'},{value:'90',label:'270 snapshots'}]} onChange={setDays}/></div><State resource={r} id="rate-history"/><p className="text-xs mt-4" data-testid="rate-history-scope">Newest canonical snapshots, bounded by record count. Not a date-range or lifetime export.</p><Table id="rate-history" rows={r.data?.rates||[]} columns={[{key:'created_at',title:'Created · IST',render:r=>ist(r.created_at)},{key:'silver_physical_rate',title:'Silver physical · INR/g'},{key:'gold_physical_rate',title:'Gold physical · INR/g'},{key:'silver_mcx_rate',title:'Silver MCX · INR/g'},{key:'gold_mcx_rate',title:'Gold MCX · INR/g'}]}/></section>;
+};

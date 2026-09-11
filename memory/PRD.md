@@ -1,0 +1,35 @@
+# YashTradeWeb — shared canonical integration
+
+## Original product
+Yash Ornaments two-step public customer enrollment with verified phone, Name, Shop Name and Location; genuine app download links; staff-only /admin for admin, telecaller and billing_executive. Branding and genuine business records must be preserved.
+
+## Current requested stage (2026-09-11)
+Implement the shared app contract in WEBSITE staging, pinned to YashTradeApp c4ee70d8134625a1a4e04073c43b9460c3c4e40d. Canonical backend owns identities/current permissions/customer/product/query/rate records and shared media. Website BFF owns opaque sessions, minimal drafts, outbox/cache only. No production changes, identities, storage migration or capacity purchases. Deliver code, tests, accurate parity/readiness/app handoff and private identity export tooling.
+
+## Architecture implemented
+- FastAPI `backend/server.py:create_app` with `backend/bff/{config,canonical,security,routes,proxy}.py`. All routes `/api`; fixed HTTPS upstream ending `/api`, no production fallback, no legacy SMS/token minting/local role seeding. Mongo via original MONGO_URL/DB_NAME; new bff_* collections only.
+- Canonical portal OTP + /auth/me before website session. Secure HttpOnly __Host cookies, Origin + per-browser CSRF, Mongo CAS rotating-refresh lease, current-role validation, logout, bounded errors/media and route RBAC.
+- Grant enrollment with server-bound stable payload/key and deliberate retry; Step 2 after canonical persistence. Canonical deletion grants, conservative cleanup/ack. Historical linkage cleanup blocks ack pending approved review.
+- React canonical customer/staff/query/rate/product pages, virtualized catalog, private Blob photos, PDF author form and resumable reviewed import/crops, supporting lead/batch/banner/content/reward/media/settings pages.
+- No website customer/product master or binary media library. No new passwords or reviewer access.
+
+## Status
+Website staging code implemented and built successfully. Final isolated suite:27passed (26backend +1multi-flow browser),0unexpected failures,0skipped,3strict XFAIL appdependenciesD2/D3/D4. Legacy unsafe helpers/unmounted placeholder screens removed; historical Mongo identities untouched. No production changes.
+Operator configuration is NOT complete: CANONICAL_API_BASE_URL / ENROLLMENT_INTEGRATION_KEY / STAFF_SERVICE_KEY / BUILD_COMMIT missing. App preview STAFF_SERVICE_KEY absent. No real canonical login/SMS/storage write test performed.
+Read-only health shows app production shared-v1-followup-2026-09-11, commit unrecorded (changed outside this task from earlier v7 observation); both website production domains remain login-v10. Pinned116-path OpenAPI matched apppreview initially and production at finalcheck; apppreview later returned404. No alternate production target was adopted. Matching schema is not source/DB isolation proof.
+
+## Completed in this stage
+- End-to-end grant enrollment, canonical-only role/session auth, CSRF/exactorigin/security/refresh and currentrole checks. Origin issue: previewingress rewritesOrigin to exact clusteralias; explicitly pinned with customwebsiteorigin +CSRF checks, never a wildcard/missingorigin exception. TrustedclientIP remains operatorgate.
+- Canonical customer pages/filter/details/assignment, staff directory/conversion, all7enquiry types with per-role queues and metrics, rates/slabs/audit/recenthistory, virtualizedcatalog/privatephoto uploads. LeadCRM/summary, batchselection/softdelete, banners/content, rewards/billing and media/privacy views.
+- Actual browser Filebytes→canonical photo upload and reviewedPDF lifecycle,4,064,397-byte sample/fourpages/threeproducts includingtwo ononepage/allthree metals, title+visualcrop edits, hiddencommit created3. Formauthoring exports privatePDF withoutcreatingproducts; sample+companionJSON downloads. Browserresponsive checks320/768/1024/1440.
+- Read-only identity export tooling with strict synthetic-testedprojection and restrictedoutput. Actual genuineexport NOTRUN. Countmanifest customers0/staff2/deletionreferences2, zero bffsession/draft/cache/outboxrecords; no canonicalIDs inferred. Reconciliation remains unexecuted/DRYRUN until exactapproval andbackup.
+- Deliverables: root WEBSITE_IMPLEMENTATION_REPORT.md, ADMIN_PARITY_CHECKLIST.md, WEBSITE_RELEASE_READINESS.md, APP_TEAM_HANDOFF.md; canonicalreference docs updated; evidence/shared-v1/final-junit.xml, final-pytest.log, FINAL_VALIDATION_REPORT.json and screenshots. Tests/shared_v1/README.md reproducibility, pytest.ini excludes unsafelegacytestdiscovery.
+- Localbranchmain and GitHubmain both still bf7808e27129de2b6ec8a5d521c1705f44fa7725 at verification; this is baseline NOT implementationSHA. Newcode not yet GitHubsynced; BUILD_COMMITunrecorded. No gitwrites done.
+
+## Priorities
+- P0: Code review and exactwebsitecommit/sync/buildprovenance. AppdependencyD4: deletionoutboxstarvespastfirst100websiteacknowledgements (critical). D2staticcustomers/searchshadowing; D3immutablecustomerIDqueryfilterabsent. All three reproducedstrict XFAIL; do not altercanonicalpin silently. D1targetedverifiedphonecorrectionunsupported, keptread-only. LegacyhardproductDELETE not exposed; safeunpublish retained.
+- P1: Confirm approved staging canonical target/isolation; provision distinct matching two-sided private keys and trusted ingress; real controlled OTP/SMS/storage acceptance. Read-only private export transfer + tested restorable backup + exact hash/per-ID reconciliation approval. Store release URLs verification.
+- P2: Exhaustive dateboundary/metricwinner/drilldown/continuity/auxiliaryCRUD/PDFpartial-duplicate-publication-owner-restart permutations; native Android/iOS, provider erasure/retention, full-service load/chaos/capacity and private review access. Only then separately approved coordinatedcutover/admincontinuity/revocation/rollbackchecks.
+- Release classification: ready for website CODE REVIEW with disclosed gaps, NOT ready for live controlled cross-system testing or separately approved cutover.
+- Final verification: default root `pytest -q` (restricted to isolated shared_v1) passed after all code/config changes; final counts remain27passed/3strictXFAIL. `yarn build` compiled successfully without warnings; Pythoncompile passed. Real canonical portal login remains unverified and GitHub main remains baseline at the last read-only check. Final user response must distinguish these from successful isolated tests.
+- Future: enrollment notifications and missing-rate reminders after core acceptance. Never reintroduce customer Live Bhav or AI Try-On.

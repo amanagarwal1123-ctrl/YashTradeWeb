@@ -14,10 +14,16 @@ import Staff from "@/pages/admin/Staff";
 import Products from "@/pages/admin/Products";
 import Queries from "@/pages/admin/Queries";
 import Rates from "@/pages/admin/Rates";
-import LiveModule from "@/pages/admin/LiveModule";
-import Reports from "@/pages/admin/Reports";
 import Settings from "@/pages/admin/Settings";
+import CatalogAuthor from '@/pages/admin/CatalogAuthor';
+import PdfImport from '@/pages/admin/PdfImport';
+import Batches from '@/pages/admin/Batches';
+import Content from '@/pages/admin/Content';
+import MediaUsage from '@/pages/admin/MediaUsage';
+import Leads from '@/pages/admin/Leads';
+import Rewards from '@/pages/admin/Rewards';
 import "@/App.css";
+import '@/shared.css';
 
 export default function App() {
   return (
@@ -36,8 +42,14 @@ export default function App() {
           <Route path="products" element={<Products />} />
           <Route path="queries" element={<Queries />} />
           <Route path="rates" element={<Rates />} />
-          <Route path="modules/:moduleKey" element={<LiveModule />} />
-          <Route path="reports" element={<Reports />} />
+          <Route path="leads" element={<Leads />} />
+          <Route path="rewards" element={<Rewards />} />
+          <Route path="catalog-author" element={<CatalogAuthor />} />
+          <Route path="pdf-import" element={<PdfImport />} />
+          <Route path="batches" element={<Batches />} />
+          <Route path="banners" element={<Content onlyBanners />} />
+          <Route path="content" element={<Content />} />
+          <Route path="media" element={<MediaUsage />} />
           <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>

@@ -1,132 +1,29 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Loader2, Lock, ShieldCheck } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
-import { Card, CardContent } from "@/components/ui/card";
-import { api, errMsg } from "@/lib/api";
-import { ROLE_HOME } from "@/components/admin/AdminLayout";
-import { toast } from "sonner";
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { OtpVerify } from '@/components/public/OtpVerify';
+import { api, errMsg } from '@/lib/api';
+import { ROLE_HOME } from '@/components/admin/AdminLayout';
 
 export default function AdminLogin() {
-  const navigate = useNavigate();
-  const [phase, setPhase] = useState("phone"); // phone | otp
-  const [phone, setPhone] = useState("");
-  const [otp, setOtp] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  const sendOtp = async (e) => {
-    e.preventDefault();
-    if (!/^[6-9]\d{9}$/.test(phone)) {
-      setError("Please enter a valid 10-digit mobile number");
-      return;
-    }
-    setLoading(true);
-    setError("");
-    try {
-      const res = await api.post("/admin/auth/send-otp", { phone });
-      if (res.data?.sms_sent === false) {
-        setError("OTP could not be sent right now. Please try again in a moment.");
-        return;
-      }
-      toast.success("OTP sent");
-      setPhase("otp");
-    } catch (err) {
-      setError(errMsg(err));
-    } finally {
-      setLoading(false);
-    }
+  const [phone, setPhone] = useState(''), [challenge, setChallenge] = useState(null), [sent, setSent] = useState(0);
+  const [busy, setBusy] = useState(false), [error, setError] = useState(''); const navigate = useNavigate();
+  const send = async e => {
+    e.preventDefault(); setBusy(true); setError('');
+    try { const r = await api.post('/admin/auth/send-otp', {phone}); setChallenge(r.data); setSent(Date.now()); }
+    catch(e) { setError(errMsg(e)); } finally { setBusy(false); }
   };
-
-  const verify = async (code) => {
-    const value = code || otp;
-    if (value.length !== 4) return;
-    setLoading(true);
-    setError("");
-    try {
-      const res = await api.post("/admin/auth/verify-otp", { phone, otp: value });
-      const home = ROLE_HOME[res.data.role];
-      if (!home) {
-        setError("Access denied: your account has no console role. Ask an administrator to add you under Manage Users.");
-        setLoading(false);
-        return;
-      }
-      toast.success("Welcome back");
-      navigate(home);
-    } catch (err) {
-      setError(errMsg(err, "Verification failed"));
-      setOtp("");
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="admin-scope min-h-screen bg-[hsl(var(--background))] flex items-center justify-center px-4">
-      <Card className="w-full max-w-sm rounded-xl border border-slate-200 shadow-lg">
-        <CardContent className="p-7 space-y-6">
-          <div className="text-center space-y-2">
-            <img src="/brand/yash-mark-hd.png" alt="Yash Ornaments" className="brand-logo mx-auto h-14 w-14 rounded-xl" />
-            <h1 className="font-heading text-xl font-bold text-[#0B1F3B]">Staff Login</h1>
-            <p className="text-xs text-slate-500 flex items-center justify-center gap-1">
-              <Lock className="h-3 w-3" /> Admins, telecallers & billing executives
-            </p>
-          </div>
-
-          {phase === "phone" && (
-            <form onSubmit={sendOtp} className="space-y-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="admin-phone" className="text-sm font-semibold">Mobile number</Label>
-                <Input
-                  id="admin-phone"
-                  type="tel"
-                  inputMode="numeric"
-                  maxLength={10}
-                  value={phone}
-                  onChange={(e) => { setPhone(e.target.value.replace(/\D/g, "").slice(0, 10)); setError(""); }}
-                  placeholder="10-digit mobile number"
-                  className="h-11 font-mono-nums"
-                  data-testid="admin-login-phone-input"
-                />
-              </div>
-              {error && <p className="text-sm font-medium text-[#C21F2B]" role="alert" data-testid="admin-login-error">{error}</p>}
-              <Button type="submit" disabled={loading} className="h-11 w-full bg-[#0B1F3B] hover:bg-[#081a31] font-semibold" data-testid="admin-login-send-otp-button">
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send OTP"}
-              </Button>
-            </form>
-          )}
-
-          {phase === "otp" && (
-            <div className="space-y-4">
-              <p className="text-center text-sm text-slate-600">
-                Enter the OTP sent to <span className="font-mono-nums font-semibold">+91 {phone}</span>
-              </p>
-              <div className="flex justify-center" data-testid="admin-login-otp-input">
-                <InputOTP maxLength={4} value={otp} onChange={(v) => { setOtp(v); setError(""); if (v.length === 4) verify(v); }} disabled={loading}>
-                  <InputOTPGroup className="gap-2">
-                    {[0, 1, 2, 3].map((i) => (
-                      <InputOTPSlot key={i} index={i} className="h-12 w-12 rounded-lg border border-slate-300 bg-white text-lg font-bold first:rounded-l-lg last:rounded-r-lg" />
-                    ))}
-                  </InputOTPGroup>
-                </InputOTP>
-              </div>
-              {error && <p className="text-center text-sm font-medium text-[#C21F2B]" role="alert" data-testid="admin-login-error">{error}</p>}
-              <Button onClick={() => verify()} disabled={loading || otp.length !== 4} className="h-11 w-full bg-[#0B1F3B] hover:bg-[#081a31] font-semibold" data-testid="admin-login-verify-button">
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify & Log In"}
-              </Button>
-              <button type="button" onClick={() => { setPhase("phone"); setOtp(""); setError(""); }} className="w-full text-center text-xs font-medium text-slate-500 hover:text-[#0B1F3B]" data-testid="admin-login-change-phone">
-                Use a different number
-              </button>
-            </div>
-          )}
-
-          <p className="flex items-center justify-center gap-1 text-[10px] text-slate-400">
-            <ShieldCheck className="h-3 w-3" /> Protected by OTP authentication, rate limiting and audit logging
-          </p>
-        </CardContent>
-      </Card>
-    </div>
-  );
+  return <main className="min-h-screen flex items-center justify-center p-4 bg-[#f5f6f8]">
+    <section className="w-full max-w-sm border bg-white rounded-lg p-6 space-y-5">
+      <img src="/brand/yash-mark-hd.png" alt="Yash Ornaments" className="h-16 w-16 mx-auto" />
+      <h1 className="font-heading text-2xl text-center font-bold" data-testid="staff-login-heading">Yash Ornaments · Staff Login</h1>
+      {challenge ? <OtpVerify prefix="admin" phone={phone} challenge={challenge} sentAt={sent} verifyPath="/admin/auth/verify-otp" resendPath="/admin/auth/send-otp" onResent={c => {setChallenge(c); setSent(Date.now());}} onChangeDetails={() => setChallenge(null)} onVerified={u => navigate(ROLE_HOME[u.role] || '/admin/login')} /> :
+      <form className="space-y-4" onSubmit={send}>
+        <label htmlFor="staff-phone">Mobile number</label><Input id="staff-phone" type="tel" inputMode="numeric" pattern="[6-9][0-9]{9}" required maxLength={10} value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, ''))} data-testid="admin-login-phone-input" />
+        {error && <p role="alert" className="text-sm text-red-700" data-testid="admin-login-error">{error}</p>}
+        <Button disabled={busy} className="w-full bg-[#0B1F3B]" data-testid="admin-login-send-otp-button">{busy ? 'Please wait…' : 'Send OTP'}</Button>
+      </form>}
+    </section>
+  </main>;
 }

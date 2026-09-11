@@ -13,6 +13,33 @@ export const api = axios.create({
 
 export const API_BASE = `${BACKEND_URL}/api`;
 
+let csrfPromise;
+export function csrfToken() {
+  if (!csrfPromise) csrfPromise = axios.get(`${API_BASE}/security/csrf`, { withCredentials: true }).then(r => r.data.csrf_token).catch(e => { csrfPromise = null; throw e; });
+  return csrfPromise;
+}
+api.interceptors.request.use(async config => {
+  if (!['get', 'head', 'options'].includes((config.method || 'get').toLowerCase())) {
+    config.headers['X-CSRF-Token'] = await csrfToken();
+    config.headers['X-Website-Origin'] = window.location.origin;
+  }
+  if (config.data instanceof FormData) delete config.headers['Content-Type'];
+  return config;
+});
+api.interceptors.response.use(r => r, e => {
+  if (e.response?.status === 401 && /^\/(bff|admin)\//.test(e.config?.url || '')) window.dispatchEvent(new Event('yash-session-ended'));
+  return Promise.reject(e);
+});
+export const shared = {
+  get: (path, params) => api.get(`/bff${path}`, { params }).then(r => r.data),
+  write: (method, path, body, params) => api.request({ method, url: `/bff${path}`, data: body, params }).then(r => r.data),
+};
+export async function download(path, filename, body) {
+  const r = await api.request({ method: body ? 'post' : 'get', url: `/bff${path}`, data: body, responseType: 'blob' });
+  const url = URL.createObjectURL(r.data); const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 /**
  * Human-readable error for any axios failure.
  *  - FastAPI JSON detail (string or validation array) -> shown as-is

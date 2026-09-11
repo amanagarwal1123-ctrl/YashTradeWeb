@@ -1,0 +1,20 @@
+{
+  "scope": "read-only counts from existing WEBSITE staging snapshot; no genuine identity export",
+  "observed_date": "2026-09-11",
+  "identity_collections": {
+    "customers": {"records": 0, "stored_live_user_id": 0, "stored_canonical_user_id": 0},
+    "staff_users": {"records": 2, "stored_live_user_id": 0, "stored_canonical_user_id": 0}
+  },
+  "reference_collections": {
+    "admin_sessions": {"records": 0, "stored_live_user_id": 0, "stored_canonical_user_id": 0},
+    "deletion_requests": {"records": 2, "stored_live_user_id": 2, "stored_canonical_user_id": 0},
+    "bff_sessions": {"records": 0, "stored_live_user_id": 0, "stored_canonical_user_id": 0},
+    "bff_drafts": {"records": 0, "stored_live_user_id": 0, "stored_canonical_user_id": 0},
+    "bff_cache": {"records": 0, "stored_live_user_id": 0, "stored_canonical_user_id": 0},
+    "bff_outbox": {"records": 0, "stored_live_user_id": 0, "stored_canonical_user_id": 0}
+  },
+  "export_tool_ready": true,
+  "actual_identity_export": "NOT_RUN; read-only credential and restricted transfer/retention approval required",
+  "reconciliation": "NOT_RUN; remains DRY_RUN pending restorable backup and exact conflict-hash/per-ID approval",
+  "production_identities_modified": 0
+}

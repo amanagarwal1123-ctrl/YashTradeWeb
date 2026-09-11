@@ -16,8 +16,8 @@ const AppleIcon = ({ className }) => (
 );
 
 export const SuccessStep = ({ customer, download, onStartOver }) => {
-  const androidUrl = download?.android_url || "#";
-  const iosUrl = download?.ios_url || "#";
+  const androidUrl = download?.android_url;
+  const iosUrl = download?.ios_url;
   return (
     <div className="space-y-6 text-center">
       <motion.div
@@ -50,11 +50,11 @@ export const SuccessStep = ({ customer, download, onStartOver }) => {
 
       <p className="text-sm leading-relaxed text-slate-700 px-1" data-testid="public-success-instructions">
         Your registration is complete. Download the Yash Trade App and log in using your registered phone
-        number. A one-time password will be sent to your phone when you log in.
+        number and a fresh OTP to complete the process in the app.
       </p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <a
+        {androidUrl ? <a
           href={androidUrl}
           target="_blank"
           rel="noreferrer"
@@ -66,8 +66,8 @@ export const SuccessStep = ({ customer, download, onStartOver }) => {
             <span className="block text-[10px] uppercase tracking-wide text-slate-500">Get it on</span>
             <span className="block text-sm font-bold text-[#0B1F3B]">Google Play</span>
           </span>
-        </a>
-        <a
+        </a> : <p data-testid="android-release-unavailable" className="text-sm border p-3 rounded-lg"><AndroidIcon className="h-7 w-7 mx-auto" />Android release unavailable</p>}
+        {iosUrl ? <a
           href={iosUrl}
           target="_blank"
           rel="noreferrer"
@@ -79,15 +79,15 @@ export const SuccessStep = ({ customer, download, onStartOver }) => {
             <span className="block text-[10px] uppercase tracking-wide text-slate-500">Download on the</span>
             <span className="block text-sm font-bold text-[#0B1F3B]">App Store</span>
           </span>
-        </a>
+        </a> : <p data-testid="ios-release-unavailable" className="text-sm border p-3 rounded-lg"><AppleIcon className="h-7 w-7 mx-auto" />iOS release unavailable</p>}
       </div>
 
-      <div className="flex flex-col items-center gap-2 pt-1">
+      {androidUrl && <div className="flex flex-col items-center gap-2 pt-1">
         <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm" data-testid="public-success-qr">
           <QRCodeSVG value={androidUrl} size={150} fgColor="#0B1F3B" />
         </div>
         <p className="text-xs text-slate-500">Scan to download the Yash Trade App</p>
-      </div>
+      </div>}
 
       {onStartOver && (
         <button

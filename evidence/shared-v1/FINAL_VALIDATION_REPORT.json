@@ -1,0 +1,76 @@
+{
+  "validation_scope": "Final focused verification for shared_v1 website staging integration",
+  "suite": "/app/tests/shared_v1",
+  "run_artifacts": {
+    "junit": "/app/evidence/shared-v1/final-junit.xml",
+    "pytest_log": "/app/evidence/shared-v1/final-pytest.log",
+    "browser_events": "/app/evidence/shared-v1/authenticated-browser-journeys-events.json"
+  },
+  "counts": {
+    "passed": 27,
+    "passing_backend_tests": 26,
+    "passing_browser_scenarios": 1,
+    "failed": 0,
+    "skipped": 0,
+    "xfailed": 3,
+    "xpassed": 0
+  },
+  "executed_test_files": [
+    "/app/tests/shared_v1/test_bff_auth_session.py",
+    "/app/tests/shared_v1/test_bff_feature_matrix.py",
+    "/app/tests/shared_v1/test_bff_authenticated_browser_journeys.py",
+    "/app/tests/shared_v1/test_bff_followup_core_regressions.py"
+  ],
+  "journeys_actually_run": [
+    "Public enrollment OTP send/verify with Step2 success (fixture-captured OTP, no real SMS)",
+    "Admin login and navigation: Users, Queries, Rates, Products, Leads, Batches, PDF import, Catalog authoring",
+    "Rates save via UI (changed-only mutation) and slab create/save",
+    "Product create with real photo bytes through routed multipart bridge",
+    "Reviewed PDF flow: sample download, authoring JSON download, upload/init/chunk/complete, review crop+move+save, hidden commit result checks",
+    "Catalog authoring form export download and assertion that export does not create products",
+    "Telecaller and billing login/navigation checks through routed real frontend"
+  ],
+  "focused_backend_coverage_added": [
+    "Rates changed-only behavior including stale version 409",
+    "Slab labour ambiguity rejection and structured labour basis create/edit/delete with versioning",
+    "Customers pagination/search/assignment/date-filter behavior with >20 records",
+    "All 7 canonical request types visibility in unassigned queues across admin/telecaller/billing",
+    "Request lifecycle: claim, idempotent PATCH replay, resolve, reopen, history, IST metrics summary",
+    "Deletion verification grant + cleanup ack + no-resurrection behavior",
+    "Media usage and lifecycle-audit contract (audited=true, remote_deletions=0)",
+    "Identity export projection function unit validation using synthetic docs only"
+  ],
+  "dependency_regressions_strict_xfail": [
+    {
+      "id": "D2",
+      "status": "XFAIL",
+      "statement": "customers/search static route can be shadowed by customers/{uid} dynamic route"
+    },
+    {
+      "id": "D3",
+      "status": "XFAIL",
+      "statement": "immutable customer_id filter for request history listing is unsupported/silently ignored"
+    },
+    {
+      "id": "D4",
+      "status": "XFAIL",
+      "statement": "deletion outbox first-100 pending retrieval can starve 101st event"
+    }
+  ],
+  "explicit_not_tested_scope": [
+    "No real canonical portal login with shared private keys (STAFF_SERVICE_KEY/enrollment key absent by design)",
+    "No real SMS delivery/receipt (fixture SMS capture only)",
+    "No production or shared canonical preview mutations occurred. Browser API requests were routed to isolated test apps; default website preview received only safe fail-closed configuration/validation probes.",
+    "No genuine identity export execution (projection function tested only; no readonly credential export run)",
+    "No provider storage remote deletion, capacity/load, or native app validation",
+    "No exhaustive date-boundary, tied/all-zero metric/drilldown, staff continuity race, auxiliary CRUD, or PDF partial/duplicate/publication/restart/owner-isolation permutation coverage claimed"
+  ],
+  "flows_not_working": [
+    "Known dependency gaps tracked as strict xfail: D2, D3, D4"
+  ],
+  "mocked_or_doubled_integrations": [
+    "SMS dispatch is MOCKED via in-memory capture fixture",
+    "Object storage is MOCKED via isolated byte store fixture",
+    "Canonical API is isolated ASGI transport to pinned source (not live external canonical service)"
+  ]
+}

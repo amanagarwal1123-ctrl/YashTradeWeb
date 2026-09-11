@@ -1,0 +1,27 @@
+import React,{useState} from 'react';
+import {PageTitle,State,useResource,Field,Check,Table,Notice,changed,label} from '@/components/admin/SharedUI';
+import {PrivateImage} from '@/components/admin/PrivateImage';
+import {shared,api,errMsg} from '@/lib/api';
+import {Button} from '@/components/ui/button';
+const translated=['title','title_hi','title_pa','description','description_hi','description_pa'];
+const configs={
+ banners:{list:'/banners/all',key:'banners',fields:['title','subtitle','image_url','cta_label','cta_type','cta_target','order','is_active','start_date','end_date'],defaults:{cta_type:'none',is_active:true,order:0}},
+ about:{key:'raw',fields:['section','content_en','content_hi','content_pa'],upsert:true},
+ schemes:{key:'schemes',fields:[...translated,'poster_url','is_active','order'],defaults:{is_active:true,order:0}},
+ brands:{key:'brands',fields:['name','logo_url','description','order','is_active'],defaults:{is_active:true,order:0}},
+ showroom:{key:'floors',fields:['floor_name','floor_name_hi','floor_name_pa','description','description_hi','description_pa','products_available','products_available_hi','products_available_pa','photos','order'],defaults:{photos:[],order:0}},
+ exhibitions:{key:'all',fields:[...translated,'poster_url','photos','date','location','is_upcoming','is_active'],defaults:{photos:[],is_upcoming:true,is_active:true}},
+ knowledge:{key:'articles',fields:['title','content','category','card_type','image_url','tags'],defaults:{category:'silver_care',card_type:'article',tags:[]},createOnly:true},
+ stories:{key:'stories',fields:['title','image_url','link_type','link_id','category'],createOnly:true}
+};
+export default function Content({onlyBanners=false}){const [kind,setKind]=useState(onlyBanners?'banners':'about');return <><PageTitle>{onlyBanners?'Banners':'App content'}</PageTitle>{!onlyBanners&&<Field name="content-kind" title="Content section" options={Object.keys(configs).filter(k=>k!=='banners')} value={kind} onChange={setKind}/>}<ContentEditor key={kind} kind={kind}/></>;}
+function ContentEditor({kind}){
+ const c=configs[kind],r=useResource(c.list||'/'+kind,{active_only:false}),[form,setForm]=useState(null),[old,setOld]=useState(null),[error,setError]=useState(''),[busy,setBusy]=useState(false);
+ const save=async()=>{setBusy(true);try{const ref=kind==='about'?old?.section:old?.id;await shared.write(old&&!c.upsert?'put':'post',`/${kind}${old&&!c.upsert?'/'+ref:''}`,old&&!c.upsert?changed(old,form):form);setForm(null);await r.load();setError('');}catch(e){setError(errMsg(e));}finally{setBusy(false);}};
+ const remove=async row=>{if(!window.confirm('Delete this metadata entry? Provider media erasure is not included.'))return;try{await shared.write('delete',`/${kind}/${kind==='about'?row.section:row.id}`);await r.load();}catch(e){setError(errMsg(e));}};
+ const upload=async(e,k)=>{const file=e.target.files?.[0];e.target.value='';if(!file)return;setBusy(true);try{const d=new FormData();d.append('file',file);const r=await api.post('/bff/banners/upload',d);const url=r.data.url||r.data.image_url;setForm(s=>({...s,[k]:k==='photos'?[...(s.photos||[]),url]:url}));}catch(e){setError(errMsg(e));}finally{setBusy(false);}};
+ const rows=r.data?.[c.key]||[];
+ return <><State resource={r} id={`content-${kind}`}/><Notice id="content-error">{error}</Notice><Button className="mt-4" data-testid="content-add" onClick={()=>{setOld(null);setForm({...c.defaults});}}>Add {label(kind)}</Button><p className="text-xs mt-3" data-testid="content-list-scope">Canonical bounded {kind} directory. Some legacy lists return active entries only; this is not a full archived-history export.</p>
+ <Table id={`content-${kind}`} rows={rows} columns={[{key:'name',title:'Entry',render:r=>r.title||r.name||r.floor_name||r.section},{key:'image',title:'Image',render:r=>(r.image_url||r.poster_url||r.logo_url)?<div className="w-20"><PrivateImage src={r.image_url||r.poster_url||r.logo_url} id={`content-image-${r.id}`}/></div>:'—'},{key:'is_active',title:'Active',render:r=>r.is_active===undefined?'—':String(r.is_active)},{key:'actions',title:'Actions',render:r=>!c.createOnly&&<><Button variant="outline" data-testid={`content-edit-${r.id||r.section}`} onClick={()=>{setOld(r);setForm(Object.fromEntries(c.fields.filter(k=>r[k]!==undefined).map(k=>[k,r[k]])));}}>Edit</Button><Button variant="ghost" data-testid={`content-delete-${r.id||r.section}`} onClick={()=>remove(r)}>Delete</Button></>}]}/>
+ {form&&<section className="app-dialog" data-testid="content-editor"><h2>{old?'Edit':'Create'} {kind}</h2><div className="fields-grid">{c.fields.map(k=>typeof(c.defaults?.[k])==='boolean'?<Check key={k} id={`content-${k}`} value={form[k]} onChange={v=>setForm({...form,[k]:v})}>{label(k)}</Check>:<div key={k}><Field name={`content-${k}`} title={label(k)} type={k==='order'?'number':'text'} value={Array.isArray(form[k])?form[k].join(', '):form[k]} onChange={v=>setForm({...form,[k]:['tags','photos'].includes(k)?v.split(',').map(v=>v.trim()).filter(Boolean):k==='order'?Number(v):v})}/>{['image_url','poster_url','logo_url','photos'].includes(k)&&<label className="field mt-2">Upload image<input type="file" accept="image/jpeg,image/png,image/webp" onChange={e=>upload(e,k)} disabled={busy} data-testid={`content-upload-${k}`}/></label>}</div>)}</div><Button disabled={busy} data-testid="content-save" onClick={save}>Save</Button><Button variant="ghost" data-testid="content-cancel" onClick={()=>setForm(null)}>Cancel</Button></section>}</>;
+}

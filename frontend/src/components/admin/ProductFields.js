@@ -1,0 +1,11 @@
+import React from 'react';
+import {Field,Check} from './SharedUI';
+export const NEW_PRODUCT={product_code:'',title:'',metal_type:'silver',category:'',visibility:'hidden',stock_status:'in_stock',tags:[],is_new_arrival:true,is_trending:false,is_pinned:false};
+export const ProductFields=({value,onChange,prefix='product'})=>{
+ const set=(k,v)=>onChange({...value,[k]:v});
+ return <><div className="fields-grid">{[['product_code','Product code · exact SKU'],['title','Product name'],['category','Category'],['subcategory','Subcategory'],['description','Description'],['approx_weight','Metal weight · g / g per pair'],['purity','Purity'],['selling_touch','Selling touch'],['selling_label','Selling label'],['video_url','Video · HTTPS YouTube/Vimeo']].map(([k,t])=><Field key={k} name={`${prefix}-${k}`} title={t} value={value[k]} onChange={v=>set(k,v)} required={['product_code','title','category'].includes(k)}/>)}
+ <Field name={`${prefix}-metal_type`} title="Product metal" options={['silver','gold','diamond']} value={value.metal_type} onChange={v=>set('metal_type',v)}/><Field name={`${prefix}-stock_status`} options={['in_stock','limited','out_of_stock']} value={value.stock_status} onChange={v=>set('stock_status',v)}/><Field name={`${prefix}-visibility`} options={[{value:'hidden',label:'Hidden draft'},{value:'all',label:'Published'}]} value={value.visibility} onChange={v=>set('visibility',v)}/>
+ <Field name={`${prefix}-tags`} title="Tags · comma separated" value={(value.tags||[]).join(', ')} onChange={v=>set('tags',v.split(',').map(t=>t.trim()).filter(Boolean))}/>
+ {value.metal_type==='diamond'&&<><Field name={`${prefix}-base_metal`} title="Diamond setting metal" options={[{value:'',label:'Not specified'},'gold','silver','platinum']} value={value.base_metal} onChange={v=>set('base_metal',v)}/><Field name={`${prefix}-stone_weight_ct`} title="Stone weight · ct" type="number" min="0" step="any" value={value.stone_weight_ct} onChange={v=>set('stone_weight_ct',v===''?'':Number(v))}/></>}</div>
+ <div className="flex flex-wrap gap-5 my-4">{['is_new_arrival','is_trending','is_pinned'].map(k=><Check key={k} id={`${prefix}-${k}`} value={value[k]} onChange={v=>set(k,v)}>{k.replace('is_','').replace('_',' ')}</Check>)}</div></>;
+};
