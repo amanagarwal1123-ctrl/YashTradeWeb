@@ -6,6 +6,7 @@ from fastapi import APIRouter, Request, Response, Depends
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from .canonical import fail, UpstreamError
 from .security import browser, cookie, digest, now, rate_limit, staff_session, public_staff, COOKIE, BROWSER, client_ip
+from .readiness import ensure_flow
 
 router = APIRouter(prefix='/api')
 
@@ -59,6 +60,7 @@ def ip_headers(request):
 
 
 async def send(request, body, purpose):
+    await ensure_flow(request, 'staff' if purpose == 'login' else purpose)
     bid, _ = await browser(request)
     if purpose == 'enrollment':
         old = await request.app.state.db.bff_drafts.find_one({'_id': bid+':enrollment'}, {'_id': 0})
@@ -99,6 +101,7 @@ async def get_draft(request, purpose):
 
 
 async def verify_challenge(request, body, purpose):
+    await ensure_flow(request, 'staff' if purpose == 'login' else purpose)
     did, draft = await get_draft(request, purpose)
     if body.phone != draft['phone'] or body.challenge_id != draft['challenge']['challenge_id']:
         fail(400, 'CHALLENGE_MISMATCH', 'Use the code from this verification request.')

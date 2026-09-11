@@ -1,0 +1,32 @@
+{
+  "incident": "production canonical authentication configuration missing",
+  "production_config_changed": false,
+  "production_restored": false,
+  "production_private_settings_writer_available": false,
+  "confirmed_causes": [
+    "Both production website surfaces are running the prior staging shared-v1 build without CANONICAL_API_BASE_URL, ENROLLMENT_INTEGRATION_KEY or STAFF_SERVICE_KEY",
+    "Canonical app STAFF_SERVICE_KEY absent",
+    "Hosted website origin rejected while custom-domain invalid-body validation passed",
+    "Old health endpoint returned HTTP 200 despite integration_ready=false"
+  ],
+  "existing_enrollment_key_check": {
+    "method": "GET",
+    "path": "/api/integrations/customers/not-a-phone",
+    "http_status": 422,
+    "code": "INVALID_PHONE",
+    "genuine_identity_lookup": false,
+    "sms_sent": false,
+    "secret_value_disclosed": false
+  },
+  "isolated_tests": {
+    "passed": 33,
+    "unexpected_failures": 0,
+    "strict_xfail_dependencies": 3,
+    "report": "/app/test_reports/iteration_11.json",
+    "junit": "/app/test_reports/pytest/pytest_iteration11_full.xml",
+    "mocked_boundaries": ["SMS capture", "object storage test transport", "canonical ASGI network transport"],
+    "real_canonical_login_verified": false
+  },
+  "preview_build": "website-shared-v1-auth-readiness-v1",
+  "remaining_action": "Apply the exact coordinated PRIVATE production runtime settings in PRODUCTION_AUTH_CONFIGURATION.md; never commit .env or reuse enrollment key for staff"
+}

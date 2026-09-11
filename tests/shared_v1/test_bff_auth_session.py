@@ -15,12 +15,13 @@ import uuid
 from datetime import datetime, timezone
 
 import pytest
-from dotenv import load_dotenv
+from dotenv import load_dotenv, dotenv_values
 from httpx import ASGITransport, AsyncClient
 from motor.motor_asyncio import AsyncIOMotorClient
 import fitz  # noqa: F401
 
 load_dotenv("/app/backend/.env")
+FRONTEND_URL = (dotenv_values('/app/frontend/.env').get('REACT_APP_BACKEND_URL') or '').rstrip('/')
 
 
 def _load_module(alias: str, path: str):
@@ -199,10 +200,12 @@ async def shared_apps(monkeypatch):
         sys.path.insert(0, "/app/backend")
     website_server = _load_module("website_server_shared_tests", "/app/backend/server.py")
 
+    origins = ("https://website.test", FRONTEND_URL) if FRONTEND_URL else ("https://website.test",)
+
     cfg = website_server.Settings(
         mongo_url=mongo_url,
         db_name=website_db_name,
-        origins=("https://website.test",),
+        origins=origins,
         base="https://canonical.test/api",
         enrollment_key=os.environ["ENROLLMENT_INTEGRATION_KEY"],
         staff_key=os.environ["STAFF_SERVICE_KEY"],
@@ -334,7 +337,7 @@ async def test_same_service_and_enrollment_key_fails_closed(shared_apps):
         csrf = await _csrf(client)
         sent = await client.post("/api/admin/auth/send-otp", json={"phone": "9000000101"}, headers=_headers(csrf))
         assert sent.status_code == 503
-        assert sent.json()["code"] == "CONFIGURATION_REQUIRED"
+    assert sent.json()["code"] == "AUTH_SERVICE_UNAVAILABLE"
 
 
 @pytest.mark.anyio

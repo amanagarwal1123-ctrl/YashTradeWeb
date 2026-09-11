@@ -19,7 +19,7 @@ class Canonical:
 
     def headers(self, path, token=None, key=None, extra=None):
         if not self.cfg.valid_base:
-            fail(503, 'CONFIGURATION_REQUIRED', 'An approved canonical staging API is not configured.')
+            fail(503, 'CONFIGURATION_REQUIRED', 'The verification service is not configured. Please contact the website administrator.')
         if not re.fullmatch(r'/[A-Za-z0-9_./-]+', path) or '..' in path or '//' in path:
             fail(400, 'INVALID_UPSTREAM_PATH', 'Invalid canonical resource path.')
         headers = {'Accept': 'application/json'}
@@ -49,6 +49,8 @@ class Canonical:
         except ValueError:
             body = {}
         code = body.get('code', 'CANONICAL_ERROR') if isinstance(body, dict) else 'CANONICAL_ERROR'
+        if code in {'SERVICE_KEY_INVALID', 'INTEGRATION_KEY_INVALID', 'CONFIGURATION_REQUIRED'}:
+            fail(503, 'AUTH_SERVICE_UNAVAILABLE', 'The verification service is temporarily unavailable. Please contact the website administrator.')
         detail = body.get('detail') if isinstance(body, dict) else None
         if not isinstance(detail, str):
             detail = 'Canonical request rejected. Review the submitted fields.'

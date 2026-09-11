@@ -2,7 +2,7 @@ import os
 from dataclasses import dataclass
 from urllib.parse import urlsplit
 
-BUILD = 'website-shared-v1-staging-2026-09-11'
+BUILD = 'website-shared-v1-auth-readiness-v1'
 CONTRACT_COMMIT = 'c4ee70d8134625a1a4e04073c43b9460c3c4e40d'
 
 
@@ -27,7 +27,7 @@ class Settings:
         # Explicit per-runtime website origin allowlist; never depend on frontend files.
         origins = os.environ.get('BFF_ALLOWED_ORIGINS', '')
         return cls(os.environ['MONGO_URL'], os.environ['DB_NAME'], tuple(x.strip().rstrip('/') for x in origins.split(',') if x.strip()),
-                   os.environ.get('CANONICAL_API_BASE_URL', '').rstrip('/'),
+                   os.environ.get('CANONICAL_API_BASE_URL', '').strip().rstrip('/'),
                    os.environ.get('ENROLLMENT_INTEGRATION_KEY', ''), os.environ.get('STAFF_SERVICE_KEY', ''),
                    os.environ.get('SESSION_SECRET', ''), os.environ.get('BUILD_COMMIT', ''),
                    tuple(x.strip() for x in os.environ.get('TRUSTED_INGRESS_CIDRS', '').split(',') if x.strip()),
@@ -47,13 +47,40 @@ class Settings:
 
     @property
     def ready(self):
-        return bool(self.valid_base and len(self.session_secret) >= 32 and len(self.staff_key) >= 32
-                    and len(self.enrollment_key) >= 32 and self.staff_key != self.enrollment_key)
+        return not any(self.flow_issues(flow) for flow in ('staff', 'enrollment', 'deletion'))
+
+    @staticmethod
+    def valid_origin(value):
+        try:
+            parsed = urlsplit(value)
+            return bool(parsed.scheme == 'https' and parsed.hostname and parsed.path == ''
+                        and not parsed.username and not parsed.password and not parsed.query and not parsed.fragment
+                        and parsed.port in (None, 443))
+        except ValueError:
+            return False
+
+    def flow_issues(self, flow):
+        """Return configuration NAMES only, never values. No legacy/production fallback."""
+        issues = []
+        if not self.valid_base:
+            issues.append('CANONICAL_API_BASE_URL')
+        if len(self.session_secret) < 32:
+            issues.append('SESSION_SECRET')
+        if not self.origins or not all(self.valid_origin(o) for o in self.origins):
+            issues.append('BFF_ALLOWED_ORIGINS')
+        if not all(self.valid_origin(o) for o in self.ingress_origins):
+            issues.append('BFF_INGRESS_ORIGINS')
+        name, value = ('STAFF_SERVICE_KEY', self.staff_key) if flow == 'staff' else ('ENROLLMENT_INTEGRATION_KEY', self.enrollment_key)
+        if len(value) < 32:
+            issues.append(name)
+        if self.staff_key and self.staff_key == self.enrollment_key:
+            issues.append('SERVICE_KEYS_MUST_DIFFER')
+        return issues
 
     def presence(self):
         return {'CANONICAL_API_BASE_URL': bool(self.base), 'ENROLLMENT_INTEGRATION_KEY': bool(self.enrollment_key),
                 'STAFF_SERVICE_KEY': bool(self.staff_key), 'SESSION_SECRET': bool(self.session_secret),
-                'BUILD_COMMIT': bool(self.build_commit), 'BFF_ALLOWED_ORIGINS': bool(self.origins), 'TRUSTED_INGRESS_CIDRS': bool(self.trusted_ingress),
+                'BUILD_COMMIT': bool(self.build_commit), 'BFF_ALLOWED_ORIGINS': bool(self.origins), 'BFF_INGRESS_ORIGINS': bool(self.ingress_origins), 'TRUSTED_INGRESS_CIDRS': bool(self.trusted_ingress),
                 'FORWARD_CANONICAL_CLIENT_IP': self.forward_client_ip}
 
     def downloads(self):

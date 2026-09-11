@@ -1,4 +1,4 @@
-"""Staging shared-v1 website BFF. No legacy OTP, role seeds or customer master writes."""
+"""Shared-v1 website BFF. No legacy OTP, role seeds or customer master writes."""
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -14,6 +14,7 @@ from bff.canonical import Canonical, UpstreamError
 from bff.security import security_middleware
 from bff.routes import router
 from bff.proxy import router as proxy_router
+from bff.readiness import Readiness, health_report
 
 logging.getLogger('httpx').setLevel(logging.WARNING)
 logging.getLogger('httpcore').setLevel(logging.WARNING)
@@ -26,6 +27,9 @@ def create_app(settings=None, database=None, provider=None):
 
     @asynccontextmanager
     async def lifespan(app):
+        if not cfg.ready:
+            logging.getLogger('bff.configuration').warning('auth_configuration_incomplete %s',
+                {flow: cfg.flow_issues(flow) for flow in ('staff', 'enrollment', 'deletion')})
         for name in ('bff_sessions', 'bff_browsers', 'bff_drafts', 'bff_limits'):
             await database[name].create_index('expires_at', expireAfterSeconds=0)
         yield
@@ -36,6 +40,7 @@ def create_app(settings=None, database=None, provider=None):
                   docs_url=None, redoc_url=None, openapi_url='/api/openapi.json')
     app.state.cfg, app.state.db = cfg, database
     app.state.canonical = provider or Canonical(cfg)
+    app.state.readiness = Readiness(cfg, app.state.canonical)
     app.middleware('http')(security_middleware)
 
     @app.exception_handler(UpstreamError)
@@ -52,10 +57,25 @@ def create_app(settings=None, database=None, provider=None):
                              'fields': ['.'.join(str(x) for x in e['loc'][1:]) for e in exc.errors()]}, status_code=422)
 
     @app.get('/api/health')
+    @app.get('/api/health/ready')
     async def health():
-        return {'status': 'ok', 'build': BUILD, 'commit': cfg.build_commit or 'unrecorded',
-                'app_contract_commit': CONTRACT_COMMIT, 'integration_ready': cfg.ready,
-                'configuration': cfg.presence(), 'production_changed_by_this_task': False}
+        report = await health_report(app)
+        return JSONResponse(report, status_code=200 if report['integration_ready'] else 503)
+
+    @app.get('/api/health/live')
+    async def live():
+        return {'status': 'alive', 'build': BUILD}
+
+    @app.get('/api/public/auth-status')
+    async def auth_status(website_origin: str = ''):
+        status = await app.state.readiness.public()
+        allowed = not website_origin or website_origin in cfg.origins
+        status['origin_allowed'] = allowed
+        if not allowed:
+            status['flows'] = {flow: {'available': False, 'message':
+                'Verification is unavailable on this website address. Please contact the website administrator.'}
+                for flow in status['flows']}
+        return status
 
     app.include_router(router)
     app.include_router(proxy_router)

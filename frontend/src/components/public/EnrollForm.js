@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { api, errMsg } from "@/lib/api";
 import { toast } from "sonner";
+import { AuthAvailability, useAuthAvailability } from './AuthAvailability';
 
 export const EnrollForm = ({ onOtpSent, defaults, onChange }) => {
   const [form, setForm] = useState({
@@ -18,6 +19,7 @@ export const EnrollForm = ({ onOtpSent, defaults, onChange }) => {
   const [consent, setConsent] = useState(!!defaults?.consent);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const availability = useAuthAvailability('enrollment');
 
   // Report every keystroke to the parent so a half-filled form survives a reload,
   // a switch to the SMS app, or the browser back button.
@@ -49,6 +51,7 @@ export const EnrollForm = ({ onOtpSent, defaults, onChange }) => {
 
   const submit = async (e) => {
     e.preventDefault();
+    if (!availability.available) return;
     if (!validate()) return;
     setLoading(true);
     try {
@@ -158,9 +161,10 @@ export const EnrollForm = ({ onOtpSent, defaults, onChange }) => {
         {errors.consent && <p className="text-xs font-medium text-[#C21F2B] pl-7" data-testid="public-consent-error">{errors.consent}</p>}
       </div>
 
+      <AuthAvailability state={availability} prefix="enrollment" />
       <Button
         type="submit"
-        disabled={loading}
+        disabled={loading || !availability.available || availability.checking}
         className="h-12 w-full rounded-lg bg-[#0B1F3B] text-white text-base font-bold shadow-sm hover:bg-[#081a31] active:scale-[0.98] transition-colors"
         data-testid="public-enroll-send-otp-button"
       >
