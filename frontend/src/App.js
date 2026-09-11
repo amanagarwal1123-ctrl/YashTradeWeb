@@ -10,6 +10,10 @@ import AdminLayout from "@/components/admin/AdminLayout";
 import Dashboard from "@/pages/admin/Dashboard";
 import Users from "@/pages/admin/Users";
 import UserDetail from "@/pages/admin/UserDetail";
+import Staff from "@/pages/admin/Staff";
+import Products from "@/pages/admin/Products";
+import Queries from "@/pages/admin/Queries";
+import Rates from "@/pages/admin/Rates";
 import LiveModule from "@/pages/admin/LiveModule";
 import Reports from "@/pages/admin/Reports";
 import Settings from "@/pages/admin/Settings";
@@ -28,6 +32,10 @@ export default function App() {
           <Route index element={<Dashboard />} />
           <Route path="users" element={<Users />} />
           <Route path="users/:id" element={<UserDetail />} />
+          <Route path="staff" element={<Staff />} />
+          <Route path="products" element={<Products />} />
+          <Route path="queries" element={<Queries />} />
+          <Route path="rates" element={<Rates />} />
           <Route path="modules/:moduleKey" element={<LiveModule />} />
           <Route path="reports" element={<Reports />} />
           <Route path="settings" element={<Settings />} />

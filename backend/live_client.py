@@ -202,6 +202,88 @@ async def integration_probe() -> dict:
     return res
 
 
+# ---------------------------------------------------------------------------
+# Staff (app users with roles admin / telecaller / billing_executive)
+# Contract: docs/YASH_TRADE_APP_INTEGRATION.md -> "Staff (users & roles)"
+#   GET    {staff_path}                 list   (?role=&status=)
+#   POST   {staff_path}                 upsert by phone {phone,name,role,code,status}
+#   PATCH  {staff_path}/{id_or_phone}   partial update
+#   DELETE {staff_path}/{id_or_phone}   soft-disable (?hard=true removes)
+# ---------------------------------------------------------------------------
+_cfg["staff_path"] = os.environ.get("LIVE_INTEGRATION_STAFF_PATH") or "/api/integrations/staff"
+STAFF_ROLES = ("admin", "telecaller", "billing_executive")
+STAFF_TIMEOUT = 12  # staff calls happen inside admin requests - keep them snappy
+
+
+def staff_path() -> str:
+    return _cfg["staff_path"]
+
+
+async def _staff_client() -> httpx.AsyncClient:
+    return httpx.AsyncClient(base_url=_cfg["base"], timeout=STAFF_TIMEOUT)
+
+
+async def _staff_call(method: str, path: str, **kw):
+    if not _cfg["key"]:
+        return 0, {"detail": "LIVE_INTEGRATION_KEY is not configured on this server."}
+    try:
+        async with await _staff_client() as c:
+            r = await c.request(method, path, headers=_hdr(), **kw)
+        return r.status_code, _body(r)
+    except Exception as e:
+        logger.error("live staff %s %s failed: %s", method, path, e)
+        return 502, {"detail": f"Live backend unreachable: {type(e).__name__}"}
+
+
+async def live_staff_list(role: str = None, status: str = None):
+    params = {k: v for k, v in (("role", role), ("status", status)) if v}
+    return await _staff_call("GET", _cfg["staff_path"], params=params)
+
+
+async def live_staff_upsert(payload: dict):
+    return await _staff_call("POST", _cfg["staff_path"], json=payload)
+
+
+async def live_staff_update(id_or_phone: str, updates: dict):
+    return await _staff_call("PATCH", f"{_cfg['staff_path']}/{id_or_phone}", json=updates)
+
+
+async def live_staff_delete(id_or_phone: str, hard: bool = False):
+    return await _staff_call("DELETE", f"{_cfg['staff_path']}/{id_or_phone}", params={"hard": "true"} if hard else None)
+
+
+def staff_endpoint_missing(code: int, body: dict) -> bool:
+    """True when the app build does not expose the staff endpoints yet (plain FastAPI 404)."""
+    if code != 404:
+        return False
+    detail = str((body or {}).get("detail") or (body or {}).get("raw") or "").strip().strip('"')
+    return detail in ("Not Found", "Route Missing", "") or "integrations/staff" in detail
+
+
+async def staff_integration_probe() -> dict:
+    """Is the staff endpoint deployed on the app and does it accept our key? Read-only (GET list)."""
+    cfg = integration_config()
+    res = {"configured": cfg["key_configured"], "endpoint_live": None, "key_accepted": None,
+           "detail": None, "path": _cfg["staff_path"], "app_user_count": None}
+    if not cfg["key_configured"]:
+        res["detail"] = "LIVE_INTEGRATION_KEY is not configured on this server."
+        return res
+    code, body = await live_staff_list()
+    if code == 200:
+        users = body.get("users") if isinstance(body, dict) else None
+        res.update(endpoint_live=True, key_accepted=True, detail="Staff endpoint live and key accepted.",
+                   app_user_count=len(users) if isinstance(users, list) else None)
+    elif code in (401, 403):
+        res.update(endpoint_live=True, key_accepted=False, detail="Staff endpoint is live but the app backend rejected our key.")
+    elif staff_endpoint_missing(code, body):
+        res.update(endpoint_live=False, detail="The Yash Trade App backend has not deployed the staff endpoints (/api/integrations/staff) yet. Changes are saved here and will sync once it does.")
+    elif code == 502 or code == 0:
+        res.update(endpoint_live=None, detail=str(body.get("detail")))
+    else:
+        res.update(endpoint_live=True, key_accepted=None, detail=_explain(code, body, "staff probe"))
+    return res
+
+
 async def _client() -> httpx.AsyncClient:
     return httpx.AsyncClient(base_url=_cfg["base"], timeout=TIMEOUT)
 
@@ -278,6 +360,73 @@ async def live_admin_request(method: str, path: str, token: str, params: dict = 
     except Exception as e:
         logger.error("live proxy %s %s failed: %s", method, path, e)
         return 502, {"detail": "Live backend unreachable"}
+
+
+# ---------------------------------------------------------------------------
+# Act-as-staff (token on behalf) + public reads - see docs Part 2 "Staff console"
+#   POST {staff_path}/{id_or_phone}/token  (X-Integration-Key)  -> {token, expires_at, user}
+# ---------------------------------------------------------------------------
+_cfg["upload_path"] = os.environ.get("LIVE_PRODUCT_IMAGE_UPLOAD_PATH") or "/api/banners/upload"
+
+
+async def live_staff_token(id_or_phone: str):
+    """Ask the app for a short-lived token for this staff member. Returns (status, body)."""
+    return await _staff_call("POST", f"{_cfg['staff_path']}/{id_or_phone}/token", json={"issued_via": "website"})
+
+
+async def live_public_get(path: str, params: dict = None, retries: int = 2):
+    """Unauthenticated read of the app's public catalogue/rates endpoints. Returns (status, body).
+    Retries once on transient transport errors (connection reset, incomplete read...)."""
+    last = None
+    for attempt in range(retries):
+        try:
+            async with await _staff_client() as c:
+                r = await c.get(path, params=params)
+            return r.status_code, _body(r)
+        except Exception as e:
+            last = e
+            logger.warning("live public GET %s attempt %s failed: %r", path, attempt + 1, e)
+            if attempt < retries - 1:
+                await asyncio.sleep(0.4)
+    return 502, {"detail": f"Live backend unreachable: {type(last).__name__}"}
+
+
+async def live_as_user(method: str, path: str, token: str, params: dict = None, payload=None):
+    """Request to the app as a staff member (bearer token). Returns (status, body). GETs retry once."""
+    retries = 2 if method.upper() == "GET" else 1
+    last = None
+    for attempt in range(retries):
+        try:
+            async with await _staff_client() as c:
+                r = await c.request(method, path, params=params, json=payload,
+                                    headers={"Authorization": f"Bearer {token}", "Accept": "application/json"})
+            return r.status_code, _body(r)
+        except Exception as e:
+            last = e
+            logger.warning("live as-user %s %s attempt %s failed: %r", method, path, attempt + 1, e)
+            if attempt < retries - 1:
+                await asyncio.sleep(0.4)
+    return 502, {"detail": f"Live backend unreachable: {type(last).__name__}"}
+
+
+async def _upload_client() -> httpx.AsyncClient:
+    return httpx.AsyncClient(base_url=_cfg["base"], timeout=60)
+
+
+async def live_upload_image(token: str, filename: str, content: bytes, content_type: str, field: str = "file"):
+    """Multipart upload of one image to the app's object storage. Returns (status, body) - body carries the served url."""
+    try:
+        async with await _upload_client() as c:
+            r = await c.post(_cfg["upload_path"], files={field: (filename, content, content_type)},
+                             headers={"Authorization": f"Bearer {token}", "Accept": "application/json"})
+        return r.status_code, _body(r)
+    except Exception as e:
+        logger.error("live upload failed: %s", e)
+        return 502, {"detail": f"Live backend unreachable: {type(e).__name__}"}
+
+
+def upload_path() -> str:
+    return _cfg["upload_path"]
 
 
 async def get_customer_token(phone: str, retries: int = 3) -> Optional[dict]:

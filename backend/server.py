@@ -19,7 +19,7 @@ from zoneinfo import ZoneInfo
 from typing import Optional
 import uuid
 
-from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends, Query
+from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends, Query, UploadFile, File
 from fastapi.responses import StreamingResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -37,10 +37,13 @@ from live_client import (  # noqa: E402
     live_admin_request, get_customer_token, sync_enrollment_to_live,
     live_health, compare_profile, sync_method, SYNC_FIELDS,
     configure_integration, integration_config, integration_probe, live_integration_get, live_integration_delete,
+    STAFF_ROLES, live_staff_list, live_staff_upsert, live_staff_update, live_staff_delete,
+    staff_endpoint_missing, staff_integration_probe, _explain,
+    live_staff_token, live_public_get, live_as_user, live_upload_image, upload_path,
 )
 
 # Bump on every SMS/OTP-related change so the deployed build can be verified via /api/health
-APP_BUILD = "2026.09.10-login-v10"
+APP_BUILD = "2026.09.11-console-v12"
 
 # ------------------------------------------------------------------
 # Setup
@@ -741,6 +744,170 @@ async def account_delete_confirm(body: DeleteConfirm, request: Request):
 
 
 # ------------------------------------------------------------------
+# STAFF DIRECTORY (Manage Users) - the ONE list of admins / telecallers /
+# billing executives. It decides who may log in to this portal AND is mirrored
+# to the Yash Trade App through the integration key (docs/YASH_TRADE_APP_INTEGRATION.md).
+#   status: active | disabled | removed (tombstone so env seeding never resurrects it)
+#   source: env (bootstrapped from ADMIN_PHONES/TELECALLER_PHONES) | site | app (imported)
+#   app_sync_status: ok | pending | failed | not_configured
+# ------------------------------------------------------------------
+
+STAFF_ROLE_LABELS = {"admin": "Admin", "telecaller": "Telecaller", "billing_executive": "Billing Executive"}
+STAFF_PUBLIC_FIELDS = ("id", "name", "phone", "role", "code", "status", "source", "app_user_id", "app_sync_status",
+                       "app_sync_error", "app_synced_at", "app_last_login", "site_last_login", "created_at", "updated_at",
+                       "created_by", "updated_by")
+
+
+def staff_view(doc: dict) -> dict:
+    return {k: doc.get(k) for k in STAFF_PUBLIC_FIELDS}
+
+
+async def portal_role_for(phone: str) -> Optional[str]:
+    """Role that grants this phone access to the portal, or None.
+    Source of truth = staff_users. Env phones only act as a safety net when the directory
+    has no active admin at all (fresh database), so nobody can be locked out permanently."""
+    doc = await db.staff_users.find_one({"phone": phone})
+    if doc:
+        return doc["role"] if doc.get("status") == "active" else None
+    if phone in ADMIN_PHONES and await db.staff_users.count_documents({"role": "admin", "status": "active"}) == 0:
+        return "admin"
+    return None
+
+
+async def seed_staff_from_env():
+    """Bootstrap the directory from the env whitelist. Never touches existing/removed records."""
+    now = iso_now()
+    seeded = 0
+    for role, phones in (("admin", ADMIN_PHONES), ("telecaller", TELECALLER_PHONES)):
+        for phone in sorted(phones):
+            if not normalize_phone(phone):
+                continue
+            if await db.staff_users.find_one({"phone": phone}):
+                continue
+            await db.staff_users.insert_one({
+                "id": str(uuid.uuid4()), "name": f"{STAFF_ROLE_LABELS[role]} {phone[-4:]}", "phone": phone, "role": role,
+                "code": None, "status": "active", "source": "env", "app_user_id": None,
+                "app_sync_status": "pending", "app_sync_error": None, "app_synced_at": None, "app_last_login": None,
+                "site_last_login": None, "created_at": now, "updated_at": now, "created_by": "system", "updated_by": "system",
+            })
+            seeded += 1
+    if seeded:
+        logger.info("Staff directory: seeded %s user(s) from env whitelist", seeded)
+
+
+def _staff_sync_outcome(code: int, body: dict, action: str) -> dict:
+    """Translate an app response into the fields stored on the staff record."""
+    now = iso_now()
+    if code == 0:
+        return {"app_sync_status": "not_configured", "app_sync_error": str(body.get("detail")), "app_synced_at": None}
+    if code in (200, 201):
+        user = (body or {}).get("user") or {}
+        out = {"app_sync_status": "ok", "app_sync_error": None, "app_synced_at": now}
+        if user.get("id"):
+            out["app_user_id"] = str(user["id"])
+        if "last_login" in user:
+            out["app_last_login"] = user.get("last_login")
+        return out
+    if staff_endpoint_missing(code, body):
+        return {"app_sync_status": "pending", "app_synced_at": None,
+                "app_sync_error": "Yash Trade App has not deployed the staff endpoints yet - will sync when it does."}
+    if code == 404 and action == "remove":
+        # nothing to remove on the app side - that is the desired end state
+        return {"app_sync_status": "ok", "app_sync_error": None, "app_synced_at": now}
+    return {"app_sync_status": "failed", "app_synced_at": None, "app_sync_error": _explain(code, body, f"staff {action}")}
+
+
+async def push_staff_to_app(doc: dict, action: str, changes: dict = None) -> dict:
+    """Mirror one staff record to the app. Never raises - the outcome is stored on the record."""
+    ref = doc.get("app_user_id") or doc["phone"]
+    if action == "remove":
+        code, body = await live_staff_delete(ref)
+    elif action == "update" and doc.get("app_user_id"):
+        code, body = await live_staff_update(ref, changes or {})
+        if code == 404 and not staff_endpoint_missing(code, body):
+            # app lost the record (or we hold a stale id) - recreate it
+            code, body = await live_staff_upsert({k: doc.get(k) for k in ("phone", "name", "role", "code", "status")})
+    else:
+        code, body = await live_staff_upsert({k: doc.get(k) for k in ("phone", "name", "role", "code", "status")})
+    outcome = _staff_sync_outcome(code, body, action)
+    if action == "remove" and outcome["app_sync_status"] == "ok":
+        outcome["app_user_id"] = doc.get("app_user_id")
+    await db.staff_users.update_one({"id": doc["id"]}, {"$set": outcome})
+    return outcome
+
+
+class StaffCreate(BaseModel):
+    name: str = Field(min_length=2, max_length=100)
+    phone: str
+    role: str
+    code: Optional[str] = Field(default=None, max_length=30)
+
+    @field_validator("name", "code")
+    @classmethod
+    def _strip(cls, v):
+        return v.strip() if isinstance(v, str) else v
+
+    @field_validator("role")
+    @classmethod
+    def _role(cls, v):
+        if v not in STAFF_ROLES:
+            raise ValueError(f"role must be one of {', '.join(STAFF_ROLES)}")
+        return v
+
+
+class StaffUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=2, max_length=100)
+    phone: Optional[str] = None
+    role: Optional[str] = None
+    code: Optional[str] = Field(default=None, max_length=30)
+    status: Optional[str] = None
+
+    @field_validator("name", "code")
+    @classmethod
+    def _strip(cls, v):
+        return v.strip() if isinstance(v, str) else v
+
+    @field_validator("role")
+    @classmethod
+    def _role(cls, v):
+        if v is not None and v not in STAFF_ROLES:
+            raise ValueError(f"role must be one of {', '.join(STAFF_ROLES)}")
+        return v
+
+    @field_validator("status")
+    @classmethod
+    def _status(cls, v):
+        if v is not None and v not in ("active", "disabled"):
+            raise ValueError("status must be active or disabled")
+        return v
+
+
+async def _staff_or_404(staff_id: str) -> dict:
+    doc = await db.staff_users.find_one({"id": staff_id, "status": {"$ne": "removed"}})
+    if not doc:
+        raise HTTPException(404, "Staff user not found.")
+    return doc
+
+
+async def _assert_not_last_admin(doc: dict, becoming_inactive_admin: bool):
+    """Refuse changes that would leave the portal without any active admin."""
+    if not becoming_inactive_admin:
+        return
+    if doc.get("role") == "admin" and doc.get("status") == "active":
+        others = await db.staff_users.count_documents({"role": "admin", "status": "active", "id": {"$ne": doc["id"]}})
+        if others == 0:
+            raise HTTPException(409, "This is the last active admin. Add another admin before removing or demoting this one.")
+
+
+async def _phone_free(phone: str, except_id: str = None):
+    q = {"phone": phone, "status": {"$ne": "removed"}}
+    if except_id:
+        q["id"] = {"$ne": except_id}
+    if await db.staff_users.find_one(q):
+        raise HTTPException(409, "Another staff user already has this phone number.")
+
+
+# ------------------------------------------------------------------
 # ADMIN: auth
 # ------------------------------------------------------------------
 
@@ -766,7 +933,7 @@ async def admin_send_otp(body: PhoneOnly, request: Request):
         raise HTTPException(422, "Please enter a valid 10-digit mobile number.")
     await check_admin_lockout(phone, ip)
 
-    if phone not in ADMIN_PHONES and phone not in TELECALLER_PHONES:
+    if not await portal_role_for(phone):
         await audit(phone, "admin_login_failed", details={"ip": ip, "reason": "unauthorized_phone"}, actor_role="unknown")
         raise HTTPException(403, "This number is not authorized for the admin portal.")
 
@@ -789,11 +956,15 @@ async def admin_verify_otp(body: AdminOtpVerify, request: Request, response: Res
             await audit(phone, "admin_login_failed", details={"ip": ip, "reason": "bad_otp"}, actor_role="unknown")
         raise
 
-    role = "admin" if phone in ADMIN_PHONES else "telecaller"
+    role = await portal_role_for(phone)
+    if not role:  # removed/disabled between send and verify
+        raise HTTPException(403, "This number is not authorized for the admin portal.")
+    await db.staff_users.update_one({"phone": phone, "status": "active"}, {"$set": {"site_last_login": now_utc().isoformat()}})
 
     # The portal session is created and returned IMMEDIATELY. Login must never depend on
-    # the Yash Trade App backend being reachable/fast - the optional "live modules" unlock
-    # runs in the background with a hard time limit and updates the session when done.
+    # the Yash Trade App backend being reachable/fast - the app token for this staff member
+    # (used to act as them on products / queries / rates) is fetched in the background with
+    # a hard time limit and refreshed on demand.
     now = now_utc()
     token = secrets.token_urlsafe(32)
     await db.admin_sessions.insert_one({
@@ -802,7 +973,11 @@ async def admin_verify_otp(body: AdminOtpVerify, request: Request, response: Res
         "role": role,
         "live_token": None,
         "live_role": None,
-        "live_unlock_pending": role == "admin" and LIVE_ADMIN_UNLOCK,
+        "live_token_expires_at": None,
+        "app_token_status": "pending" if LIVE_ADMIN_UNLOCK else "disabled",
+        "app_token_error": None,
+        "app_user": None,
+        "live_unlock_pending": LIVE_ADMIN_UNLOCK,
         "created_at": now.isoformat(),
         "last_active": now.isoformat(),
         "expires_at": (now + timedelta(hours=ADMIN_SESSION_HOURS)).isoformat(),
@@ -811,8 +986,8 @@ async def admin_verify_otp(body: AdminOtpVerify, request: Request, response: Res
     })
     await audit(phone, "admin_login_success", details={"ip": ip, "role": role}, actor_role=role)
 
-    if role == "admin" and LIVE_ADMIN_UNLOCK:
-        _spawn_background(unlock_live_admin_session(token, phone), "live-admin-unlock")
+    if LIVE_ADMIN_UNLOCK:
+        _spawn_background(acquire_app_token(token, phone, role), "app-token")
 
     response.set_cookie(
         SESSION_COOKIE, token,
@@ -822,9 +997,7 @@ async def admin_verify_otp(body: AdminOtpVerify, request: Request, response: Res
     return {"success": True, "role": role, "phone": phone, "live_admin_unlocked": False}
 
 
-# Optional: try to obtain a Yash-Trade-App admin token so the "live modules" pages unlock.
-# It can only succeed while the app backend accepts the demo OTP for this phone, so it is
-# strictly best-effort, time-boxed and never on the login critical path.
+# App token on behalf of the staff member. Best-effort, time-boxed, never on the login path.
 _background_tasks: set = set()
 
 
@@ -841,20 +1014,90 @@ def _spawn_background(coro, name: str):
     return task
 
 
-async def unlock_live_admin_session(token: str, phone: str):
-    live_token, live_role = None, None
+async def _fetch_app_token(phone: str, role: str) -> dict:
+    """Returns {status: ok|pending|failed|not_configured, token?, expires_at?, user?, error?}."""
+    code, body = await live_staff_token(phone)
+    if code in (200, 201) and isinstance(body, dict) and body.get("token"):
+        user = body.get("user") or {}
+        return {"status": "ok", "token": body["token"], "expires_at": body.get("expires_at"), "user": user, "error": None}
+    if code == 0:
+        return {"status": "not_configured", "error": str(body.get("detail"))}
+    if staff_endpoint_missing(code, body):
+        # Endpoint not deployed yet. Legacy path (demo OTP) only while the app is in demo mode -
+        # with real OTPs it would fire an SMS at the staff member and fail anyway.
+        try:
+            health = await live_health()
+        except Exception:
+            health = {}
+        if health.get("demo_mode") is True and role == "admin":
+            auth = await get_customer_token(phone, retries=1)
+            if auth and auth.get("token"):
+                return {"status": "ok", "token": auth["token"], "expires_at": None, "user": auth.get("user") or {}, "error": None}
+        return {"status": "pending", "error": "The Yash Trade App has not enabled website access for staff yet (token endpoint not deployed). Read-only until then."}
+    if code in (401, 403):
+        return {"status": "failed", "error": "The app rejected the integration key - check LIVE_INTEGRATION_KEY."}
+    if code == 404:
+        return {"status": "failed", "error": "This staff member does not exist on the app yet - open Manage Users and sync them."}
+    if code == 409 or code == 422:
+        return {"status": "failed", "error": f"The app refused to issue a token: {str(body.get('detail'))[:140]}"}
+    return {"status": "failed", "error": _explain(code, body, "staff token")}
+
+
+async def acquire_app_token(session_token: str, phone: str, role: str) -> dict:
+    """Fetch (or refresh) the app token for a session. Stores the outcome on the session doc."""
+    result = {"status": "failed", "error": "unknown"}
     try:
-        auth = await asyncio.wait_for(get_customer_token(phone, retries=1), timeout=LIVE_ADMIN_UNLOCK_TIMEOUT)
-        if auth:
-            live_token = auth.get("token")
-            live_role = (auth.get("user") or {}).get("role")
+        result = await asyncio.wait_for(_fetch_app_token(phone, role), timeout=LIVE_ADMIN_UNLOCK_TIMEOUT)
     except asyncio.TimeoutError:
-        logger.info("live admin unlock for %s skipped: app backend did not answer within %ss", mask_phone(phone), LIVE_ADMIN_UNLOCK_TIMEOUT)
+        result = {"status": "failed", "error": f"The app did not answer within {int(LIVE_ADMIN_UNLOCK_TIMEOUT)}s."}
     except Exception as e:  # never let this surface anywhere near login
-        logger.info("live admin unlock for %s skipped: %s", mask_phone(phone), e)
-    await db.admin_sessions.update_one({"token": token}, {"$set": {
-        "live_token": live_token, "live_role": live_role, "live_unlock_pending": False,
-    }})
+        result = {"status": "failed", "error": f"{type(e).__name__}: {str(e)[:120]}"}
+    user = result.get("user") or {}
+    update = {
+        "live_token": result.get("token"),
+        "live_role": user.get("role") if result.get("status") == "ok" else None,
+        "live_token_expires_at": result.get("expires_at"),
+        "app_token_status": result["status"],
+        "app_token_error": result.get("error"),
+        "app_user": {k: user.get(k) for k in ("id", "name", "role", "phone")} if user else None,
+        "app_token_checked_at": iso_now(),
+        "live_unlock_pending": False,
+    }
+    await db.admin_sessions.update_one({"token": session_token}, {"$set": update})
+    if result["status"] != "ok":
+        logger.info("app token for %s (%s): %s - %s", mask_phone(phone), role, result["status"], result.get("error"))
+    return update
+
+
+def _token_expired(sess: dict) -> bool:
+    exp = sess.get("live_token_expires_at")
+    if not exp:
+        return False
+    try:
+        return datetime.fromisoformat(str(exp).replace("Z", "+00:00")) <= now_utc() + timedelta(seconds=30)
+    except Exception:
+        return False
+
+
+async def ensure_app_token(sess: dict) -> str:
+    """Token to act as this staff member on the app; refreshes when missing/expired. Raises 503 with a clear reason."""
+    if sess.get("live_token") and not _token_expired(sess):
+        return sess["live_token"]
+    # Avoid hammering: if we checked less than 20s ago and it was not ok, reuse the stored reason
+    checked = sess.get("app_token_checked_at")
+    recently = False
+    if checked and sess.get("app_token_status") not in ("ok", None):
+        try:
+            recently = (now_utc() - datetime.fromisoformat(checked)).total_seconds() < 20
+        except Exception:
+            recently = False
+    if recently:
+        raise HTTPException(503, sess.get("app_token_error") or "App connection unavailable.")
+    upd = await acquire_app_token(sess["token"], sess["phone"], sess["role"])
+    sess.update(upd)
+    if upd.get("live_token"):
+        return upd["live_token"]
+    raise HTTPException(503, upd.get("app_token_error") or "App connection unavailable.")
 
 
 async def get_session(request: Request) -> dict:
@@ -883,6 +1126,32 @@ async def require_admin(request: Request) -> dict:
     return sess
 
 
+def require_roles(*roles: str):
+    """Dependency: session whose role is one of `roles` (admins always pass)."""
+    allowed = set(roles) | {"admin"}
+
+    async def _dep(request: Request) -> dict:
+        sess = await get_session(request)
+        if sess.get("role") not in allowed:
+            raise HTTPException(403, f"Forbidden: this area is for {', '.join(STAFF_ROLE_LABELS.get(r, r) for r in roles)} accounts.")
+        return sess
+    return _dep
+
+
+def me_payload(sess: dict) -> dict:
+    return {
+        "phone": sess["phone"],
+        "role": sess["role"],
+        "role_label": STAFF_ROLE_LABELS.get(sess["role"], sess["role"]),
+        "live_admin_unlocked": sess.get("live_role") == "admin",
+        "live_unlock_pending": bool(sess.get("live_unlock_pending")),
+        "app_token_status": sess.get("app_token_status") or ("ok" if sess.get("live_token") else "pending"),
+        "app_token_error": sess.get("app_token_error"),
+        "app_user": sess.get("app_user"),
+        "expires_at": sess["expires_at"],
+    }
+
+
 @api.post("/admin/auth/logout")
 async def admin_logout(request: Request, response: Response):
     token = request.cookies.get(SESSION_COOKIE)
@@ -897,13 +1166,485 @@ async def admin_logout(request: Request, response: Response):
 
 @api.get("/admin/auth/me")
 async def admin_me(sess: dict = Depends(get_session)):
-    return {
-        "phone": sess["phone"],
-        "role": sess["role"],
-        "live_admin_unlocked": sess.get("live_role") == "admin",
-        "live_unlock_pending": bool(sess.get("live_unlock_pending")),
-        "expires_at": sess["expires_at"],
+    return me_payload(sess)
+
+
+@api.post("/admin/auth/app-reconnect")
+async def admin_app_reconnect(sess: dict = Depends(get_session)):
+    """Retry fetching the app token for this session (button in the UI)."""
+    upd = await acquire_app_token(sess["token"], sess["phone"], sess["role"])
+    sess.update(upd)
+    return me_payload(sess)
+
+
+# ------------------------------------------------------------------
+# ADMIN: Manage Users (staff directory)
+# ------------------------------------------------------------------
+
+@api.get("/admin/staff")
+async def admin_staff_list(role: Optional[str] = None, status: Optional[str] = None, q: Optional[str] = None,
+                           sess: dict = Depends(require_admin)):
+    query = {"status": {"$ne": "removed"}}
+    if role in STAFF_ROLES:
+        query["role"] = role
+    if status in ("active", "disabled"):
+        query["status"] = status
+    if q and q.strip():
+        rx = {"$regex": re.escape(q.strip()), "$options": "i"}
+        query["$or"] = [{"name": rx}, {"phone": rx}, {"code": rx}]
+    items = [staff_view(d) async for d in db.staff_users.find(query, sort=[("role", 1), ("created_at", 1)])]
+    for it in items:
+        it["is_me"] = it["phone"] == sess["phone"]
+    counts_rows = await db.staff_users.aggregate([
+        {"$match": {"status": {"$ne": "removed"}}},
+        {"$group": {"_id": "$role", "n": {"$sum": 1},
+                    "pending": {"$sum": {"$cond": [{"$in": ["$app_sync_status", ["pending", "failed", "not_configured"]]}, 1, 0]}}}},
+    ]).to_list(10)
+    counts = {r: 0 for r in STAFF_ROLES}
+    for row in counts_rows:
+        counts[row["_id"]] = row["n"]
+    # everything the app has not confirmed yet - including users removed here while the app was unreachable
+    unsynced = await db.staff_users.count_documents({"app_sync_status": {"$ne": "ok"}})
+    return {"items": items, "total": len(items), "counts": counts, "unsynced": unsynced, "roles": list(STAFF_ROLES)}
+
+
+@api.get("/admin/staff/app-status")
+async def admin_staff_app_status(sess: dict = Depends(require_admin)):
+    probe = await staff_integration_probe()
+    probe["base_url"] = integration_config()["base_url"]
+    return probe
+
+
+@api.post("/admin/staff", status_code=201)
+async def admin_staff_create(body: StaffCreate, sess: dict = Depends(require_admin)):
+    phone = normalize_phone(body.phone)
+    if not phone:
+        raise HTTPException(422, "Please enter a valid 10-digit mobile number.")
+    await _phone_free(phone)
+    now = iso_now()
+    doc = {
+        "id": str(uuid.uuid4()), "name": body.name, "phone": phone, "role": body.role, "code": body.code or None,
+        "status": "active", "source": "site", "app_user_id": None,
+        "app_sync_status": "pending", "app_sync_error": None, "app_synced_at": None, "app_last_login": None,
+        "site_last_login": None, "created_at": now, "updated_at": now, "created_by": sess["phone"], "updated_by": sess["phone"],
     }
+    await db.staff_users.insert_one(doc)
+    await audit(sess["phone"], "staff_created", target=phone, details={"name": body.name, "role": body.role, "code": body.code})
+    outcome = await push_staff_to_app(doc, "create")
+    doc.update(outcome)
+    return staff_view(doc)
+
+
+@api.patch("/admin/staff/{staff_id}")
+async def admin_staff_update(staff_id: str, body: StaffUpdate, sess: dict = Depends(require_admin)):
+    doc = await _staff_or_404(staff_id)
+    is_me = doc["phone"] == sess["phone"]
+    changes = {}
+    if body.name is not None and body.name != doc.get("name"):
+        changes["name"] = body.name
+    if body.code is not None and (body.code or None) != doc.get("code"):
+        changes["code"] = body.code or None
+    if body.phone is not None:
+        phone = normalize_phone(body.phone)
+        if not phone:
+            raise HTTPException(422, "Please enter a valid 10-digit mobile number.")
+        if phone != doc["phone"]:
+            await _phone_free(phone, except_id=doc["id"])
+            changes["phone"] = phone
+    if body.role is not None and body.role != doc.get("role"):
+        if is_me:
+            raise HTTPException(409, "You cannot change your own role. Ask another admin to do it.")
+        changes["role"] = body.role
+    if body.status is not None and body.status != doc.get("status"):
+        if is_me:
+            raise HTTPException(409, "You cannot disable your own account.")
+        changes["status"] = body.status
+    if not changes:
+        return staff_view(doc)
+
+    leaves_admin_pool = ("role" in changes and doc["role"] == "admin") or changes.get("status") == "disabled"
+    await _assert_not_last_admin(doc, leaves_admin_pool and doc["role"] == "admin")
+
+    now = iso_now()
+    await db.staff_users.update_one({"id": doc["id"]}, {"$set": {**changes, "updated_at": now, "updated_by": sess["phone"]}})
+    await audit(sess["phone"], "staff_updated", target=doc["phone"],
+                details={"changes": changes, "before": {k: doc.get(k) for k in changes}})
+    # Access changes take effect immediately: kick the affected user's portal sessions
+    if any(k in changes for k in ("role", "status", "phone")) and not is_me:
+        await db.admin_sessions.delete_many({"phone": doc["phone"]})
+    new_doc = {**doc, **changes, "updated_at": now}
+    outcome = await push_staff_to_app(new_doc, "update", changes)
+    new_doc.update(outcome)
+    return staff_view(new_doc)
+
+
+@api.delete("/admin/staff/{staff_id}")
+async def admin_staff_remove(staff_id: str, sess: dict = Depends(require_admin)):
+    doc = await _staff_or_404(staff_id)
+    if doc["phone"] == sess["phone"]:
+        raise HTTPException(409, "You cannot remove your own account.")
+    await _assert_not_last_admin(doc, True)
+    now = iso_now()
+    await db.staff_users.update_one({"id": doc["id"]}, {"$set": {"status": "removed", "removed_at": now, "updated_at": now, "updated_by": sess["phone"]}})
+    await db.admin_sessions.delete_many({"phone": doc["phone"]})
+    await audit(sess["phone"], "staff_removed", target=doc["phone"], details={"name": doc.get("name"), "role": doc.get("role")})
+    outcome = await push_staff_to_app({**doc, "status": "disabled"}, "remove")
+    return {"removed": True, "id": doc["id"], "phone": doc["phone"], **{k: outcome.get(k) for k in ("app_sync_status", "app_sync_error")}}
+
+
+@api.post("/admin/staff/{staff_id}/resync")
+async def admin_staff_resync(staff_id: str, sess: dict = Depends(require_admin)):
+    doc = await _staff_or_404(staff_id)
+    outcome = await push_staff_to_app(doc, "update" if doc.get("app_user_id") else "create", {k: doc.get(k) for k in ("name", "phone", "role", "code", "status")})
+    await audit(sess["phone"], "staff_resynced", target=doc["phone"], details={"result": outcome.get("app_sync_status")})
+    doc.update(outcome)
+    return staff_view(doc)
+
+
+@api.post("/admin/staff/sync-all")
+async def admin_staff_sync_all(sess: dict = Depends(require_admin)):
+    """Push every not-yet-synced record to the app (used after the app deploys the endpoints).
+    Includes users removed here while the app was unreachable, so they get disabled there too."""
+    docs = await db.staff_users.find({"app_sync_status": {"$ne": "ok"}}).sort("created_at", 1).to_list(500)
+    results = {"ok": 0, "pending": 0, "failed": 0, "not_configured": 0}
+    for doc in docs:
+        if doc.get("status") == "removed":
+            outcome = await push_staff_to_app({**doc, "status": "disabled"}, "remove")
+        else:
+            outcome = await push_staff_to_app(doc, "update" if doc.get("app_user_id") else "create",
+                                              {k: doc.get(k) for k in ("name", "phone", "role", "code", "status")})
+        results[outcome["app_sync_status"]] = results.get(outcome["app_sync_status"], 0) + 1
+        if outcome["app_sync_status"] in ("pending", "not_configured"):
+            break  # endpoint not there / key missing - no point hammering
+    await audit(sess["phone"], "staff_sync_all", details=results)
+    return {"attempted": len(docs), **results}
+
+
+@api.post("/admin/staff/import-from-app")
+async def admin_staff_import(overwrite: bool = False, sess: dict = Depends(require_admin)):
+    """Pull the app's staff list: create local records that are missing, link the ones we have.
+    With overwrite=true the app's name/role/code/status also replace the local values."""
+    code, body = await live_staff_list()
+    if code != 200:
+        if staff_endpoint_missing(code, body):
+            raise HTTPException(503, "The Yash Trade App backend has not deployed the staff endpoints yet.")
+        raise HTTPException(502 if code >= 500 or code == 0 else code, _explain(code, body, "staff import") if code else str(body.get("detail")))
+    users = body.get("users") if isinstance(body, dict) else None
+    if not isinstance(users, list):
+        raise HTTPException(502, "Unexpected response from the app backend (no 'users' list).")
+    now = iso_now()
+    imported = linked = skipped = 0
+    for u in users:
+        phone = normalize_phone(str(u.get("phone") or ""))
+        role = u.get("role")
+        if not phone or role not in STAFF_ROLES:
+            skipped += 1
+            continue
+        app_status = "disabled" if str(u.get("status") or "active") != "active" else "active"
+        existing = await db.staff_users.find_one({"phone": phone})
+        if existing:
+            if existing.get("status") == "removed":
+                skipped += 1
+                continue
+            upd = {"app_user_id": str(u.get("id")) if u.get("id") else existing.get("app_user_id"),
+                   "app_last_login": u.get("last_login"), "app_sync_status": "ok", "app_sync_error": None, "app_synced_at": now}
+            if overwrite:
+                upd.update({"name": u.get("name") or existing["name"], "role": role, "code": u.get("code"), "status": app_status,
+                            "updated_at": now, "updated_by": sess["phone"]})
+            await db.staff_users.update_one({"id": existing["id"]}, {"$set": upd})
+            linked += 1
+        else:
+            await db.staff_users.insert_one({
+                "id": str(uuid.uuid4()), "name": (u.get("name") or f"{STAFF_ROLE_LABELS[role]} {phone[-4:]}")[:100], "phone": phone,
+                "role": role, "code": u.get("code"), "status": app_status, "source": "app",
+                "app_user_id": str(u.get("id")) if u.get("id") else None, "app_sync_status": "ok", "app_sync_error": None,
+                "app_synced_at": now, "app_last_login": u.get("last_login"), "site_last_login": None,
+                "created_at": now, "updated_at": now, "created_by": "app-import", "updated_by": sess["phone"],
+            })
+            imported += 1
+    await audit(sess["phone"], "staff_imported", details={"imported": imported, "linked": linked, "skipped": skipped, "overwrite": overwrite})
+    return {"imported": imported, "linked": linked, "skipped": skipped, "app_total": len(users)}
+
+
+# ------------------------------------------------------------------
+# STAFF CONSOLE: act-as-staff proxies to the Yash Trade App
+#   admin              -> products (+ everything below)
+#   telecaller         -> requests / queries + telecaller customers
+#   billing_executive  -> metal rates + rate list
+# Reads that the app serves publicly (catalogue, rates) work even before the app issues
+# staff tokens; every write goes to the app AS the logged-in staff member and is audited.
+# ------------------------------------------------------------------
+
+PRODUCT_FIELDS = ("title", "description", "metal_type", "category", "subcategory", "images", "video_url", "approx_weight",
+                  "purity", "selling_touch", "selling_label", "stock_status", "tags", "is_pinned", "is_new_arrival",
+                  "is_trending", "visibility", "post_type")
+RATE_FIELDS = ("silver_dollar_rate", "silver_mcx_rate", "silver_physical_rate", "silver_physical_mode", "silver_physical_premium",
+               "silver_physical_base", "silver_movement", "gold_dollar_rate", "gold_mcx_rate", "gold_physical_rate",
+               "gold_physical_mode", "gold_physical_premium", "gold_physical_base", "gold_movement", "market_summary")
+SLAB_FIELDS = ("metal_type", "item_name", "category", "subcategory", "purity", "wastage", "labour_kg", "order")
+IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+MAX_IMAGE_BYTES = 8 * 1024 * 1024
+
+
+def _pick(body: dict, fields) -> dict:
+    return {k: body[k] for k in fields if k in (body or {})}
+
+
+def _raise_from_app(code: int, body: dict, action: str):
+    if code < 400:
+        return
+    detail = str((body or {}).get("detail") or (body or {}).get("raw") or f"App error {code}")[:300]
+    if code == 401:
+        raise HTTPException(503, "The app did not accept our session. Click Reconnect and try again.")
+    if code == 403:
+        raise HTTPException(403, f"The app does not allow your account to do this: {detail}")
+    if code in (400, 404, 409, 422):
+        raise HTTPException(code, detail)
+    # 503 (not 502): Cloudflare passes a 503 JSON body through untouched, but replaces 502 bodies with its own HTML page.
+    if code == 0 or code == 502:
+        raise HTTPException(503, detail if code else detail)
+    raise HTTPException(503, f"The Yash Trade App backend failed during {action} ({code}): {detail}")
+
+
+async def app_call(sess: dict, method: str, path: str, params: dict = None, payload=None, action: str = "request"):
+    """Call the app AS the staff member. Refreshes the token once if the app says 401."""
+    token = await ensure_app_token(sess)
+    code, body = await live_as_user(method, path, token, params, payload)
+    if code == 401:
+        await db.admin_sessions.update_one({"token": sess["token"]}, {"$set": {"live_token": None}})
+        sess["live_token"] = None
+        token = await ensure_app_token(sess)
+        code, body = await live_as_user(method, path, token, params, payload)
+    _raise_from_app(code, body, action)
+    return body
+
+
+async def app_read(sess: dict, path: str, params: dict = None):
+    """Read: public first (works before staff tokens exist); as the staff member if the app requires auth."""
+    code, body = await live_public_get(path, params)
+    if code in (401, 403):
+        return await app_call(sess, "GET", path, params=params, action="read")
+    _raise_from_app(code, body, "read")
+    return body
+
+
+def _clean_params(**kw) -> dict:
+    return {k: v for k, v in kw.items() if v not in (None, "", "all")}
+
+
+# ---- Products (admin) -------------------------------------------------------
+
+@api.get("/portal/products")
+async def portal_products(page: int = 1, limit: int = Query(24, le=100), category: Optional[str] = None, metal_type: Optional[str] = None,
+                          search: Optional[str] = None, post_type: Optional[str] = None, include_hidden: Optional[bool] = None,
+                          sess: dict = Depends(require_admin)):
+    body = await app_read(sess, "/api/products", _clean_params(page=page, limit=limit, category=category, metal_type=metal_type,
+                                                              search=search, post_type=post_type,
+                                                              include_hidden="true" if include_hidden else None))
+    body["app_base"] = integration_config()["base_url"]
+    return body
+
+
+@api.get("/portal/categories")
+async def portal_categories(sess: dict = Depends(require_roles("telecaller", "billing_executive"))):
+    return await app_read(sess, "/api/categories")
+
+
+@api.get("/portal/products/{product_id}")
+async def portal_product(product_id: str, sess: dict = Depends(require_admin)):
+    body = await app_read(sess, f"/api/products/{product_id}")
+    body["app_base"] = integration_config()["base_url"]
+    return body
+
+
+@api.post("/portal/products", status_code=201)
+async def portal_product_create(request: Request, sess: dict = Depends(require_admin)):
+    data = _pick(await request.json(), PRODUCT_FIELDS)
+    if len(str(data.get("title") or "").strip()) < 2:
+        raise HTTPException(422, "Please enter a product title.")
+    body = await app_call(sess, "POST", "/api/products", payload=data, action="product create")
+    await audit(sess["phone"], "product_created", target=str((body or {}).get("id") or ""), details={"title": data.get("title")}, actor_role=sess["role"])
+    return body
+
+
+@api.put("/portal/products/{product_id}")
+async def portal_product_update(product_id: str, request: Request, sess: dict = Depends(require_admin)):
+    data = _pick(await request.json(), PRODUCT_FIELDS)
+    if not data:
+        raise HTTPException(422, "Nothing to update.")
+    body = await app_call(sess, "PUT", f"/api/products/{product_id}", payload=data, action="product update")
+    await audit(sess["phone"], "product_updated", target=product_id, details={"fields": sorted(data.keys())}, actor_role=sess["role"])
+    return body
+
+
+@api.delete("/portal/products/{product_id}")
+async def portal_product_delete(product_id: str, sess: dict = Depends(require_admin)):
+    body = await app_call(sess, "DELETE", f"/api/products/{product_id}", action="product delete")
+    await audit(sess["phone"], "product_deleted", target=product_id, actor_role=sess["role"])
+    return body or {"deleted": True}
+
+
+@api.post("/portal/products/upload-image")
+async def portal_product_upload_image(file: UploadFile = File(...), sess: dict = Depends(require_admin)):
+    ctype = (file.content_type or "").lower()
+    if ctype not in IMAGE_TYPES:
+        raise HTTPException(422, "Please upload a JPG, PNG, WEBP or GIF image.")
+    content = await file.read()
+    if len(content) > MAX_IMAGE_BYTES:
+        raise HTTPException(422, "Image is larger than 8 MB. Please compress it and try again.")
+    if not content:
+        raise HTTPException(422, "The uploaded file is empty.")
+    token = await ensure_app_token(sess)
+    code, body = await live_upload_image(token, file.filename or "photo.jpg", content, ctype)
+    if code == 404:
+        raise HTTPException(503, f"The app has no image upload endpoint at {upload_path()} yet. Ask the app team to enable product photo uploads.")
+    _raise_from_app(code, body, "image upload")
+    url = (body or {}).get("url") or (body or {}).get("image_url") or (body or {}).get("path")
+    if not url:
+        raise HTTPException(502, "The app accepted the image but returned no URL.")
+    if str(url).startswith("/"):
+        url = integration_config()["base_url"] + str(url)
+    await audit(sess["phone"], "product_image_uploaded", details={"filename": file.filename, "bytes": len(content)}, actor_role=sess["role"])
+    return {"url": url}
+
+
+class ImageRef(BaseModel):
+    url: str = Field(min_length=4, max_length=2000)
+
+
+@api.post("/portal/products/{product_id}/images")
+async def portal_product_add_image(product_id: str, body: ImageRef, sess: dict = Depends(require_admin)):
+    product = await app_read(sess, f"/api/products/{product_id}")
+    images = [u for u in (product.get("images") or []) if isinstance(u, str)]
+    if body.url not in images:
+        images.append(body.url)
+    out = await app_call(sess, "PUT", f"/api/products/{product_id}", payload={"images": images}, action="add photo")
+    await audit(sess["phone"], "product_image_added", target=product_id, details={"count": len(images)}, actor_role=sess["role"])
+    return out
+
+
+@api.delete("/portal/products/{product_id}/images")
+async def portal_product_remove_image(product_id: str, body: ImageRef, sess: dict = Depends(require_admin)):
+    product = await app_read(sess, f"/api/products/{product_id}")
+    images = [u for u in (product.get("images") or []) if isinstance(u, str) and u != body.url]
+    out = await app_call(sess, "PUT", f"/api/products/{product_id}", payload={"images": images}, action="remove photo")
+    await audit(sess["phone"], "product_image_removed", target=product_id, details={"count": len(images)}, actor_role=sess["role"])
+    return out
+
+
+# ---- Queries / telecaller (telecaller + admin) ------------------------------
+
+@api.get("/portal/requests")
+async def portal_requests(status: Optional[str] = None, request_type: Optional[str] = None, city: Optional[str] = None,
+                          assigned_to: Optional[str] = None, handled_by: Optional[str] = None,
+                          sess: dict = Depends(require_roles("telecaller"))):
+    return await app_call(sess, "GET", "/api/requests",
+                          params=_clean_params(status=status, request_type=request_type, city=city, assigned_to=assigned_to, handled_by=handled_by),
+                          action="requests list")
+
+
+class RequestUpdateIn(BaseModel):
+    status: str = Field(min_length=1, max_length=40)
+    assigned_to: Optional[str] = ""
+    notes: Optional[str] = Field(default="", max_length=2000)
+
+
+@api.patch("/portal/requests/{request_id}")
+async def portal_request_update(request_id: str, body: RequestUpdateIn, sess: dict = Depends(require_roles("telecaller"))):
+    out = await app_call(sess, "PATCH", f"/api/requests/{request_id}",
+                         payload={"status": body.status, "assigned_to": body.assigned_to or "", "notes": body.notes or ""}, action="request update")
+    await audit(sess["phone"], "request_updated", target=request_id, details={"status": body.status, "has_notes": bool(body.notes)}, actor_role=sess["role"])
+    return out
+
+
+@api.get("/portal/requests/{request_id}/history")
+async def portal_request_history(request_id: str, sess: dict = Depends(require_roles("telecaller"))):
+    return await app_call(sess, "GET", f"/api/requests/{request_id}/history", action="request history")
+
+
+@api.get("/portal/telecaller/summary")
+async def portal_telecaller_summary(sess: dict = Depends(require_roles("telecaller"))):
+    return await app_call(sess, "GET", "/api/telecaller/summary", action="telecaller summary")
+
+
+@api.get("/portal/telecaller/customers")
+async def portal_telecaller_customers(page: int = 1, limit: int = Query(25, le=100), search: Optional[str] = None, lead_status: Optional[str] = None,
+                                      sess: dict = Depends(require_roles("telecaller"))):
+    return await app_call(sess, "GET", "/api/telecaller/customers",
+                          params=_clean_params(page=page, limit=limit, search=search, lead_status=lead_status), action="telecaller customers")
+
+
+class TelecallerActionIn(BaseModel):
+    action: str = Field(default="note", max_length=40)
+    new_status: Optional[str] = Field(default="", max_length=40)
+    notes: Optional[str] = Field(default="", max_length=2000)
+    follow_up_at: Optional[str] = Field(default="", max_length=40)
+
+
+@api.post("/portal/telecaller/customers/{customer_id}/action")
+async def portal_telecaller_action(customer_id: str, body: TelecallerActionIn, sess: dict = Depends(require_roles("telecaller"))):
+    out = await app_call(sess, "POST", f"/api/telecaller/customers/{customer_id}/action", payload=body.model_dump(), action="telecaller action")
+    await audit(sess["phone"], "telecaller_action", target=customer_id, details={"action": body.action, "new_status": body.new_status}, actor_role=sess["role"])
+    return out
+
+
+@api.get("/portal/telecaller/customers/{customer_id}/activity")
+async def portal_telecaller_activity(customer_id: str, sess: dict = Depends(require_roles("telecaller"))):
+    return await app_call(sess, "GET", f"/api/telecaller/customers/{customer_id}/activity", action="telecaller activity")
+
+
+# ---- Rates & rate list (billing executive + admin) ---------------------------
+
+@api.get("/portal/rates/latest")
+async def portal_rates_latest(sess: dict = Depends(require_roles("billing_executive"))):
+    return await app_read(sess, "/api/rates/latest")
+
+
+@api.get("/portal/rates/history")
+async def portal_rates_history(days: int = Query(30, ge=1, le=365), sess: dict = Depends(require_roles("billing_executive"))):
+    return await app_read(sess, "/api/rates/history", {"days": days})
+
+
+@api.post("/portal/rates")
+async def portal_rates_update(request: Request, sess: dict = Depends(require_roles("billing_executive"))):
+    data = _pick(await request.json(), RATE_FIELDS)
+    if not data:
+        raise HTTPException(422, "Nothing to update.")
+    out = await app_call(sess, "POST", "/api/rates", payload=data, action="rates update")
+    await audit(sess["phone"], "rates_updated", details={"fields": sorted(data.keys())}, actor_role=sess["role"])
+    return out
+
+
+@api.get("/portal/rate-list")
+async def portal_rate_list(metal_type: Optional[str] = None, sess: dict = Depends(require_roles("billing_executive"))):
+    return await app_read(sess, "/api/rate-list", _clean_params(metal_type=metal_type))
+
+
+@api.post("/portal/rate-list", status_code=201)
+async def portal_rate_slab_create(request: Request, sess: dict = Depends(require_roles("billing_executive"))):
+    data = _pick(await request.json(), SLAB_FIELDS)
+    if not data.get("metal_type"):
+        raise HTTPException(422, "Please choose a metal.")
+    out = await app_call(sess, "POST", "/api/rate-list", payload=data, action="rate slab create")
+    await audit(sess["phone"], "rate_slab_created", target=str((out or {}).get("id") or ""), details={"item_name": data.get("item_name")}, actor_role=sess["role"])
+    return out
+
+
+@api.put("/portal/rate-list/{slab_id}")
+async def portal_rate_slab_update(slab_id: str, request: Request, sess: dict = Depends(require_roles("billing_executive"))):
+    data = _pick(await request.json(), SLAB_FIELDS)
+    if not data:
+        raise HTTPException(422, "Nothing to update.")
+    out = await app_call(sess, "PUT", f"/api/rate-list/{slab_id}", payload=data, action="rate slab update")
+    await audit(sess["phone"], "rate_slab_updated", target=slab_id, details={"fields": sorted(data.keys())}, actor_role=sess["role"])
+    return out
+
+
+@api.delete("/portal/rate-list/{slab_id}")
+async def portal_rate_slab_delete(slab_id: str, sess: dict = Depends(require_roles("billing_executive"))):
+    out = await app_call(sess, "DELETE", f"/api/rate-list/{slab_id}", action="rate slab delete")
+    await audit(sess["phone"], "rate_slab_deleted", target=slab_id, actor_role=sess["role"])
+    return out or {"deleted": True}
 
 
 # ------------------------------------------------------------------
@@ -1499,6 +2240,19 @@ async def admin_integration_put(body: IntegrationSettings, sess: dict = Depends(
     return {"success": True, "config": integration_config(), "probe": probe, "sync_method": sync_method()}
 
 
+@api.delete("/admin/integration")
+async def admin_integration_reset(sess: dict = Depends(require_admin)):
+    """Drop the admin override and go back to the deployment's environment values."""
+    await db.app_settings.delete_one({"id": "live_integration"})
+    configure_integration(base=(os.environ.get("LIVE_BACKEND_BASE") or "https://yash-tryon-test.emergent.host"),
+                          enroll_path=os.environ.get("LIVE_INTEGRATION_PATH") or "/api/integrations/enrollments",
+                          key=(os.environ.get("LIVE_INTEGRATION_KEY") or "").strip(), source="environment")
+    probe = await integration_probe()
+    await audit(sess["phone"], "integration_settings_reset", details={"base_url": integration_config()["base_url"]})
+    return {"success": True, "config": integration_config(), "probe": probe, "sync_method": sync_method()}
+
+
+
 # ------------------------------------------------------------------
 # ADMIN: shared Yash Trade App backend - health + sync verification
 # ------------------------------------------------------------------
@@ -1652,6 +2406,10 @@ async def startup():
     await db.sms_logs.create_index([("phone", 1), ("kind", 1), ("created_at", -1)])
     await db.deletion_requests.create_index([("status", 1), ("requested_at", -1)])
     await db.deletion_requests.create_index("reference", unique=True)
+    await db.staff_users.create_index("id", unique=True)
+    await db.staff_users.create_index("phone")
+    await db.staff_users.create_index([("role", 1), ("status", 1)])
+    await seed_staff_from_env()
     await load_integration_settings_from_db()
     icfg = integration_config()
     logger.info("App-backend integration: base=%s method=%s key_configured=%s source=%s",

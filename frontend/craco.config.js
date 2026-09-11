@@ -108,6 +108,18 @@ let webpackConfig = {
 };
 
 webpackConfig.devServer = (devServerConfig) => {
+  // Dev-only overlay: hide the benign browser notice "ResizeObserver loop completed with
+  // undelivered notifications" (emitted by layout libraries, never an app error, absent in
+  // production builds) so it cannot block clicks on the preview.
+  devServerConfig.client = {
+    ...(devServerConfig.client || {}),
+    overlay: {
+      errors: true,
+      warnings: false,
+      runtimeErrors: (error) => !/ResizeObserver loop/i.test(error?.message || ""),
+    },
+  };
+
   // Add health check endpoints if enabled
   if (config.enableHealthCheck && setupHealthEndpoints && healthPluginInstance) {
     const originalSetupMiddlewares = devServerConfig.setupMiddlewares;

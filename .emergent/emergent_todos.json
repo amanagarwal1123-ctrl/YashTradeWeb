@@ -1,30 +1,26 @@
 [
   {
-    "content": "Verify login/CORS fix live on preview + production + custom domain (E2E, real browser) - PASS",
+    "content": "Verify proxy fix: Products/Queries/Rates pages render (screenshots) + backend proxies forward params",
     "status": "completed"
   },
   {
-    "content": "Make admin login non-blocking: live-backend unlock in background with hard timeout (verify 2.0s -> 0.08s)",
+    "content": "Run testing_agent_v3 on Staff / Products / Queries / Rates (backend + frontend, role-based access)",
     "status": "completed"
   },
   {
-    "content": "Add DB indexes for lockout/rate-limit hot queries (audit_logs, otp_challenges)",
+    "content": "Fix any issues reported by the testing agent (none found; UI verified manually by role)",
     "status": "completed"
   },
   {
-    "content": "Aggressive load test (ab) local + edge; optimize admin/stats (205->316 RPS); document findings",
+    "content": "Update docs/YASH_TRADE_APP_INTEGRATION.md with Part 3: staff console (token endpoint, image upload, role rules) + verification steps",
     "status": "completed"
   },
   {
-    "content": "Run testing_agent_v3 on login + CORS + enrollment flows (mandatory) - 16/16 PASS",
+    "content": "Write a copy-paste prompt for the Yash Trade App team (docs/PROMPT_FOR_TRADE_APP.md) and share in summary",
     "status": "completed"
   },
   {
-    "content": "Fix any issues from testing agent report - none reported",
+    "content": "Clean up temp session/token files; update plan.md + test_credentials.md",
     "status": "completed"
-  },
-  {
-    "content": "Report results to user; confirm Play/App Store links + admin alert next steps",
-    "status": "in_progress"
   }
 ]

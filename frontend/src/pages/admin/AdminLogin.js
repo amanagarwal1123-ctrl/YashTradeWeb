@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { Card, CardContent } from "@/components/ui/card";
 import { api, errMsg } from "@/lib/api";
+import { ROLE_HOME } from "@/components/admin/AdminLayout";
 import { toast } from "sonner";
 
 export default function AdminLogin() {
@@ -47,13 +48,14 @@ export default function AdminLogin() {
     setError("");
     try {
       const res = await api.post("/admin/auth/verify-otp", { phone, otp: value });
-      if (res.data.role !== "admin") {
-        setError("Access denied: your account does not have the admin role (403 Forbidden).");
+      const home = ROLE_HOME[res.data.role];
+      if (!home) {
+        setError("Access denied: your account has no console role. Ask an administrator to add you under Manage Users.");
         setLoading(false);
         return;
       }
       toast.success("Welcome back");
-      navigate("/admin");
+      navigate(home);
     } catch (err) {
       setError(errMsg(err, "Verification failed"));
       setOtp("");
@@ -67,16 +69,16 @@ export default function AdminLogin() {
         <CardContent className="p-7 space-y-6">
           <div className="text-center space-y-2">
             <img src="/brand/yash-mark-hd.png" alt="Yash Ornaments" className="brand-logo mx-auto h-14 w-14 rounded-xl" />
-            <h1 className="font-heading text-xl font-bold text-[#0B1F3B]">Admin Portal</h1>
+            <h1 className="font-heading text-xl font-bold text-[#0B1F3B]">Staff Login</h1>
             <p className="text-xs text-slate-500 flex items-center justify-center gap-1">
-              <Lock className="h-3 w-3" /> Authorized personnel only
+              <Lock className="h-3 w-3" /> Admins, telecallers & billing executives
             </p>
           </div>
 
           {phase === "phone" && (
             <form onSubmit={sendOtp} className="space-y-4">
               <div className="space-y-1.5">
-                <Label htmlFor="admin-phone" className="text-sm font-semibold">Admin phone number</Label>
+                <Label htmlFor="admin-phone" className="text-sm font-semibold">Mobile number</Label>
                 <Input
                   id="admin-phone"
                   type="tel"
