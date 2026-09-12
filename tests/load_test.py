@@ -3,7 +3,7 @@
 Safe: never hits an endpoint that sends SMS (only validation-failing OTP requests).
 
 Usage:
-  python tests/load_test.py --base https://yash-scheme-hub.preview.emergentagent.com \
+  python tests/load_test.py --base https://silver-checkout-1.preview.emergentagent.com \
       --requests 3000 --concurrency 100 [--cookie yash_admin_session=TOKEN] [--out report.json]
 """
 import argparse

@@ -1,0 +1,51 @@
+{
+  "summary": "Backend-only independent confirmation of the deployed-preview readiness contract (owner-admin-pin-v4) and regression re-run of tests/shared_v1. All 5 requested backend GET/POST checks passed against REACT_APP_BACKEND_URL=https://silver-checkout-1.preview.emergentagent.com. Regression suite: 108 passed on retry (initial run had 1 flaky failure that passed in isolation and passed on full re-run).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "tests/shared_v1/test_bff_followup_core_regressions.py::test_request_resolution_reopen_idempotency_history_and_today_metrics_cohort", "issue": "Flaky in full-suite run: failed once (107/108), passed in isolation and passed on the very next full-suite retry (108/108). Suggests shared-state / ordering sensitivity across the isolated ASGI copy at /root/yash-contract."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/test_reports/pytest/shared_v1_retry.xml"],
+  "action_items": [
+    "Investigate flakiness of test_request_resolution_reopen_idempotency_history_and_today_metrics_cohort (likely shared Mongo/state carry-over between prior test cases in same file when run in order; passes in isolation and 108/108 on re-run)."
+  ],
+  "critical_code_review_comments": [
+    "parse_owner_admin() (readiness.py L30-39) correctly returns {'reported': False} when app_flows missing or 'ready' is not a bool; state is None unless in {created,promoted,already_admin}; phone_suffix is None unless exactly 4 digits (re.fullmatch [0-9]{4}). Confirmed read-only and never used to gate flows.",
+    "compute() (L130-147) only adds issues from parse_health's issues dict for staff/enrollment/deletion. owner_admin is placed under upstream and is never appended into flows[name]['issues']. Website flow readiness cannot be blocked by owner_admin state. Contract holds.",
+    "health_report() surfaces upstream.owner_admin via **snapshot spread; response body did NOT contain canonical id 'bcdf18c9' nor any 32+ char secret-looking token (only build strings and doc field names were >32 chars). Good.",
+    "Verified BUILD='website-shared-v1-owner-admin-pin-v4' and CONTRACT_COMMIT='a0b1e8085ba6ac679fa0f5ec4e106d928057ed8f' surfaced correctly."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "n/a (skipped per request)"},
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Preview /api/health/ready is expected to return HTTP 503 due to placeholder ENROLLMENT_INTEGRATION_KEY & STAFF_SERVICE_KEY (by design). upstream.owner_admin observed as {reported:true, ready:true, issues:[], state:'promoted', phone_suffix:'3334'} against production app (shared-v1-review-fonts-2026-09-12). NEVER call any /send-otp or /verify-otp with a valid Origin on the preview or on production domains; and never use phone 9999813334. Full pytest suite tests/shared_v1 = 108 tests; one test occasionally flakes in full-suite ordering but passes on retry.",
+  "detailed_check_results": {
+    "GET /api/health/ready": {
+      "http": 503,
+      "build": "website-shared-v1-owner-admin-pin-v4",
+      "app_contract_commit": "a0b1e8085ba6ac679fa0f5ec4e106d928057ed8f",
+      "configuration_state.ENROLLMENT_INTEGRATION_KEY": "placeholder",
+      "configuration_state.STAFF_SERVICE_KEY": "placeholder",
+      "flows.staff.ready": false,
+      "flows.staff.issues": ["STAFF_SERVICE_KEY"],
+      "flows.enrollment.ready": false,
+      "flows.enrollment.issues": ["ENROLLMENT_INTEGRATION_KEY"],
+      "flows.deletion.ready": false,
+      "flows.deletion.issues": ["ENROLLMENT_INTEGRATION_KEY"],
+      "upstream.capabilities.owner_admin_bootstrap": true,
+      "upstream.owner_admin": {"reported": true, "ready": true, "issues": [], "state": "promoted", "phone_suffix": "3334"},
+      "contains_bcdf18c9": false,
+      "contains_32+_char_secret": false
+    },
+    "GET /api/health/live": {"http": 200, "body": {"status": "alive", "build": "website-shared-v1-owner-admin-pin-v4"}},
+    "GET /api/public/auth-status?website_origin=https://register.yashsilver.com": {"http": 200, "origin_allowed": true, "flows_available": {"staff": false, "enrollment": false, "deletion": false}, "message_neutral": true},
+    "GET /api/public/auth-status?website_origin=https://evil.example": {"http": 200, "origin_allowed": false},
+    "POST /api/admin/auth/send-otp (no Origin, body {})": {"http": 403, "code": "ORIGIN_REJECTED", "reached_canonical": false},
+    "pytest tests/shared_v1 (retry after 1 flaky failure)": {"passed": 108, "failed": 0, "skipped": 0}
+  },
+  "rca of the issue": "N/A — no real issues. Flaky pytest observation was not reproducible in isolation or on retry."
+}

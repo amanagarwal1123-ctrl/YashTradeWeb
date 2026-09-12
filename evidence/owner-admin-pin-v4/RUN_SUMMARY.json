@@ -1,0 +1,60 @@
+{
+  "stage": "website-shared-v1-owner-admin-pin-v4",
+  "date": "2026-09-12",
+  "app_pin": {
+    "commit": "a0b1e8085ba6ac679fa0f5ec4e106d928057ed8f",
+    "subject": "Default owner administrator: OWNER_ADMIN_PHONE=9999813334 is admin on app and website in every environment",
+    "previous_pin": "9596a5578a61bb1fb187e63345b7f93eda95bc9c",
+    "schema_sha256": "a30e6b2fe5500dd2fd16a19e9acb89d3ee181ff4bb4ef392a6c3858f36aba990",
+    "schema_paths": 123,
+    "schema_changed_vs_previous_pin": false,
+    "fixture_source": "/root/yash-contract (git checkout a0b1e80; previous copies /root/yash-contract-9596a55, -6a6cddd, -c4ee70d)"
+  },
+  "handoff_integrity": {
+    "raw_files_fetched_at": "a0b1e8085ba6ac679fa0f5ec4e106d928057ed8f",
+    "zip_in_source_commit": "previous package (manifest source_commit 84a11f9) - hashes do NOT describe a0b1e80 files",
+    "zip_used_for_verification": "9e5aa3e7652121b6e95f2c3515a529ceab1b4cfa (packaging commit that follows a0b1e80; manifest source_commit=a0b1e80)",
+    "files_sha256_matching_manifest": 8,
+    "files_sha256_mismatching": 0,
+    "git_blob_ids_matching": 8,
+    "final_source_tree_digest": "6834fad20f220a07719eb51f9c5823e376cee82bfd236573195021828d183a02",
+    "final_source_tree_digest_matches": true,
+    "tracked_blob_count": 394
+  },
+  "website_changes": [
+    "bff/config.py: BUILD=website-shared-v1-owner-admin-pin-v4, CONTRACT_COMMIT=a0b1e80",
+    "bff/readiness.py: CAPABILITIES += owner_admin_bootstrap; parse_owner_admin() surfaces flows.owner_admin as upstream.owner_admin {reported, ready, issues, state, phone_suffix}; unknown state/non-4-digit suffix sanitised; never gates a website flow",
+    "frontend Settings & Privacy: 'Canonical app connection' panel (app build, capabilities, per-flow readiness/key matching, default-administrator bootstrap state)",
+    "tests: +test_owner_admin_bootstrap_state_is_surfaced_read_only_and_never_gates_website_flows (MockTransport), +test_owner_admin_bootstrap_on_pinned_app_promotes_same_record_and_website_routes_canonical_role_admin (real pinned app, synthetic 9000000106), browser journey Settings step; pin refs updated",
+    "PRODUCTION_OPERATOR_HANDOFF.md v4"
+  ],
+  "env_names_declared_in_backend_dotenv": {
+    "CANONICAL_API_BASE_URL": "https://yash-tryon-test.emergent.host/api (unchanged)",
+    "ENROLLMENT_INTEGRATION_KEY": "SET_IN_PUBLISH_SECRETS (placeholder, unchanged)",
+    "STAFF_SERVICE_KEY": "SET_IN_PUBLISH_SECRETS (placeholder, unchanged)",
+    "BFF_ALLOWED_ORIGINS": "https://register.yashsilver.com,https://yash-register.emergent.host (unchanged)",
+    "BUILD_COMMIT": "SET_IN_PUBLISH_SECRETS (placeholder, unchanged)",
+    "existing_values_preserved": true,
+    "no_real_secret_added": true
+  },
+  "isolated_tests": {
+    "command": "PYMUPDF_MESSAGE=fd:2 python -m pytest -q (tests/shared_v1)",
+    "collected": 108,
+    "passed": 108,
+    "failed": 0,
+    "skipped": 0,
+    "xfail": 0,
+    "junit": "evidence/owner-admin-pin-v4/junit.xml",
+    "log": "evidence/owner-admin-pin-v4/pytest.log",
+    "browser_journey_rerun_after_settings_step": "1 passed (settings-canonical-connection-1440.jpeg under evidence/shared-v1)",
+    "sms_sent": 0,
+    "production_identities_touched": 0
+  },
+  "production_readonly": "evidence/owner-admin-pin-v4/production-readonly-2026-09-12.json",
+  "not_done_here": [
+    "Republish of the website (owner action) - both domains still serve website-shared-v1-d2d3d4-consumers-v3",
+    "Website BUILD_COMMIT Secret still placeholder (owner: Save to GitHub -> copy SHA -> Secrets -> Republish)",
+    "Genuine owner OTP login on each domain (owner-executed; no SMS requested by this work)",
+    "App BUILD_COMMIT Secret placeholder (app project)"
+  ]
+}

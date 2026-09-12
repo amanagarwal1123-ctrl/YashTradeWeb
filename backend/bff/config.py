@@ -3,8 +3,8 @@ import re
 from dataclasses import dataclass
 from urllib.parse import urlsplit
 
-BUILD = 'website-shared-v1-d2d3d4-consumers-v3'
-CONTRACT_COMMIT = '9596a5578a61bb1fb187e63345b7f93eda95bc9c'
+BUILD = 'website-shared-v1-owner-admin-pin-v4'
+CONTRACT_COMMIT = 'a0b1e8085ba6ac679fa0f5ec4e106d928057ed8f'
 # Bootstrap markers shared with the app (shared/core.py PLACEHOLDER_MARKERS): such values count as ABSENT.
 PLACEHOLDER_MARKERS = ('SET_IN_PUBLISH_SECRETS', 'PLACEHOLDER', 'REPLACE_ME', 'CHANGE_ME', 'UNCONFIGURED')
 

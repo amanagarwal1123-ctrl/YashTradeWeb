@@ -21,9 +21,22 @@ CREDENTIAL = {'staff': ('staff', '/integrations/staff/readiness'),
 INCOMPATIBLE = 'CANONICAL_UNAVAILABLE_OR_INCOMPATIBLE'
 MISMATCH = 'CANONICAL_CREDENTIAL_MISMATCH'
 CONFIGURATION_KEYS = ('JWT_SECRET', 'MSG91_AUTHKEY', 'ENROLLMENT_INTEGRATION_KEY', 'STAFF_SERVICE_KEY')
-# Optional app capabilities the website consumes (app 9596a55). Absent = feature withheld, never guessed.
-CAPABILITIES = ('credential_readiness', 'customer_id_history', 'deletion_outbox_cursor', 'enrollment_grants')
+# Optional app capabilities the website consumes (app a0b1e80). Absent = feature withheld, never guessed.
+CAPABILITIES = ('credential_readiness', 'customer_id_history', 'deletion_outbox_cursor', 'enrollment_grants', 'owner_admin_bootstrap')
+OWNER_ADMIN_STATES = ('created', 'promoted', 'already_admin')
 PARSE_ERRORS = (UpstreamError, AttributeError, TypeError, ValueError, KeyError)
+
+
+def parse_owner_admin(app_flows):
+    """App-side default-administrator bootstrap (flows.owner_admin): state + phone suffix only, never an ID.
+    Informational for the operator; it never gates a website flow and never grants a website role."""
+    scoped = app_flows.get('owner_admin') if isinstance(app_flows, dict) else None
+    if not isinstance(scoped, dict) or not isinstance(scoped.get('ready'), bool):
+        return {'reported': False}
+    suffix = scoped.get('phone_suffix')
+    return {'reported': True, 'ready': scoped['ready'], 'issues': issue_names(scoped.get('issues')),
+            'state': scoped.get('state') if scoped.get('state') in OWNER_ADMIN_STATES else None,
+            'phone_suffix': suffix if isinstance(suffix, str) and re.fullmatch(r'[0-9]{4}', suffix) else None}
 
 
 def issue_names(value):
@@ -46,7 +59,8 @@ def parse_health(status, health):
                 'capabilities': {k: capabilities.get(k) == 1 for k in CAPABILITIES},
                 'credential_verification_supported': capabilities.get('credential_readiness') == 1,
                 'database_ready': health.get('database_ready') is True,
-                'configuration': {k: configuration.get(k) is True for k in CONFIGURATION_KEYS}}
+                'configuration': {k: configuration.get(k) is True for k in CONFIGURATION_KEYS},
+                'owner_admin': parse_owner_admin(app_flows)}
     issues = {name: [] for name in MESSAGES}
     if upstream['credential_verification_supported']:
         # Declared capability requires the per-flow payload; never fall back to public booleans.
@@ -116,7 +130,7 @@ class Readiness:
     async def compute(self):
         flows = {name: {'ready': False, 'issues': self.cfg.flow_issues(name), 'credential_verified': None} for name in MESSAGES}
         upstream = {'reachable': False, 'build': None, 'commit': None, 'contract': None, 'capabilities': {k: False for k in CAPABILITIES},
-                    'credential_verification_supported': False, 'database_ready': False, 'configuration': {}}
+                    'credential_verification_supported': False, 'database_ready': False, 'configuration': {}, 'owner_admin': {'reported': False}}
         if self.cfg.valid_base:
             try:
                 upstream, issues = parse_health(*await self.canonical.probe('/health'))

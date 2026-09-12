@@ -1,0 +1,17 @@
+<analysis>CANONICAL_API_BASE_URLENROLLMENT_INTEGRATION_KEYSTAFF_SERVICE_KEY.env/api/health/readyconfiguration_stateorigin_entries/api/health/readyBFF_ALLOWED_ORIGINSBFF_ALLOWED_ORIGINSorigin_entries/api/health/readyBFF_ALLOWED_ORIGINShttps://register.yashsilver.com,https://yash-register.emergent.host/api/health/ready9999813334adminApp.js9999813334/api/health/readybackend/.env/api/health/readyconfiguration_stateorigin_entriesZoneInfo.envtext
+/app/
+├── backend/
+│   ├── server.py         (FastAPI BFF entry point)
+│   ├── bff/
+│   │   ├── canonical.py  
+│   │   ├── config.py     (Env parsing and origin validation)
+│   │   └── readiness.py  (Health probes and diagnostics)
+│   ├── shared/
+│   │   └── people.py     (D2, D3, D4 consumer logic)
+│   └── .env              (Contains PLACEHOLDERS only)
+├── frontend/
+│   ├── src/pages/admin/  (React UI components)
+│   └── .env
+├── tests/
+│   ├── shared_v1/        (106 passing regression tests)
+bff_sessions/app/backend/bff/readiness.py/app/backend/bff/config.py/app/backend/shared/people.py/app/backend/.env/app/tools/check_auth_readiness.py/app/PRODUCTION_OPERATOR_HANDOFF.md/app/test_reports/iteration_12.jsoniteration_13.jsonGET /api/health/readyGET /api/customers/searchGET /api/requestsPOST /api/bff/deletions/reconcile.envBFF_ALLOWED_ORIGINS.env9999813334/api/health/ready/app/test_reports/iteration_12.json/app/test_reports/iteration_13.json/app/PRODUCTION_OPERATOR_HANDOFF.md/app/evidence/d2d3d4-consumers-v3/RUN_SUMMARY.json.envconfiguration_stateBFF_ALLOWED_ORIGINSorigin_entriesBFF_ALLOWED_ORIGINSENROLLMENT_INTEGRATION_KEYSTAFF_SERVICE_KEY/app/tests/shared_v1/test_bff_readiness_adapter.py/app/tests/shared_v1/test_release_gate_tool.py9999813334BFF_ALLOWED_ORIGINScurl -s https://register.yashsilver.com/api/health/ready | python -m json.toolorigin_entries</analysis>

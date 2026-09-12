@@ -134,7 +134,8 @@ async def test_full_readiness_verifies_both_credentials_once_each():
     assert snap["key_matching_verified_by_this_check"] is True
     assert snap["upstream"]["contract"] == "credential_readiness"
     assert snap["upstream"]["build"] == "app-test"
-    assert snap["upstream"]["capabilities"] == {"credential_readiness": True, "customer_id_history": False, "deletion_outbox_cursor": False, "enrollment_grants": True}
+    assert snap["upstream"]["capabilities"] == {"credential_readiness": True, "customer_id_history": False, "deletion_outbox_cursor": False, "enrollment_grants": True, "owner_admin_bootstrap": False}
+    assert snap["upstream"]["owner_admin"] == {"reported": False}, "older app without flows.owner_admin is reported as not reported, never guessed"
     full = build(double=AppDouble(health_body(capabilities={"canonical_auth": 1, "enrollment_grants": 1, "credential_readiness": 1, "customer_id_history": 1, "deletion_outbox_cursor": 1})))[0]
     assert (await full.snapshot())["upstream"]["capabilities"]["customer_id_history"] is True
     assert all(s["ready"] and s["credential_verified"] is True and s["issues"] == [] for s in snap["flows"].values())
@@ -158,6 +159,40 @@ async def test_staff_only_503_keeps_enrollment_and_deletion_ready_without_sendin
     assert ("GET", "/api/integrations/staff/readiness", "staff") not in probes(double)
     public = await readiness.public()
     assert public["flows"]["staff"]["available"] is False and public["flows"]["enrollment"]["available"] is True
+
+
+@pytest.mark.anyio
+async def test_owner_admin_bootstrap_state_is_surfaced_read_only_and_never_gates_website_flows():
+    # module: app a0b1e80 flows.owner_admin (default administrator bootstrap) — surfaced by name/state/suffix only,
+    #         never an ID, never a website role, and never a reason to withhold staff/enrollment/deletion.
+    caps = {"canonical_auth": 1, "enrollment_grants": 1, "credential_readiness": 1, "owner_admin_bootstrap": 1}
+    applied = {name: {"ready": True, "issues": []} for name in APP_FLOWS}
+    applied["owner_admin"] = {"ready": True, "issues": [], "state": "already_admin", "phone_suffix": "0101", "detail": "owner record already admin"}
+    readiness, _, double = build(double=AppDouble(health_body(flows=applied, capabilities=caps)))
+    snap = await readiness.snapshot()
+    assert snap["upstream"]["capabilities"]["owner_admin_bootstrap"] is True
+    assert snap["upstream"]["owner_admin"] == {"reported": True, "ready": True, "issues": [], "state": "already_admin", "phone_suffix": "0101"}
+    assert snap["configuration_ready"] is True and snap["key_matching_verified_by_this_check"] is True
+
+    # App 503 whose ONLY unready flow is owner_admin: the website's three flows stay ready and credential-verified.
+    refused = {name: {"ready": True, "issues": []} for name in APP_FLOWS}
+    refused["owner_admin"] = {"ready": False, "issues": ["OWNER_ADMIN_PHONE"], "state": None, "phone_suffix": None, "detail": "not configured"}
+    body = health_body(flows=refused, capabilities=caps)
+    assert body["status"] == "not_ready" and body["ready"] is False
+    readiness, _, double = build(double=AppDouble(body))
+    snap = await readiness.snapshot()
+    assert all(s["ready"] and s["credential_verified"] is True for s in snap["flows"].values())
+    assert snap["configuration_ready"] is True
+    assert snap["upstream"]["owner_admin"] == {"reported": True, "ready": False, "issues": ["CANONICAL.OWNER_ADMIN_PHONE"], "state": None, "phone_suffix": None}
+    assert sorted(probes(double)) == [("GET", "/api/health", None), ("GET", "/api/integrations/enrollment/readiness", "enroll"),
+                                      ("GET", "/api/integrations/staff/readiness", "staff")]
+
+    # Undocumented state / an ID where the suffix belongs → sanitised, never echoed.
+    odd = {name: {"ready": True, "issues": []} for name in APP_FLOWS}
+    odd["owner_admin"] = {"ready": True, "issues": [], "state": "website_local_admin", "phone_suffix": "bcdf18c9-dc87-4d46-b580-30cf519103df"}
+    snap = await build(double=AppDouble(health_body(flows=odd, capabilities=caps)))[0].snapshot()
+    assert snap["upstream"]["owner_admin"] == {"reported": True, "ready": True, "issues": [], "state": None, "phone_suffix": None}
+    assert "bcdf18c9" not in json.dumps(snap)
 
 
 @pytest.mark.anyio
@@ -500,7 +535,7 @@ async def test_both_production_website_origins_allowed_and_unrelated_origin_reje
         assert missing.status_code == 403 and missing.json()["code"] == "ORIGIN_REJECTED"
         ready = await client.get("/api/health/ready")
         assert ready.status_code == 200 and ready.json()["integration_ready"] is True
-        assert ready.json()["app_contract_commit"] == "9596a5578a61bb1fb187e63345b7f93eda95bc9c"
+        assert ready.json()["app_contract_commit"] == "a0b1e8085ba6ac679fa0f5ec4e106d928057ed8f"
         assert ready.json()["key_matching_verified_by_this_check"] is True
         assert ready.json()["real_login_verified_by_this_check"] is False
         live = await client.get("/api/health/live")

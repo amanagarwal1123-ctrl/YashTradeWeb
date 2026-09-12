@@ -1,0 +1,221 @@
+{
+ "observed_at_utc": "2026-09-12T22:26:38.138568+00:00",
+ "note": "read-only public GETs; no OTP/SMS requested; values never recorded",
+ "domains": {
+  "https://register.yashsilver.com": {
+   "health_ready_http": 200,
+   "build": "website-shared-v1-d2d3d4-consumers-v3",
+   "commit": "unrecorded",
+   "app_contract_commit": "9596a5578a61bb1fb187e63345b7f93eda95bc9c",
+   "integration_ready": true,
+   "configuration_state": {
+    "CANONICAL_API_BASE_URL": "valid",
+    "ENROLLMENT_INTEGRATION_KEY": "valid",
+    "STAFF_SERVICE_KEY": "valid",
+    "SESSION_SECRET": "valid",
+    "BUILD_COMMIT": "placeholder"
+   },
+   "origin_entries": [
+    {
+     "index": 0,
+     "valid": true,
+     "host": "register.yashsilver.com"
+    },
+    {
+     "index": 1,
+     "valid": true,
+     "host": "yash-register.emergent.host"
+    }
+   ],
+   "flows": {
+    "staff": {
+     "ready": true,
+     "issues": [],
+     "credential_verified": true
+    },
+    "enrollment": {
+     "ready": true,
+     "issues": [],
+     "credential_verified": true
+    },
+    "deletion": {
+     "ready": true,
+     "issues": [],
+     "credential_verified": true
+    }
+   },
+   "key_matching_verified_by_this_check": true,
+   "upstream_build": "shared-v1-review-fonts-2026-09-12",
+   "upstream_capabilities": {
+    "credential_readiness": true,
+    "customer_id_history": true,
+    "deletion_outbox_cursor": true,
+    "enrollment_grants": true
+   },
+   "upstream_owner_admin": "(not surfaced by deployed build)",
+   "auth_status_http": 200,
+   "origin_allowed": true,
+   "public_flows": {
+    "staff": {
+     "available": true,
+     "message": ""
+    },
+    "enrollment": {
+     "available": true,
+     "message": ""
+    },
+    "deletion": {
+     "available": true,
+     "message": ""
+    }
+   }
+  },
+  "https://yash-register.emergent.host": {
+   "health_ready_http": 200,
+   "build": "website-shared-v1-d2d3d4-consumers-v3",
+   "commit": "unrecorded",
+   "app_contract_commit": "9596a5578a61bb1fb187e63345b7f93eda95bc9c",
+   "integration_ready": true,
+   "configuration_state": {
+    "CANONICAL_API_BASE_URL": "valid",
+    "ENROLLMENT_INTEGRATION_KEY": "valid",
+    "STAFF_SERVICE_KEY": "valid",
+    "SESSION_SECRET": "valid",
+    "BUILD_COMMIT": "placeholder"
+   },
+   "origin_entries": [
+    {
+     "index": 0,
+     "valid": true,
+     "host": "register.yashsilver.com"
+    },
+    {
+     "index": 1,
+     "valid": true,
+     "host": "yash-register.emergent.host"
+    }
+   ],
+   "flows": {
+    "staff": {
+     "ready": true,
+     "issues": [],
+     "credential_verified": true
+    },
+    "enrollment": {
+     "ready": true,
+     "issues": [],
+     "credential_verified": true
+    },
+    "deletion": {
+     "ready": true,
+     "issues": [],
+     "credential_verified": true
+    }
+   },
+   "key_matching_verified_by_this_check": true,
+   "upstream_build": "shared-v1-review-fonts-2026-09-12",
+   "upstream_capabilities": {
+    "credential_readiness": true,
+    "customer_id_history": true,
+    "deletion_outbox_cursor": true,
+    "enrollment_grants": true
+   },
+   "upstream_owner_admin": "(not surfaced by deployed build)",
+   "auth_status_http": 200,
+   "origin_allowed": true,
+   "public_flows": {
+    "staff": {
+     "available": true,
+     "message": ""
+    },
+    "enrollment": {
+     "available": true,
+     "message": ""
+    },
+    "deletion": {
+     "available": true,
+     "message": ""
+    }
+   }
+  }
+ },
+ "app": {
+  "health_http": 200,
+  "build": "shared-v1-review-fonts-2026-09-12",
+  "commit": "unrecorded",
+  "ready": true,
+  "flows": {
+   "mobile": {
+    "ready": true,
+    "issues": []
+   },
+   "staff": {
+    "ready": true,
+    "issues": []
+   },
+   "enrollment": {
+    "ready": true,
+    "issues": []
+   },
+   "deletion": {
+    "ready": true,
+    "issues": []
+   },
+   "review": {
+    "ready": false,
+    "issues": [
+     "REVIEW_DB_NAME"
+    ],
+    "optional": true,
+    "configured": false,
+    "usable": false,
+    "detail": "no distinct review database configured"
+   },
+   "owner_admin": {
+    "ready": true,
+    "issues": [],
+    "state": "already_admin",
+    "phone_suffix": "3334",
+    "detail": "owner record already admin; sessions untouched"
+   }
+  },
+  "capabilities": {
+   "canonical_auth": 1,
+   "enrollment_grants": 1,
+   "staff_directory": 1,
+   "query_ledger": 1,
+   "rates_versioning": 1,
+   "pdf_template": 1,
+   "legacy_units": 1,
+   "catalog_pagination": 1,
+   "pdf_authoring": 1,
+   "pdf_source_preview": 1,
+   "media_accounting": 1,
+   "managed_delete": 0,
+   "credential_readiness": 1,
+   "customer_id_history": 1,
+   "deletion_outbox_cursor": 1,
+   "review_access": 1,
+   "icon_font_fallback": 1,
+   "owner_admin_bootstrap": 1
+  },
+  "configuration": {
+   "JWT_SECRET": true,
+   "ENROLLMENT_INTEGRATION_KEY": true,
+   "STAFF_SERVICE_KEY": true,
+   "MSG91_AUTHKEY": true,
+   "MSG91_TEMPLATE_ID": true,
+   "MONGO_URL": true,
+   "DB_NAME": true,
+   "REVIEW_DB_NAME": false,
+   "REVIEW_DB_USABLE": false,
+   "OWNER_ADMIN_PHONE": true,
+   "BUILD_COMMIT": false
+  },
+  "live": {
+   "http": 200,
+   "status": "alive",
+   "build": "shared-v1-review-fonts-2026-09-12"
+  }
+ }
+}

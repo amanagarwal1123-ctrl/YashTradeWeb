@@ -1,18 +1,23 @@
-# Production operator handoff — the single current owner checklist (2026-09-12, v3)
+# Production operator handoff — the single current owner checklist (2026-09-12, v4: app pin a0b1e80)
 
 This is the only current checklist. `PRODUCTION_AUTH_CONFIGURATION.md`, `PRODUCTION_AUTH_RCA.md`,
 `WEBSITE_RELEASE_READINESS.md` and `APP_TEAM_HANDOFF.md` are dated background and link here; the
-app repository's `PRODUCTION_ADMIN_RECOVERY.md` (with `backend/tools/recover_owner_admin.py` and
-`backend/tools/windows/Recover-OwnerAdmin.ps1`) is the exact role-recovery reference and is owned by
+app repository's `PRODUCTION_ADMIN_RECOVERY.md` is the role-recovery reference and is owned by
 the app chat. Older staging-only / no-SMS / unknown-app-commit instructions are superseded.
 
 ## Settled decisions
 - One authentication and customer system: the app backend owns identity, role, customer profile,
   requests, metrics and rates. The website database holds only BFF sessions, drafts, caches and
   integration state. No website-local admin, reviewer auth, demo OTP or role override — ever.
-- Owner-admin correction is authorized for phone `9999813334`, canonical ID
-  `bcdf18c9-dc87-4d46-b580-30cf519103df` (preserve ID and history; app-side only; verify the current
-  role first; matching service keys never promote anyone).
+- Default administrator (owner decision 12 Sep 2026): phone `9999813334`, canonical ID
+  `bcdf18c9-dc87-4d46-b580-30cf519103df`, is admin on the app AND the website in every environment.
+  The **app backend applies it itself at every start** (`OWNER_ADMIN_PHONE`, app `shared/owner_admin.py`:
+  same canonical record, history kept, sessions revoked once) and reports it on `GET /api/health` as
+  `flows.owner_admin.state` (`created` / `promoted` / `already_admin`). The website never creates,
+  stores or promotes a local record for it — it reads `role=admin` from canonical `/auth/me` after the
+  staff OTP exchange (channel `portal`, server-only `X-Staff-Service-Key`) like every other staff account,
+  and routes that role to `/admin`; customers receive `403 STAFF_ONLY`. Matching service keys never
+  assign a role.
 - Controlled genuine OTP login testing to `9999813334` is authorized: one normal login per website
   origin, at most one resend after the real cooldown, stop on unexpected errors. No other numbers.
   Real codes/tokens never appear in reports.
@@ -26,9 +31,9 @@ the app chat. Older staging-only / no-SMS / unknown-app-commit instructions are 
 ## Pins and identities
 | Item | Value |
 |---|---|
-| App contract source (isolated fixture + `CONTRACT_COMMIT`) | `9596a5578a61bb1fb187e63345b7f93eda95bc9c` (build `shared-v1-review-fonts-2026-09-12`, OpenAPI 123 paths, byte-identical to the ZIP schema) |
-| App whole-source provenance | NOT verified (ZIP full-source digest ≠ saved tree); contract docs/schema only |
-| Website build | `website-shared-v1-d2d3d4-consumers-v3` |
+| App contract source (isolated fixture + `CONTRACT_COMMIT`) | `a0b1e8085ba6ac679fa0f5ec4e106d928057ed8f` ("Default owner administrator: OWNER_ADMIN_PHONE=9999813334 …", build `shared-v1-review-fonts-2026-09-12`, OpenAPI 123 paths sha256 `a30e6b2f…` byte-identical to the previous pin 9596a55 and to the ZIP schema) |
+| App whole-source provenance | VERIFIED 2026-09-12 against `WEBSITE_RELEASE_HANDOFF.zip` from packaging commit `9e5aa3e` (manifest `source_commit=a0b1e80`): all 8 handoff-file sha256 + Git blob ids match; whole-tree digest `6834fad2…` over 394 blobs matches. Note: the ZIP inside `a0b1e80` itself is the previous package (built from `84a11f9`) — by the app's packaging model the rebuilt ZIP lives in the next commit. |
+| Website build | `website-shared-v1-owner-admin-pin-v4` |
 | Website GitHub `main` at audit | `c1ef7d84609e0d0eff0258601b2fc1a84076189e` — newer local work is NOT on GitHub until Save to GitHub |
 | Website `BUILD_COMMIT` | The website GitHub SHA after Save to GitHub; never the app SHA; placeholder = `unrecorded` |
 
@@ -49,39 +54,45 @@ are rejected in code (`bff/config.py`) and tested; runtime Secrets always win ov
 `tools/check_auth_readiness.py`, isolated tests (see `evidence/auth-production-incident/readiness-adapter-v2/RUN_SUMMARY.json`).
 
 ### 2. App project (Yash Trade App) — owner, coordinated with the app chat
-1. Normal **Re-publish changes** of the saved app so its newly declared key names register in Secrets.
+Live read-only 12 Sep (after the a0b1e80 release): `GET https://yash-tryon-test.emergent.host/api/health`
+→ 200, `capabilities.owner_admin_bootstrap=1`, `flows.owner_admin = {ready:true, state:"already_admin",
+phone_suffix:"3334"}`, `flows.staff/enrollment/deletion ready`, `configuration.STAFF_SERVICE_KEY=true`,
+`OWNER_ADMIN_PHONE=true`, `BUILD_COMMIT=false`. The app steps below are therefore DONE except `BUILD_COMMIT`.
+1. Normal **Re-publish changes** of the saved app so its newly declared key names register in Secrets. — done
 2. Manage Publishes → Secrets (existing-key editor): privately set `STAFF_SERVICE_KEY` (strong,
-   independent, ≠ enrollment key), the distinct review database name, the actual app build SHA and
-   the correct frontend production origin as the app runbook requires. Keep `ENROLLMENT_INTEGRATION_KEY`,
-   JWT, SMS and Mongo values unchanged.
-3. **Re-publish changes** again. Check `GET https://yash-tryon-test.emergent.host/api/health`:
-   200, `flows.staff.ready=true`, `capabilities.customer_id_history=1`, `deletion_outbox_cursor=1`.
+   independent, ≠ enrollment key), the distinct review database name (optional), the actual app build SHA
+   (`BUILD_COMMIT`, still placeholder) and the correct frontend production origin as the app runbook requires.
+   Keep `ENROLLMENT_INTEGRATION_KEY`, JWT, SMS and Mongo values unchanged.
+3. **Re-publish changes** again. Check `GET .../api/health`: 200, `flows.staff.ready=true`,
+   `flows.owner_admin.state` = `promoted` or `already_admin` (`created` would mean the record was missing),
+   `capabilities.customer_id_history=1`, `deletion_outbox_cursor=1`, `owner_admin_bootstrap=1`.
 
 ### 3. Website project (this repo) — owner
-Fresh read-only check (12 Sep, after this work started): both production domains already run
-`website-shared-v1-readiness-adapter-v2` (an earlier republish from the workspace), so the names
-`CANONICAL_API_BASE_URL`, `ENROLLMENT_INTEGRATION_KEY`, `STAFF_SERVICE_KEY`, `BUILD_COMMIT` are
-probably already registered in Secrets with `PLACEHOLDER_NOT_CONFIGURED` values. Open the Secrets
-tab first: if they are listed, edit them directly (step 3) and skip the registration republish (step 2).
+Live read-only 12 Sep (latest): BOTH `register.yashsilver.com` and `yash-register.emergent.host` return
+`GET /api/health/ready` → 200, `integration_ready=true`, `configuration_state` valid for
+`CANONICAL_API_BASE_URL` / `ENROLLMENT_INTEGRATION_KEY` / `STAFF_SERVICE_KEY` / `SESSION_SECRET`,
+`origin_entries` both valid, all three flows `ready + credential_verified=true`,
+`key_matching_verified_by_this_check=true`. Remaining: `BUILD_COMMIT` = `placeholder` (release-gate
+requirement only; login is not blocked by it) and the deployed build is still
+`website-shared-v1-d2d3d4-consumers-v3` — republish to serve `website-shared-v1-owner-admin-pin-v4`
+(surfaces `upstream.owner_admin` and `owner_admin_bootstrap`; no setting names changed).
 1. Chat **Save → Save to GitHub** (`amanagarwal1123-ctrl/YashTradeWeb`, `main`); copy the new SHA from
    GitHub (the platform shows none).
 2. **Republish → Re-publish changes** once (only if the names are not yet in Secrets): the five names
    register in production Secrets (placeholders keep readiness 503 — this publication does NOT restore login).
-   `/api/health/ready` now also returns `configuration_state` per name: `placeholder` = production Secrets still
+   `/api/health/ready` also returns `configuration_state` per name: `placeholder` = production Secrets still
    hold the bootstrap value (edit it in Secrets; a republish alone never replaces it), `missing` = not set,
-   `valid` = usable. Live on 12 Sep both domains showed `CANONICAL_API_BASE_URL` invalid because the Secret
-   holds the earlier placeholder — the `.env` URL cannot override an existing Secret.
-   `origin_entries` on `/api/health/ready` lists each `BFF_ALLOWED_ORIGINS` entry by position with `valid` and a
+   `valid` = usable. `origin_entries` lists each `BFF_ALLOWED_ORIGINS` entry by position with `valid` and a
    `reason` (`scheme_not_https`, `path_present`, `placeholder`, `non_default_port`, `missing_host`) — one malformed
    entry fails the whole list closed by design; the value must be exactly the two origins, comma-separated, no spaces,
    no trailing slash, no `/admin`.
-3. Manage Publishes → **Secrets** → edit existing keys privately:
+3. Manage Publishes → **Secrets** → edit existing keys privately (already valid in production; listed for completeness):
    `CANONICAL_API_BASE_URL` = `https://yash-tryon-test.emergent.host/api`;
    `ENROLLMENT_INTEGRATION_KEY` = the app's existing production enrollment key (same value as the
    website's private `LIVE_INTEGRATION_KEY`; preserve the app's value);
    `STAFF_SERVICE_KEY` = identical to the app value from step 2;
    `BFF_ALLOWED_ORIGINS` = both origins above (edit the existing key; `.env` cannot overwrite it);
-   `BUILD_COMMIT` = the website SHA from 3.1. Keep `SESSION_SECRET`; keep only verified ingress aliases.
+   `BUILD_COMMIT` = the website SHA from 3.1 (**still to do**). Keep `SESSION_SECRET`; keep only verified ingress aliases.
 4. **Re-publish changes** (normal). Both `register.yashsilver.com` and `yash-register.emergent.host`
    are updated by the same deploy.
    If an already-registered key cannot be edited in Secrets, that is a platform permission issue on
@@ -89,14 +100,17 @@ tab first: if they are listed, edit them directly (step 3) and skip the registra
 
 ### 4. Verification (no SMS first, then one genuine login per origin)
 1. Release gate from any machine with Python + httpx (read-only GETs, no secrets):
-   `WEBSITE_CHECK_ORIGINS=https://register.yashsilver.com,https://yash-register.emergent.host EXPECTED_WEBSITE_BUILD=website-shared-v1-d2d3d4-consumers-v3 EXPECTED_WEBSITE_COMMIT=<website SHA> EXPECTED_APP_CONTRACT_COMMIT=9596a5578a61bb1fb187e63345b7f93eda95bc9c EXPECTED_UPSTREAM_BUILD=<app build from /api/health> EXPECTED_UPSTREAM_COMMIT=<app BUILD_COMMIT> PUBLICATION_RECEIPT=<publish id/date> python tools/check_auth_readiness.py`
+   `WEBSITE_CHECK_ORIGINS=https://register.yashsilver.com,https://yash-register.emergent.host EXPECTED_WEBSITE_BUILD=website-shared-v1-owner-admin-pin-v4 EXPECTED_WEBSITE_COMMIT=<website SHA> EXPECTED_APP_CONTRACT_COMMIT=a0b1e8085ba6ac679fa0f5ec4e106d928057ed8f EXPECTED_UPSTREAM_BUILD=<app build from /api/health> EXPECTED_UPSTREAM_COMMIT=<app BUILD_COMMIT> PUBLICATION_RECEIPT=<publish id/date> python tools/check_auth_readiness.py`
    → exit 0 only when both origins report `integration_ready=true`, `upstream.contract=credential_readiness`,
    `key_matching_verified_by_this_check=true`, all flows `credential_verified=true`, `origin_allowed=true`,
    public flows available. `CANONICAL_CREDENTIAL_MISMATCH` = website key ≠ app key; `CANONICAL.STAFF_SERVICE_KEY`
    = app step 2 not active; `CANONICAL_UNAVAILABLE_OR_INCOMPATIBLE` = base/upstream problem.
+   `upstream.owner_admin` on `/api/health/ready` (and Admin → Settings & Privacy → "Canonical app connection")
+   mirrors the app's bootstrap state read-only: `state=already_admin|promoted`, `phone_suffix=3334` expected.
 2. Deployed-source identification: `commit` on `/api/health/ready` must equal the GitHub SHA you set.
-3. Owner role recovery if `GET /api/auth/me` after login is still `customer`: app chat's guarded
-   procedure (backup → dry-run → reviewed report hash → targeted apply → audit → session invalidation).
+3. Owner role: no manual recovery is needed any more — the app bootstrap already reports
+   `already_admin` for `…3334`. If `GET /api/admin/auth/me` after a genuine login were still `customer`,
+   stop and report to the app chat (`flows.owner_admin.issues` names the reason); never fix it on the website.
 4. Genuine admin login (owner only): open `<origin>/admin/login`, enter `9999813334`, **Send OTP**
    (one SMS), enter the received code on the page (never in chat). Expect `/admin` with role badge
    `admin`; in the same tab `<origin>/api/admin/auth/me` → `id=bcdf18c9-dc87-4d46-b580-30cf519103df`,
@@ -107,10 +121,10 @@ tab first: if they are listed, edit them directly (step 3) and skip the registra
 
 ### 5. Assigned, not complete
 - App team: private reviewer provisioning note for store review (isolated review DB); website has
-  and needs no reviewer auth.
+  and needs no reviewer auth. App `BUILD_COMMIT` Secret still placeholder (`commit: unrecorded`).
 - App team + provider: media/SMS provider erasure acknowledgements (`required_acknowledgements`
   beyond `website`); a website ack never proves provider deletion.
 - Owner/app team: physical native builds and store acceptance; real Play/App Store links
   (`ANDROID_APP_URL`/`IOS_APP_URL` with `*_RELEASE_VERIFIED=true`) once published.
-- Website: D2/D3/D4 tests now pass against pin `9596a55`; re-run when the app publishes its narrow
-  packaging correction and update the pin only after inspecting that commit.
+- Website: D2/D3/D4 + owner-admin consumer tests pass against pin `a0b1e80`
+  (`evidence/owner-admin-pin-v4/`); re-pin only after inspecting any later app commit.

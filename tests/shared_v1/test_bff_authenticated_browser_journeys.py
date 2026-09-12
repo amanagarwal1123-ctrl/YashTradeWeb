@@ -297,6 +297,17 @@ async def test_authenticated_browser_journeys_routed_to_isolated_bff(shared_apps
             assert history_calls and all(e["status"] == 200 for e in history_calls)
             await page.screenshot(path=str(evidence_dir / "customer-complete-history-1440.jpeg"), type="jpeg", quality=20, full_page=False)
 
+            # Settings & Privacy: read-only canonical connection panel (pin a0b1e80 owner_admin bootstrap state).
+            await page.click('[data-testid="nav-settings"]', force=True)
+            await page.wait_for_selector('[data-testid="canonical-connection"]', timeout=15000)
+            await page.wait_for_selector('[data-testid="upstream-capabilities-row-owner_admin_bootstrap"]', timeout=15000)
+            assert "a0b1e8085ba6ac679fa0f5ec4e106d928057ed8f" in await page.inner_text('[data-testid="contract-commit"]')
+            assert (await page.inner_text('[data-testid="upstream-capabilities-owner_admin_bootstrap-state"]')).strip() == "Advertised"
+            owner_state = await page.inner_text('[data-testid="owner-admin-state"]')
+            assert "Default administrator bootstrap" in owner_state and "u_" not in owner_state
+            assert (await page.inner_text('[data-testid="flow-readiness-staff-verified"]')).strip() == "Verified"
+            await page.screenshot(path=str(evidence_dir / "settings-canonical-connection-1440.jpeg"), type="jpeg", quality=20, full_page=False)
+
             await page.click('[data-testid="nav-queries"]', force=True)
             await page.wait_for_selector('[data-testid="queries-table"]', timeout=15000)
             await page.click('[data-testid="nav-rates"]', force=True)

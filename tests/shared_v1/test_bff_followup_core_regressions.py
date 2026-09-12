@@ -464,7 +464,7 @@ async def test_d3_history_is_withheld_when_the_app_lacks_customer_id_capability(
     # module: D3 guard — an older app that silently ignores customer_id must never yield another customer's history
     readiness = shared_apps["bff_app"].state.readiness
     real = await readiness.snapshot()
-    assert real["upstream"]["capabilities"]["customer_id_history"] is True, "pinned app 9596a55 advertises the capability"
+    assert real["upstream"]["capabilities"]["customer_id_history"] is True, "pinned app a0b1e80 advertises the capability"
     degraded = {**real, "upstream": {**real["upstream"], "capabilities": {**real["upstream"]["capabilities"], "customer_id_history": False}}}
     readiness._snapshot, readiness._until = degraded, readiness.clock() + 600
     try:
@@ -475,6 +475,60 @@ async def test_d3_history_is_withheld_when_the_app_lacks_customer_id_capability(
         assert plain.status_code == 200
     finally:
         readiness.invalidate()
+
+
+@pytest.mark.anyio
+async def test_owner_admin_bootstrap_on_pinned_app_promotes_same_record_and_website_routes_canonical_role_admin(bff_client, shared_apps, monkeypatch):
+    # module: app a0b1e80 default-administrator bootstrap (OWNER_ADMIN_PHONE) on the isolated pinned app; the website
+    #         only reads role=admin from canonical /auth/me after the portal OTP exchange. Synthetic phone, fixture SMS
+    #         double only — never the production owner number.
+    canonical_db, website_db = shared_apps["canonical_db"], shared_apps["website_db"]
+    now = datetime.now(timezone.utc).isoformat()
+    await canonical_db.users.insert_one({"id": "u_owner_fixture", "phone": "9000000106", "phone_normalized": "9000000106", "name": "TEST Owner",
+                                         "role": "customer", "status": "active", "account_status": "active", "session_version": 0,
+                                         "phone_verified": True, "onboarding_status": "completed", "shop_name": "Owner Shop",
+                                         "location": "Delhi", "created_at": now, "updated_at": now})
+    monkeypatch.setenv("OWNER_ADMIN_PHONE", "9000000106")
+    from shared import owner_admin  # pinned app module (sys.path set by shared_apps)
+
+    assert await owner_admin.ensure_owner_admin() is True
+    assert owner_admin.status()["action"] == "promoted" and owner_admin.status()["phone_suffix"] == "0106"
+    record = await canonical_db.users.find_one({"phone_normalized": "9000000106"}, {"_id": 0})
+    assert record["id"] == "u_owner_fixture" and record["role"] == "admin" and record["session_version"] == 1
+    assert [e["type"] for e in record["identity_events"]] == ["owner_admin_bootstrap"]
+    assert await canonical_db.users.count_documents({"phone_normalized": "9000000106"}) == 1, "same record, no second identity"
+    assert await owner_admin.ensure_owner_admin() is True and owner_admin.status()["action"] == "already_admin", "idempotent"
+
+    # Website readiness surfaces the app-side state read-only (suffix only, never the ID) and stays ready itself.
+    shared_apps["bff_app"].state.readiness.invalidate()
+    ready = await bff_client.get("/api/health/ready")
+    assert ready.status_code == 200, ready.text
+    upstream = ready.json()["upstream"]
+    assert upstream["capabilities"]["owner_admin_bootstrap"] is True
+    assert upstream["owner_admin"] == {"reported": True, "ready": True, "issues": [], "state": "already_admin", "phone_suffix": "0106"}
+    assert "u_owner_fixture" not in ready.text
+    assert ready.json()["app_contract_commit"] == "a0b1e8085ba6ac679fa0f5ec4e106d928057ed8f"
+
+    # Canonical role → website admin experience (routes by /auth/me, not by phone or key).
+    me = await _login_role(bff_client, shared_apps, "9000000106")
+    assert me["role"] == "admin" and me["id"] == "u_owner_fixture"
+    who = await bff_client.get("/api/admin/auth/me")
+    assert who.status_code == 200 and who.json()["role"] == "admin" and who.json()["id"] == "u_owner_fixture"
+    directory = await bff_client.get("/api/bff/customers?page=1&limit=20")
+    assert directory.status_code == 200, "admin-only canonical route reachable through the website session"
+    session = await website_db.bff_sessions.find_one({}, {"_id": 0})
+    assert session["canonical_user_id"] == "u_owner_fixture"
+    assert all(name.startswith("bff_") for name in await website_db.list_collection_names()), "no website-local user/role record was created"
+
+    # A customer is still refused the staff console after the same canonical OTP exchange.
+    await bff_client.post("/api/admin/auth/logout", headers=_headers(await _csrf(bff_client)))
+    csrf = await _csrf(bff_client)
+    sent = await bff_client.post("/api/admin/auth/send-otp", json={"phone": "9000000103"}, headers=_headers(csrf))
+    assert sent.status_code == 200, sent.text
+    denied = await bff_client.post("/api/admin/auth/verify-otp", headers=_headers(csrf),
+                                   json={"phone": "9000000103", "otp": shared_apps["sent_otps"][("9000000103", "login")], "challenge_id": sent.json()["challenge_id"]})
+    assert denied.status_code == 403 and denied.json()["code"] == "STAFF_ONLY"
+    assert bff_client.cookies.get("__Host-yash_session") is None
 
 
 def _erasure_events(count, start=1, acknowledged=()):
