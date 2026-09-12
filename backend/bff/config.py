@@ -46,6 +46,7 @@ class Settings:
                 self.placeholders.add(name)
             if is_placeholder(value):
                 setattr(self, field, '')
+        self.raw_origins = tuple(self.origins)
         self.origins = tuple(o for o in self.origins if not is_placeholder(o))
         self.ingress_origins = tuple(o for o in self.ingress_origins if not is_placeholder(o))
         self.trusted_ingress = tuple(o for o in self.trusted_ingress if not is_placeholder(o))
@@ -108,6 +109,18 @@ class Settings:
     @property
     def commit(self):
         return self.build_commit if re.fullmatch(r'[0-9a-f]{7,40}', self.build_commit) else 'unrecorded'
+
+    def origin_entries(self):
+        """Per BFF_ALLOWED_ORIGINS entry (by position): why it is rejected, without echoing malformed values."""
+        entries = []
+        for index, value in enumerate(self.raw_origins):
+            parsed = urlsplit(value)
+            reason = ('placeholder' if is_placeholder(value) else 'scheme_not_https' if parsed.scheme != 'https' else 'missing_host' if not parsed.hostname
+                      else 'path_present' if parsed.path else 'query_or_fragment_present' if parsed.query or parsed.fragment
+                      else 'credentials_present' if parsed.username or parsed.password else 'non_default_port' if parsed.port not in (None, 443) else None)
+            entries.append({'index': index, 'valid': reason is None, 'host': parsed.hostname if reason in (None, 'path_present', 'query_or_fragment_present', 'non_default_port') else None,
+                            **({'reason': reason} if reason else {})})
+        return entries
 
     def configuration_state(self):
         """Per setting NAME: valid | placeholder (Secrets still hold the bootstrap value) | missing | invalid."""

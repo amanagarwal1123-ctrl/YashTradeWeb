@@ -9,6 +9,7 @@ from __future__ import annotations
 import importlib.util
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -284,7 +285,7 @@ async def test_request_resolution_reopen_idempotency_history_and_today_metrics_c
     assert "resolution" in types
     assert "reopening" in types
 
-    today = datetime.now(timezone.utc).astimezone().date().isoformat()
+    today = datetime.now(ZoneInfo("Asia/Kolkata")).date().isoformat()  # the app reports periods in IST, not container time
     await _login_role(bff_client, shared_apps, "9000000101")
     metrics = await bff_client.get(f"/api/bff/requests/metrics/summary?start={today}&end={today}")
     assert metrics.status_code == 200, metrics.text

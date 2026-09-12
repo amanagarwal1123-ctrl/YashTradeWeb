@@ -71,6 +71,10 @@ tab first: if they are listed, edit them directly (step 3) and skip the registra
    hold the bootstrap value (edit it in Secrets; a republish alone never replaces it), `missing` = not set,
    `valid` = usable. Live on 12 Sep both domains showed `CANONICAL_API_BASE_URL` invalid because the Secret
    holds the earlier placeholder — the `.env` URL cannot override an existing Secret.
+   `origin_entries` on `/api/health/ready` lists each `BFF_ALLOWED_ORIGINS` entry by position with `valid` and a
+   `reason` (`scheme_not_https`, `path_present`, `placeholder`, `non_default_port`, `missing_host`) — one malformed
+   entry fails the whole list closed by design; the value must be exactly the two origins, comma-separated, no spaces,
+   no trailing slash, no `/admin`.
 3. Manage Publishes → **Secrets** → edit existing keys privately:
    `CANONICAL_API_BASE_URL` = `https://yash-tryon-test.emergent.host/api`;
    `ENROLLMENT_INTEGRATION_KEY` = the app's existing production enrollment key (same value as the

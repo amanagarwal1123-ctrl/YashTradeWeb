@@ -424,6 +424,20 @@ def test_placeholder_settings_report_invalid_not_present():
     assert settings(build_commit="3384da292b44df321dcb9568f4f96264bf795647").commit == "3384da292b44df321dcb9568f4f96264bf795647"
 
 
+def test_origin_entries_explain_each_rejected_allowlist_entry_without_echoing_values():
+    # module: a single malformed BFF_ALLOWED_ORIGINS entry is reported by position and reason; the list stays fail-closed
+    cfg = settings(origins=("https://register.yashsilver.com", "http://yash-register.emergent.host", "https://yash-register.emergent.host/admin",
+                            "yash-register.emergent.host", "SET_IN_PUBLISH_SECRETS", "https://yash-register.emergent.host:8443", "https://yash-register.emergent.host"))
+    entries = cfg.origin_entries()
+    assert [e["valid"] for e in entries] == [True, False, False, False, False, False, True]
+    assert [e.get("reason") for e in entries] == [None, "scheme_not_https", "path_present", "scheme_not_https", "placeholder", "non_default_port", None]
+    assert entries[2]["host"] == "yash-register.emergent.host" and entries[1]["host"] is None
+    assert "http://yash-register.emergent.host" not in json.dumps(entries)
+    assert cfg.presence()["BFF_ALLOWED_ORIGINS"] is False and "BFF_ALLOWED_ORIGINS" in cfg.flow_issues("staff")
+    clean = settings()
+    assert all(e["valid"] for e in clean.origin_entries()) and clean.presence()["BFF_ALLOWED_ORIGINS"] is True
+
+
 def test_from_env_uses_runtime_environment_over_dotenv_and_parses_origins(monkeypatch, tmp_path):
     # module: loader precedence — injected runtime variables win; .env never overrides them; placeholders read as absent
     from dotenv import load_dotenv
