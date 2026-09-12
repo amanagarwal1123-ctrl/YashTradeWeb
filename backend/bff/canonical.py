@@ -13,11 +13,15 @@ def fail(status, code, detail):
     raise UpstreamError(status, code, detail)
 
 
+# Exact server-only GET readiness probes and the single credential each may carry.
+PROBES = {'/health': None, '/integrations/staff/readiness': 'staff', '/integrations/enrollment/readiness': 'enrollment'}
+
+
 class Canonical:
     def __init__(self, cfg, transport=None):
         self.cfg, self.transport = cfg, transport
 
-    def headers(self, path, token=None, key=None, extra=None):
+    def headers(self, path, token=None, key=None, extra=None, method='POST'):
         if not self.cfg.valid_base:
             fail(503, 'CONFIGURATION_REQUIRED', 'The verification service is not configured. Please contact the website administrator.')
         if not re.fullmatch(r'/[A-Za-z0-9_./-]+', path) or '..' in path or '//' in path:
@@ -28,7 +32,8 @@ class Canonical:
             if len(value) < 32 or (self.cfg.staff_key and self.cfg.staff_key == self.cfg.enrollment_key):
                 fail(503, 'CONFIGURATION_REQUIRED', 'Separate canonical enrollment and staff credentials must be configured privately on both systems.')
             permitted = ('/auth/send-otp', '/auth/verify-otp')
-            if path not in permitted and not (key == 'enrollment' and path.startswith('/integrations/') and not path.startswith('/integrations/staff')):
+            probe = method == 'GET' and PROBES.get(path) == key
+            if path not in permitted and not probe and not (key == 'enrollment' and path.startswith('/integrations/') and not path.startswith('/integrations/staff')):
                 fail(403, 'CREDENTIAL_SCOPE', 'Service credential is not permitted for this route.')
             headers[name] = value
         if token:
@@ -60,8 +65,24 @@ class Canonical:
                 detail = detail.replace(secret, '[redacted]')
         fail(r.status_code if r.status_code >= 400 else 503, code, detail[:1200])
 
+    async def probe(self, path, key=None):
+        """Bounded GET of one documented readiness route. Returns (status, dict) for a
+        structured 200/401/503 JSON body; anything else raises. Never follows redirects."""
+        if path not in PROBES or PROBES[path] != key:
+            fail(403, 'CREDENTIAL_SCOPE', 'Readiness probe route is not permitted.')
+        headers = self.headers(path, key=key, method='GET')
+        try:
+            async with httpx.AsyncClient(transport=self.transport, timeout=httpx.Timeout(5, read=8), follow_redirects=False, trust_env=False) as client:
+                r = await client.get(self.cfg.base + path, headers=headers)
+            body = r.json() if r.headers.get('content-type', '').split(';')[0] == 'application/json' else None
+        except (httpx.HTTPError, ValueError):
+            fail(503, 'UPSTREAM_UNCERTAIN', 'The canonical readiness probe did not complete.')
+        if r.status_code not in (200, 401, 503) or not isinstance(body, dict):
+            fail(503, 'CANONICAL_HEALTH_UNSUPPORTED', 'Unexpected canonical readiness response.')
+        return r.status_code, body
+
     async def request(self, method, path, *, token=None, key=None, json=None, params=None, extra=None):
-        headers = self.headers(path, token, key, extra)
+        headers = self.headers(path, token, key, extra, method)
         try:
             async with self.client() as client:
                 r = await client.request(method, self.cfg.base + path, headers=headers, params=params, json=json)

@@ -30,6 +30,9 @@ def main():
                 results.append({'origin': origin, 'ready': ready, 'http_status': response.status_code,
                     'origin_allowed': origin_allowed,
                     'build': payload.get('build'), 'commit': payload.get('commit'),
+                    'app_contract_commit': payload.get('app_contract_commit'),
+                    'upstream_contract': (payload.get('upstream') or {}).get('contract'),
+                    'key_matching_verified_by_this_check': payload.get('key_matching_verified_by_this_check') is True,
                     'missing': {flow: data.get('issues', []) for flow, data in payload.get('flows', {}).items()},
                     'live_login_verified_by_this_check': False})
         except (httpx.HTTPError, ValueError):

@@ -12,7 +12,8 @@ from dataclasses import dataclass
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from test_bff_auth_session import _csrf, _headers, shared_apps
+from test_bff_auth_session import _csrf, _headers, shared_apps  # noqa: F401  (pytest fixture import)
+# ruff: noqa: F811
 
 
 @dataclass
@@ -25,25 +26,45 @@ class _Resp:
 
 
 class StubCanonical:
+    """Speaks the app 6a6cddd readiness contract: structured 200/503 health + credential GETs."""
+
     def __init__(self, health_payload=None):
         self.calls = []
+        self.probes = []
         self.health_payload = health_payload or {
             "status": "ok",
+            "ready": True,
             "build": "canonical-test",
             "commit": "commit-test",
-            "capabilities": {"canonical_auth": 1, "enrollment_grants": 1},
+            "database_ready": True,
+            "capabilities": {"canonical_auth": 1, "enrollment_grants": 1, "credential_readiness": 1},
             "configuration": {
                 "JWT_SECRET": True,
                 "MSG91_AUTHKEY": True,
                 "ENROLLMENT_INTEGRATION_KEY": True,
                 "STAFF_SERVICE_KEY": True,
             },
+            "flows": {name: {"ready": True, "issues": []} for name in ("mobile", "staff", "enrollment", "deletion")},
         }
+
+    def unconfigure_staff(self):
+        self.health_payload["status"], self.health_payload["ready"] = "not_ready", False
+        self.health_payload["configuration"]["STAFF_SERVICE_KEY"] = False
+        self.health_payload["flows"]["staff"] = {"ready": False, "issues": ["STAFF_SERVICE_KEY"]}
+
+    async def probe(self, path, key=None):
+        self.probes.append((path, key))
+        if path == "/health":
+            assert key is None
+            return (200 if self.health_payload["ready"] else 503), self.health_payload
+        flow = {"/integrations/staff/readiness": "staff", "/integrations/enrollment/readiness": "enrollment"}[path]
+        assert key == flow
+        scoped = self.health_payload["flows"][flow]
+        return (200 if scoped["ready"] else 503), {"status": "ok" if scoped["ready"] else "not_ready", "flow": flow,
+                                                   **scoped, "build": "canonical-test", "credential_verified": True}
 
     async def request(self, method, path, **kwargs):
         self.calls.append((method, path, kwargs))
-        if method == "GET" and path == "/health":
-            return self.health_payload
         if method == "POST" and path == "/auth/send-otp":
             return {"challenge_id": "c1", "otp_length": 4, "expires_in": 300, "resend_after": 30}
         return {}
@@ -95,22 +116,31 @@ async def test_missing_config_returns_ready_503_live_200_and_neutral_unavailable
         assert blocked.status_code == 503
         assert blocked.json()["code"] == "AUTH_SERVICE_UNAVAILABLE"
 
-    assert all((m, p) == ("GET", "/health") for m, p, _ in provider.calls) or provider.calls == []
+    assert all(path == "/health" and key is None for path, key in provider.probes) or provider.probes == []
     assert not any(p in {"/auth/send-otp", "/auth/verify-otp"} for _, p, _ in provider.calls)
 
 
 @pytest.mark.anyio
 async def test_staff_missing_key_blocks_staff_only_while_enrollment_and_deletion_remain_available(shared_apps):
-    # module: per-flow readiness isolation when STAFF_SERVICE_KEY missing
+    # module: recognised structured 503 caused only by app staff configuration keeps enrollment/deletion available
     app, provider = _build_app(
         shared_apps,
         base="https://canonical.test/api",
         enrollment_key=secrets.token_urlsafe(48),
-        staff_key="",
+        staff_key=secrets.token_urlsafe(48),
     )
-    provider.health_payload["configuration"]["STAFF_SERVICE_KEY"] = False
+    provider.unconfigure_staff()
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="https://website.test") as client:
+        ready = await client.get("/api/health/ready")
+        assert ready.status_code == 503
+        report = ready.json()
+        assert report["upstream"]["contract"] == "credential_readiness"
+        assert report["flows"]["staff"]["issues"] == ["CANONICAL.STAFF_SERVICE_KEY"]
+        assert report["flows"]["enrollment"] == {"ready": True, "issues": [], "credential_verified": True}
+        assert report["flows"]["deletion"]["ready"] is True
+        assert report["key_matching_verified_by_this_check"] is False
+
         status = await client.get("/api/public/auth-status", params={"website_origin": "https://website.test"})
         assert status.status_code == 200
         flows = status.json()["flows"]
@@ -141,6 +171,9 @@ async def test_staff_missing_key_blocks_staff_only_while_enrollment_and_deletion
         assert delete_ok.status_code == 200, delete_ok.text
 
     assert not any(path == "/auth/send-otp" and kwargs.get("json", {}).get("purpose") == "login" for _, path, kwargs in provider.calls)
+    # The staff credential never travels while the app reports the staff flow unavailable.
+    assert ("/integrations/staff/readiness", "staff") not in provider.probes
+    assert ("/integrations/enrollment/readiness", "enrollment") in provider.probes
 
 
 @pytest.mark.anyio
@@ -181,8 +214,8 @@ async def test_public_auth_status_rejects_unknown_origin_and_masks_flows(shared_
 
 
 @pytest.mark.anyio
-async def test_readiness_uses_only_get_health_and_short_cache_no_mutation_calls(shared_apps):
-    # module: readiness endpoint should only query canonical GET /health
+async def test_readiness_uses_only_documented_get_probes_and_short_cache_no_mutation_calls(shared_apps):
+    # module: readiness only issues the three documented GET probes, once per cache window
     app, provider = _build_app(
         shared_apps,
         base="https://canonical.test/api",
@@ -195,9 +228,11 @@ async def test_readiness_uses_only_get_health_and_short_cache_no_mutation_calls(
         second = await client.get("/api/public/auth-status", params={"website_origin": "https://website.test"})
         assert first.status_code == 200
         assert second.status_code == 200
+        assert all(state["available"] for state in second.json()["flows"].values())
 
-    assert provider.calls
-    assert set((m, p) for m, p, _ in provider.calls) == {("GET", "/health")}
+    assert provider.calls == []
+    assert sorted(provider.probes) == [("/health", None), ("/integrations/enrollment/readiness", "enrollment"),
+                                       ("/integrations/staff/readiness", "staff")]
 
 
 def test_check_auth_readiness_returns_nonzero_if_any_origin_unready(monkeypatch):

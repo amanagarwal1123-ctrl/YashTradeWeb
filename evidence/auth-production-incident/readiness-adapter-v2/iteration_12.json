@@ -1,0 +1,23 @@
+{
+  "summary": "Backend-only verification of readiness-adapter-v2. Ran full isolated pytest suite from /app (tests/shared_v1) and validated preview fail-closed endpoints. Result: 58 passed, 3 xfailed (strict D2/D3/D4 known APP defects), 0 failed. Preview /api/health/ready returns 503 with expected build, contract commit, per-flow issues, and null credential_verified. /api/health/live returns 200 alive. /api/public/auth-status returns neutral 'temporarily unavailable' messages for allowed origin and 'unavailable on this website address' with origin_allowed=false for an unrelated origin. Response bodies contain no secret values or upstream free-text detail. Offline adapter behaviours (a-g) are exercised by the 25 tests in test_bff_readiness_adapter.py that are part of the passing suite.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/test_reports/pytest/iteration_12_full.xml",
+    "/app/tests/shared_v1/test_bff_readiness_adapter.py",
+    "/app/tests/shared_v1/test_bff_auth_readiness.py",
+    "/app/tests/shared_v1/test_bff_auth_session.py"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "D2/D3/D4 remain XFAIL (documented APP contract defects in /root/yash-contract). These are upstream app issues, not BFF issues, and are strict XFAIL as designed.",
+    "Multiple FastAPI on_event deprecation warnings originate from the pinned canonical app (/root/yash-contract), not the BFF — informational only."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (58/58 non-xfail passed; 3 strict xfailed as expected)", "frontend": "not tested (backend-only request)"},
+  "test_credentials": "None used. Preview intentionally lacks CANONICAL_API_BASE_URL/STAFF_SERVICE_KEY/ENROLLMENT_INTEGRATION_KEY so /api/health/ready is 503 fail-closed by design.",
+  "seed_data_creation": "None. Isolated pytest suite spins up ephemeral Mongo DB and generates random secrets per run.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "readiness-adapter-v2 build 'website-shared-v1-readiness-adapter-v2' with app_contract_commit '6a6cdddb81a4c27b387144746a7b6cf7fefc85c2' verified green. Preview 503 fail-closed is INTENDED (no operator settings). D2/D3/D4 are known-strict XFAILs — DO NOT try to make them pass. Run: `cd /app && PYMUPDF_MESSAGE=fd:2 python -m pytest -q -p no:cacheprovider -rxX` — expect 58 passed / 3 xfailed / 0 failed."
+}

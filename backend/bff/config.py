@@ -2,8 +2,8 @@ import os
 from dataclasses import dataclass
 from urllib.parse import urlsplit
 
-BUILD = 'website-shared-v1-auth-readiness-v1'
-CONTRACT_COMMIT = 'c4ee70d8134625a1a4e04073c43b9460c3c4e40d'
+BUILD = 'website-shared-v1-readiness-adapter-v2'
+CONTRACT_COMMIT = '6a6cdddb81a4c27b387144746a7b6cf7fefc85c2'
 
 
 @dataclass

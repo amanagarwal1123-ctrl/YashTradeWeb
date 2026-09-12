@@ -1,0 +1,115 @@
+{
+  "run": "readiness-adapter-v2",
+  "date": "2026-09-12",
+  "website_build": "website-shared-v1-readiness-adapter-v2",
+  "website_commit_under_test": "working tree on top of 8cf6a3c291e8b1221e6ec58b35ec7eb88aa6aa6b (release SHA assigned by the platform commit after this run)",
+  "app_contract_commit": "6a6cdddb81a4c27b387144746a7b6cf7fefc85c2",
+  "app_contract_build": "shared-v1-owner-recovery-2026-09-12",
+  "isolated_tests": {
+    "junit": "evidence/auth-production-incident/readiness-adapter-v2/junit.xml",
+    "log": "evidence/auth-production-incident/readiness-adapter-v2/pytest.log",
+    "total": 61,
+    "passed": 58,
+    "failed": 0,
+    "strict_xfail_app_dependencies": [
+      "D2 customers/search shadowing",
+      "D3 immutable customer_id enquiry filter",
+      "D4 deletion outbox starvation after 100 acks"
+    ],
+    "by_file": {
+      "test_bff_readiness_adapter.py": {
+        "count": 25,
+        "boundary": "MOCKED app readiness contract via httpx.MockTransport; real bff.canonical.Canonical + bff.readiness.Readiness; isolated Mongo for 2 create_app cases"
+      },
+      "test_bff_auth_readiness.py": {
+        "count": 6,
+        "boundary": "stub provider speaking the 6a6cddd contract + real BFF routes; 1 offline tool test"
+      },
+      "test_bff_auth_session.py": {
+        "count": 7,
+        "boundary": "real pinned app 6a6cddd over isolated ASGI, isolated Mongo, captured SMS double"
+      },
+      "test_bff_feature_matrix.py": {
+        "count": 11,
+        "boundary": "same isolated ASGI boundary"
+      },
+      "test_bff_followup_core_regressions.py": {
+        "count": 11,
+        "boundary": "same isolated ASGI boundary; 3 strict XFAIL"
+      },
+      "test_bff_authenticated_browser_journeys.py": {
+        "count": 1,
+        "boundary": "headless Chromium against running preview React, /api routed to isolated BFF/app fixture"
+      }
+    },
+    "real_sms_sent": false,
+    "real_identities_modified": false,
+    "production_settings_modified": false
+  },
+  "live_read_only_checks_2026_09_12": {
+    "app_health_live": {
+      "url": "https://yash-tryon-test.emergent.host/api/health/live",
+      "http": 200,
+      "build": "shared-v1-owner-recovery-2026-09-12"
+    },
+    "app_health": {
+      "http": 503,
+      "status": "not_ready",
+      "database_ready": true,
+      "flows": {
+        "mobile": true,
+        "staff": false,
+        "enrollment": true,
+        "deletion": true
+      },
+      "staff_issues": [
+        "STAFF_SERVICE_KEY"
+      ],
+      "credential_readiness": 1
+    },
+    "website_register_yashsilver_com": {
+      "health_ready_http": 503,
+      "build": "website-shared-v1-auth-readiness-v1",
+      "missing": [
+        "CANONICAL_API_BASE_URL",
+        "ENROLLMENT_INTEGRATION_KEY",
+        "STAFF_SERVICE_KEY"
+      ],
+      "origin_allowed": true
+    },
+    "website_yash_register_emergent_host": {
+      "health_ready_http": 503,
+      "build": "website-shared-v1-auth-readiness-v1",
+      "missing": [
+        "CANONICAL_API_BASE_URL",
+        "ENROLLMENT_INTEGRATION_KEY",
+        "STAFF_SERVICE_KEY"
+      ],
+      "origin_allowed": false,
+      "cause": "BFF_ALLOWED_ORIGINS present but lists one origin; settings, not code"
+    },
+    "preview_after_change": {
+      "health_live_http": 200,
+      "health_ready_http": 503,
+      "build": "website-shared-v1-readiness-adapter-v2",
+      "note": "preview intentionally has no canonical base/keys"
+    }
+  },
+  "earlier_artifacts": {
+    "iteration_11_report": "evidence/auth-production-incident/iteration_11.json (copied from gitignored test_reports/; 36 collected = 33 passed + 3 xfail)",
+    "iteration_11_junit_full": "evidence/auth-production-incident/pytest_iteration11_full.xml",
+    "iteration_11_junit_auth_readiness": "evidence/auth-production-incident/pytest_iteration11_auth_readiness.xml",
+    "older_27_test_junit": "evidence/shared-v1/final-junit.xml (30 collected = 27 passed + 3 xfail; distinct earlier run)"
+  },
+  "not_verified_by_this_run": [
+    "production settings applied",
+    "production key matching",
+    "owner role repair",
+    "genuine OTP login"
+  ],
+  "independent_testing_agent": {
+    "report": "evidence/auth-production-incident/readiness-adapter-v2/iteration_12.json",
+    "junit": "evidence/auth-production-incident/readiness-adapter-v2/pytest_iteration12_full.xml",
+    "result": "58 passed, 3 strict xfail, 0 failed; preview fail-closed endpoints verified; no issues"
+  }
+}

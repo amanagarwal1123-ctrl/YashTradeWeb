@@ -1,0 +1,65 @@
+{
+  "summary": "Executed focused auth-readiness regression plus full shared_v1 suite. Added new readiness/fail-closed tests, validated preview unavailable UX and no OTP mutation attempts. Full isolated suite now passes (33 passed, 3 strict xfailed dependency regressions). Production-like public domains remain unready from read-only checks.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "https://register.yashsilver.com/api/health/ready",
+        "issue": "Read-only readiness probe returned HTTP 404 with origin_allowed=false via /api/public/auth-status; production runtime not on expected shared-v1 auth-readiness contract.",
+        "priority": "CRITICAL"
+      },
+      {
+        "endpoint": "https://yash-register.emergent.host/api/health/ready",
+        "issue": "Read-only readiness probe returned HTTP 404 with origin_allowed=false via /api/public/auth-status; hosted production-like origin still unready/misconfigured.",
+        "priority": "CRITICAL"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Live preview auth availability",
+        "issue": "Preview correctly stays unavailable (expected) because canonical base/keys are absent in preview env; no OTP send flow can proceed.",
+        "affected_selectors": [
+          "[data-testid='public-enroll-send-otp-button']",
+          "[data-testid='admin-login-send-otp-button']",
+          "[data-testid='delete-submit-button']"
+        ]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/tests/shared_v1/test_bff_auth_readiness.py",
+    "/app/tests/shared_v1/test_bff_auth_session.py",
+    "/app/test_reports/pytest/pytest_iteration11_auth_readiness.xml",
+    "/app/test_reports/pytest/pytest_iteration11_full.xml",
+    "/app/evidence/auth-production-incident/preview-load-check.jpg",
+    "/app/evidence/auth-production-incident/unavailable-flows-preview.jpg"
+  ],
+  "action_items": [
+    "Operator-side production runtime config/deploy still required: restore expected shared-v1 auth-readiness endpoints and explicit origin allowlist on both production domains.",
+    "Apply private runtime settings per PRODUCTION_AUTH_CONFIGURATION.md (no .env commits) and rerun tools/check_auth_readiness.py against both domains.",
+    "After operator changes, rerun isolated browser+backend auth regression to confirm recovery from unavailable -> available paths."
+  ],
+  "critical_code_review_comments": [
+    "Added missing FRONTEND_URL into shared test fixture origins to match new /public/auth-status?website_origin behavior and prevent false browser failures.",
+    "New tests verify readiness only invokes canonical GET /health and blocks OTP mutations when flow is unavailable.",
+    "No business-logic bypass added; fail-closed behavior preserved for missing/reused staff/enrollment secrets."
+  ],
+  "updated_files": [
+    "/app/tests/shared_v1/test_bff_auth_readiness.py",
+    "/app/tests/shared_v1/test_bff_auth_session.py",
+    "/app/test_reports/iteration_11.json"
+  ],
+  "success_rate": {
+    "backend": "100% (33 passed, 3 strict xfailed expected dependency regressions)",
+    "frontend": "100% for executed unavailable-state smoke checks on live preview"
+  },
+  "seed_data_creation": "Synthetic-only isolated fixture data in per-test random Mongo DBs (no production writes, no real SMS).",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Playwright browser dependency had to be installed in container. Full shared_v1 suite is green after adding FRONTEND_URL to test fixture origins. Read-only production domain checks still fail (404/origin_allowed false), while preview returns expected 503 not-ready with missing key names.",
+  "rca of the issue": "Primary outage remains operator/runtime configuration gap on production-like domains: expected shared-v1 readiness/auth-status routes are not serving the corrected contract there (404), so service readiness is false regardless of code readiness in preview. Preview confirms fail-closed behavior with neutral UX copy and blocked OTP mutations until canonical base and service keys are configured. Also, test harness initially failed because browser journey used actual window origin while fixture origins only contained website.test; fixed by explicitly including FRONTEND_URL in test fixture origins."
+}

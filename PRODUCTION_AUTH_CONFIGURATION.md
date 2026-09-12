@@ -32,21 +32,33 @@ Trusted ingress/client-IP configuration also needs its existing operational revi
 do not enable arbitrary forwarded headers or bypass canonical rate limits.
 
 ## Zero-SMS verification
-The existing shared-v1 production login can first be restored by the private runtime
-configuration correction above; the guardrail code is a separate tested change. Do not
-mistake an old build's404 on the new readiness endpoint for proof that a subsequently
-corrected secret is invalid. Confirm the running build before selecting its health contract.
+The consolidated operator sequence (both projects, role repair, probe order) lives in
+`PRODUCTION_OPERATOR_HANDOFF.md`; this section only describes the website probes.
+
+The website readiness adapter (build `website-shared-v1-readiness-adapter-v2`, app contract
+`6a6cdddb81a4c27b387144746a7b6cf7fefc85c2`) reads the app's structured `GET /health`
+200/503 body per flow and, when `capabilities.credential_readiness=1`, verifies each
+configured secret with the server-only `GET /integrations/staff/readiness`
+(`X-Staff-Service-Key`) and `GET /integrations/enrollment/readiness` (`X-Integration-Key`).
+These are the only additional routes those secrets may travel to; redirects are never
+followed. On older app builds (no per-flow payload) only configuration booleans are
+interpreted and `credential_verified` stays `null`: key matching cannot be verified there.
 
 After the corrected code/configuration are active:
-1. Check `/api/health/ready` on each website: expect HTTP200/integration_ready=true.
+1. Check `/api/health/ready` on each website: expect HTTP200, `integration_ready=true`,
+   `upstream.contract="credential_readiness"`, `key_matching_verified_by_this_check=true`.
+   A flow issue `CANONICAL_CREDENTIAL_MISMATCH` means that website key differs from the app's;
+   `CANONICAL.<NAME>` mirrors the app's own per-flow issue; `CANONICAL_UNAVAILABLE_OR_INCOMPATIBLE`
+   means unreachable/non-JSON/undocumented response. A staff-only app issue leaves
+   enrollment/deletion available.
 2. Check `/api/public/auth-status?website_origin=<that-exact-origin>`: staff,
    enrollment and deletion should be available and origin_allowed=true.
 3. `/api/health/live` is process liveness only, NOT a release/readiness check.
 4. Use `tools/check_auth_readiness.py` with privately configured
    WEBSITE_CHECK_ORIGINS containing the two website origins. It only performs GETs,
    never passes secret values and returns a nonzero exit code for incomplete setup.
-5. Keep login/OTP/role regression verification in the isolated test suite. Presence
-   flags are not proof of matching secret values or real SMS delivery. No production
+5. Keep login/OTP/role regression verification in the isolated test suite. Credential
+   verification proves key matching only; not SMS delivery, not a user's role. No production
    phone, account promotion, admin seeding or OTP dispatch is required by this task.
 
 Production is NOT corrected merely because the local preview has the new code or

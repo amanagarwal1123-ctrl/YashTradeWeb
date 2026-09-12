@@ -22,11 +22,25 @@
     "passed": 33,
     "unexpected_failures": 0,
     "strict_xfail_dependencies": 3,
-    "report": "/app/test_reports/iteration_11.json",
-    "junit": "/app/test_reports/pytest/pytest_iteration11_full.xml",
-    "mocked_boundaries": ["SMS capture", "object storage test transport", "canonical ASGI network transport"],
-    "real_canonical_login_verified": false
+    "report": "evidence/auth-production-incident/iteration_11.json",
+    "junit": "evidence/auth-production-incident/pytest_iteration11_full.xml",
+    "mocked_boundaries": [
+      "SMS capture",
+      "object storage test transport",
+      "canonical ASGI network transport"
+    ],
+    "real_canonical_login_verified": false,
+    "note": "test_reports/ is gitignored; sanitized copies of the iteration-11 report and its two JUnit files were added to this tracked folder on 2026-09-12."
   },
   "preview_build": "website-shared-v1-auth-readiness-v1",
-  "remaining_action": "Apply the exact coordinated PRIVATE production runtime settings in PRODUCTION_AUTH_CONFIGURATION.md; never commit .env or reuse enrollment key for staff"
+  "remaining_action": "Apply the exact coordinated PRIVATE production runtime settings in PRODUCTION_AUTH_CONFIGURATION.md; never commit .env or reuse enrollment key for staff",
+  "follow_up_2026_09_12": {
+    "website_build": "website-shared-v1-readiness-adapter-v2",
+    "app_contract_commit": "6a6cdddb81a4c27b387144746a7b6cf7fefc85c2",
+    "change": "Per-flow readiness adapter: structured app 200/503 health interpreted per flow; server-only credential-verified GET probes; exact credential routing allowlist; 30s/5s cache with coalescing; both website origins covered by tests.",
+    "run_summary": "evidence/auth-production-incident/readiness-adapter-v2/RUN_SUMMARY.json",
+    "production_config_changed": false,
+    "production_restored": false,
+    "operator_handoff": "PRODUCTION_OPERATOR_HANDOFF.md"
+  }
 }
