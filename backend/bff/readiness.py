@@ -181,5 +181,5 @@ async def health_report(app):
     return {'status': 'ok' if operational else 'not_ready', 'build': BUILD,
             'commit': app.state.cfg.commit, 'app_contract_commit': CONTRACT_COMMIT,
             'integration_ready': operational, 'database_ready': database_ready,
-            'configuration': app.state.cfg.presence(), **snapshot,
+            'configuration': app.state.cfg.presence(), 'configuration_state': app.state.cfg.configuration_state(), **snapshot,
             'sms_delivery_verified': False, 'account_role_verified': False, 'real_login_verified_by_this_check': False}

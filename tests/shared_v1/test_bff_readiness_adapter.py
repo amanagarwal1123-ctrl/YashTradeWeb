@@ -413,6 +413,10 @@ def test_placeholder_settings_report_invalid_not_present():
     assert flags["SESSION_SECRET"] is True and flags["BFF_ALLOWED_ORIGINS"] is True
     assert cfg.commit == "unrecorded"
     assert cfg.valid_base is False
+    assert cfg.configuration_state() == {"CANONICAL_API_BASE_URL": "placeholder", "ENROLLMENT_INTEGRATION_KEY": "placeholder", "STAFF_SERVICE_KEY": "placeholder",
+                                         "SESSION_SECRET": "valid", "BUILD_COMMIT": "placeholder"}
+    assert settings(staff_key="", build_commit="not-a-sha").configuration_state()["STAFF_SERVICE_KEY"] == "missing"
+    assert settings(build_commit="not-a-sha").configuration_state()["BUILD_COMMIT"] == "invalid"
     assert cfg.flow_issues("staff") == ["CANONICAL_API_BASE_URL", "STAFF_SERVICE_KEY"], "identical placeholders never raise SERVICE_KEYS_MUST_DIFFER noise"
     assert "ENROLLMENT_INTEGRATION_KEY" in cfg.flow_issues("enrollment")
     long_placeholder = "PLACEHOLDER_" + "x" * 40

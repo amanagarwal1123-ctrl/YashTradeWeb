@@ -67,6 +67,10 @@ tab first: if they are listed, edit them directly (step 3) and skip the registra
    GitHub (the platform shows none).
 2. **Republish → Re-publish changes** once (only if the names are not yet in Secrets): the five names
    register in production Secrets (placeholders keep readiness 503 — this publication does NOT restore login).
+   `/api/health/ready` now also returns `configuration_state` per name: `placeholder` = production Secrets still
+   hold the bootstrap value (edit it in Secrets; a republish alone never replaces it), `missing` = not set,
+   `valid` = usable. Live on 12 Sep both domains showed `CANONICAL_API_BASE_URL` invalid because the Secret
+   holds the earlier placeholder — the `.env` URL cannot override an existing Secret.
 3. Manage Publishes → **Secrets** → edit existing keys privately:
    `CANONICAL_API_BASE_URL` = `https://yash-tryon-test.emergent.host/api`;
    `ENROLLMENT_INTEGRATION_KEY` = the app's existing production enrollment key (same value as the

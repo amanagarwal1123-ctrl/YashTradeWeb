@@ -15,9 +15,9 @@ def is_placeholder(value):
 
 
 def setting(name):
-    """Runtime environment wins over .env (load_dotenv never overrides); placeholders read as ''."""
-    value = os.environ.get(name, '').strip()
-    return '' if is_placeholder(value) else value
+    """Runtime environment wins over .env (load_dotenv never overrides). Raw value; placeholders are
+    recorded and blanked by Settings.__post_init__ so readiness can report 'placeholder' by name."""
+    return os.environ.get(name, '').strip()
 
 
 @dataclass
@@ -38,8 +38,13 @@ class Settings:
 
     def __post_init__(self):
         # Executable placeholder rejection for every construction path, not only from_env().
-        for field in ('base', 'enrollment_key', 'staff_key', 'session_secret', 'build_commit', 'android_url', 'ios_url'):
-            if is_placeholder(getattr(self, field)):
+        self.placeholders = set()
+        for field, name in (('base', 'CANONICAL_API_BASE_URL'), ('enrollment_key', 'ENROLLMENT_INTEGRATION_KEY'), ('staff_key', 'STAFF_SERVICE_KEY'),
+                            ('session_secret', 'SESSION_SECRET'), ('build_commit', 'BUILD_COMMIT'), ('android_url', 'ANDROID_APP_URL'), ('ios_url', 'IOS_APP_URL')):
+            value = getattr(self, field)
+            if value.strip() and is_placeholder(value):
+                self.placeholders.add(name)
+            if is_placeholder(value):
                 setattr(self, field, '')
         self.origins = tuple(o for o in self.origins if not is_placeholder(o))
         self.ingress_origins = tuple(o for o in self.ingress_origins if not is_placeholder(o))
@@ -103,6 +108,14 @@ class Settings:
     @property
     def commit(self):
         return self.build_commit if re.fullmatch(r'[0-9a-f]{7,40}', self.build_commit) else 'unrecorded'
+
+    def configuration_state(self):
+        """Per setting NAME: valid | placeholder (Secrets still hold the bootstrap value) | missing | invalid."""
+        raw = {'CANONICAL_API_BASE_URL': self.base, 'ENROLLMENT_INTEGRATION_KEY': self.enrollment_key,
+               'STAFF_SERVICE_KEY': self.staff_key, 'SESSION_SECRET': self.session_secret, 'BUILD_COMMIT': self.build_commit}
+        flags = self.presence()
+        return {name: 'valid' if flags[name] else 'placeholder' if name in self.placeholders else 'missing' if not value else 'invalid'
+                for name, value in raw.items()}
 
     def presence(self):
         """Validity flags by setting NAME (placeholders and malformed values report false); never values."""
