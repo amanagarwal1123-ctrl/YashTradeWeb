@@ -2,14 +2,14 @@
   "run": "readiness-adapter-v2",
   "date": "2026-09-12",
   "website_build": "website-shared-v1-readiness-adapter-v2",
-  "website_commit_under_test": "working tree on top of 8cf6a3c291e8b1221e6ec58b35ec7eb88aa6aa6b (release SHA assigned by the platform commit after this run)",
+  "website_commit_under_test": "local platform commit 3384da292b44df321dcb9568f4f96264bf795647 (readiness adapter v2) + this follow-up working tree; GitHub main still 8cf6a3c291e8b1221e6ec58b35ec7eb88aa6aa6b until the owner uses Save to GitHub",
   "app_contract_commit": "6a6cdddb81a4c27b387144746a7b6cf7fefc85c2",
   "app_contract_build": "shared-v1-owner-recovery-2026-09-12",
   "isolated_tests": {
     "junit": "evidence/auth-production-incident/readiness-adapter-v2/junit.xml",
     "log": "evidence/auth-production-incident/readiness-adapter-v2/pytest.log",
-    "total": 61,
-    "passed": 58,
+    "total": 68,
+    "passed": 65,
     "failed": 0,
     "strict_xfail_app_dependencies": [
       "D2 customers/search shadowing",
@@ -18,8 +18,8 @@
     ],
     "by_file": {
       "test_bff_readiness_adapter.py": {
-        "count": 25,
-        "boundary": "MOCKED app readiness contract via httpx.MockTransport; real bff.canonical.Canonical + bff.readiness.Readiness; isolated Mongo for 2 create_app cases"
+        "count": 32,
+        "boundary": "MOCKED app readiness contract via httpx.MockTransport; real bff.canonical.Canonical + bff.readiness.Readiness; isolated Mongo for 2 create_app cases; 1 pure Settings placeholder test"
       },
       "test_bff_auth_readiness.py": {
         "count": 6,
@@ -111,5 +111,27 @@
     "report": "evidence/auth-production-incident/readiness-adapter-v2/iteration_12.json",
     "junit": "evidence/auth-production-incident/readiness-adapter-v2/pytest_iteration12_full.xml",
     "result": "58 passed, 3 strict xfail, 0 failed; preview fail-closed endpoints verified; no issues"
+  },
+  "follow_up_owner_workflow_2026_09_12": {
+    "env_names_registered_with_nonworking_placeholders": [
+      "CANONICAL_API_BASE_URL",
+      "ENROLLMENT_INTEGRATION_KEY",
+      "STAFF_SERVICE_KEY",
+      "BUILD_COMMIT"
+    ],
+    "hardening": [
+      "Settings.presence() reports validity by NAME (placeholders \u2192 false); Settings.commit only accepts a hex SHA",
+      "declared credential_readiness capability without per-flow payload is INCOMPATIBLE, never legacy fallback",
+      "non-conforming/404/HTML/timeout credential probe leaves the flow unavailable; credential_verified null = unknown, never verified"
+    ],
+    "live_read_only_recheck": {
+      "app_health": "503 staff-only STAFF_SERVICE_KEY missing",
+      "register.yashsilver.com": "503 old build auth-readiness-v1, settings missing, origin_allowed true",
+      "yash-register.emergent.host": "503 old build, settings missing, origin_allowed false"
+    },
+    "sms_requested": false,
+    "sms_received": null,
+    "login_verified": false,
+    "reason": "production prerequisites (Secrets + app staff key + role repair) not yet applied; website pre-OTP gate would return 503, so no SMS was attempted"
   }
 }

@@ -1,9 +1,11 @@
 # One coordinated private configuration correction
 
 User approved configuration corrections without changing identities or rotating
-existing secrets. Production access to both settings stores is required. Values
-must be entered using the authorized PRIVATE runtime settings workflow, not chat,
-GitHub, browser JavaScript, screenshots or public documents.
+existing secrets. The OWNER applies them through Manage Publishes → Secrets followed by a
+normal Republish (see `PRODUCTION_OPERATOR_HANDOFF.md` for the exact click path, order
+and the live login test). Values must never be entered in chat, GitHub, browser
+JavaScript, screenshots or public documents. Setting NAMES are registered in
+`backend/.env` with non-working placeholders only; the placeholders keep readiness 503.
 
 ## Canonical app production
 Keep its existing ENROLLMENT_INTEGRATION_KEY, JWT_SECRET, Mongo, SMS and storage
@@ -23,8 +25,9 @@ This is initial provisioning, not a rotation of an existing staff credential.
 | SESSION_SECRET | Preserve the existing website-owned secret; do not import app JWT_SECRET |
 | BUILD_COMMIT | Record this website release's actual commit in the normal release process, not the app SHA |
 
-Environment-injected values take precedence over `.env`. Apply settings to the
-actual production runtime, not only the preview workspace or an ignored env file.
+Environment-injected values (Manage Publishes → Secrets) take precedence over `.env`.
+Apply settings to the actual production runtime, not only the preview workspace or an
+ignored env file, then Republish (normal; never "Replace with a fresh database").
 Retain historical configuration privately until the migration is confirmed; do
 not add a code fallback from staging to LIVE_BACKEND_BASE.
 

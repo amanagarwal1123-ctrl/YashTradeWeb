@@ -345,10 +345,73 @@ async def test_old_public_health_contract_is_interpreted_without_claiming_key_ma
     readiness, _, _ = build(double=double)
     snap = await readiness.snapshot()
     assert snap["upstream"]["contract"] == "public_health"
+    assert snap["upstream"]["credential_verification_supported"] is False
     assert snap["flows"]["staff"] == {"ready": False, "issues": ["CANONICAL.STAFF_SERVICE_KEY"], "credential_verified": None}
     assert snap["flows"]["enrollment"] == {"ready": True, "issues": [], "credential_verified": None}
     assert snap["key_matching_verified_by_this_check"] is False
     assert len(double.requests) == 1
+
+
+@pytest.mark.anyio
+async def test_declared_credential_readiness_without_flows_never_falls_back_to_public_booleans():
+    # module: capability says credential_readiness=1 but the per-flow payload is missing → incompatible, not legacy-ready
+    body = health_body()
+    del body["flows"]
+    double = AppDouble()
+    double.override = lambda r: httpx.Response(200, json=body)
+    readiness, _, _ = build(double=double)
+    snap = await readiness.snapshot()
+    assert all(s["ready"] is False and s["issues"] == ["CANONICAL_UNAVAILABLE_OR_INCOMPATIBLE"] and s["credential_verified"] is None
+               for s in snap["flows"].values())
+    assert snap["key_matching_verified_by_this_check"] is False
+    assert len(double.requests) == 1
+
+
+@pytest.mark.parametrize("credential_response", [
+    lambda r: httpx.Response(404, json={"detail": "Not Found"}),
+    lambda r: httpx.Response(200, json={"status": "ok", "flow": "staff", "ready": True, "issues": []}),
+    lambda r: httpx.Response(200, json={"status": "ok", "flow": "enrollment", "ready": True, "issues": [], "credential_verified": True}),
+    lambda r: httpx.Response(200, text="<html>ok</html>", headers={"content-type": "text/html"}),
+    lambda r: (_ for _ in ()).throw(httpx.ReadTimeout("slow", request=r)),
+], ids=["route-missing-404", "verified-flag-absent", "wrong-flow-name", "html-200", "read-timeout"])
+@pytest.mark.anyio
+async def test_failed_or_missing_staff_credential_probe_leaves_staff_unavailable(credential_response):
+    # module: under the declared contract a non-conforming credential probe is never treated as verified
+    double = AppDouble()
+    healthy = health_body()
+
+    def handler(request):
+        if request.url.path == "/api/health":
+            return httpx.Response(200, json=healthy)
+        if request.url.path == "/api/integrations/staff/readiness":
+            return credential_response(request)
+        return httpx.Response(200, json={"status": "ok", "flow": "enrollment", "ready": True, "issues": [], "build": "app-test",
+                                         "credential_verified": True, "sms_delivery_verified": False, "account_role_verified": False})
+
+    double.override = handler
+    readiness, _, _ = build(double=double)
+    snap = await readiness.snapshot()
+    assert snap["flows"]["staff"] == {"ready": False, "issues": ["CANONICAL_UNAVAILABLE_OR_INCOMPATIBLE"], "credential_verified": False}
+    assert snap["flows"]["enrollment"]["ready"] is True and snap["flows"]["enrollment"]["credential_verified"] is True
+    assert snap["key_matching_verified_by_this_check"] is False
+    public = await readiness.public()
+    assert public["flows"]["staff"]["available"] is False
+    assert "Not Found" not in json.dumps(public) and "html" not in json.dumps(public)
+
+
+def test_placeholder_settings_report_invalid_not_present():
+    # module: registered placeholder names stay unready and are reported as false by NAME, values never echoed
+    cfg = settings(base="PLACEHOLDER_NOT_CONFIGURED", enrollment_key="PLACEHOLDER_NOT_CONFIGURED_E",
+                   staff_key="PLACEHOLDER_NOT_CONFIGURED_S", build_commit="PLACEHOLDER_NOT_CONFIGURED")
+    flags = cfg.presence()
+    assert flags["CANONICAL_API_BASE_URL"] is False and flags["ENROLLMENT_INTEGRATION_KEY"] is False
+    assert flags["STAFF_SERVICE_KEY"] is False and flags["BUILD_COMMIT"] is False
+    assert flags["SESSION_SECRET"] is True and flags["BFF_ALLOWED_ORIGINS"] is True
+    assert cfg.commit == "unrecorded"
+    assert cfg.valid_base is False
+    assert "CANONICAL_API_BASE_URL" in cfg.flow_issues("staff") and "STAFF_SERVICE_KEY" in cfg.flow_issues("staff")
+    assert "ENROLLMENT_INTEGRATION_KEY" in cfg.flow_issues("enrollment")
+    assert settings(build_commit="3384da292b44df321dcb9568f4f96264bf795647").commit == "3384da292b44df321dcb9568f4f96264bf795647"
 
 
 @pytest.mark.anyio

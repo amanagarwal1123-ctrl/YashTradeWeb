@@ -1,4 +1,5 @@
 import os
+import re
 from dataclasses import dataclass
 from urllib.parse import urlsplit
 
@@ -77,11 +78,18 @@ class Settings:
             issues.append('SERVICE_KEYS_MUST_DIFFER')
         return issues
 
+    @property
+    def commit(self):
+        return self.build_commit if re.fullmatch(r'[0-9a-f]{7,40}', self.build_commit) else 'unrecorded'
+
     def presence(self):
-        return {'CANONICAL_API_BASE_URL': bool(self.base), 'ENROLLMENT_INTEGRATION_KEY': bool(self.enrollment_key),
-                'STAFF_SERVICE_KEY': bool(self.staff_key), 'SESSION_SECRET': bool(self.session_secret),
-                'BUILD_COMMIT': bool(self.build_commit), 'BFF_ALLOWED_ORIGINS': bool(self.origins), 'BFF_INGRESS_ORIGINS': bool(self.ingress_origins), 'TRUSTED_INGRESS_CIDRS': bool(self.trusted_ingress),
-                'FORWARD_CANONICAL_CLIENT_IP': self.forward_client_ip}
+        """Validity flags by setting NAME (placeholders and malformed values report false); never values."""
+        return {'CANONICAL_API_BASE_URL': self.valid_base, 'ENROLLMENT_INTEGRATION_KEY': len(self.enrollment_key) >= 32,
+                'STAFF_SERVICE_KEY': len(self.staff_key) >= 32 and self.staff_key != self.enrollment_key,
+                'SESSION_SECRET': len(self.session_secret) >= 32, 'BUILD_COMMIT': self.commit != 'unrecorded',
+                'BFF_ALLOWED_ORIGINS': bool(self.origins) and all(self.valid_origin(o) for o in self.origins),
+                'BFF_INGRESS_ORIGINS': bool(self.ingress_origins) and all(self.valid_origin(o) for o in self.ingress_origins),
+                'TRUSTED_INGRESS_CIDRS': bool(self.trusted_ingress), 'FORWARD_CANONICAL_CLIENT_IP': self.forward_client_ip}
 
     def downloads(self):
         def allowed(url, host):

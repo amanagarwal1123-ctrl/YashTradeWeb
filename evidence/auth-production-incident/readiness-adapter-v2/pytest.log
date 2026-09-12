@@ -1,6 +1,6 @@
-................................xxx..........................            [100%]
-../root/.venv/lib/python3.11/site-packages/starlette/formparsers.py:12
+................................xxx.................................     [100%]
 =========================== short test summary info ============================
 XFAIL tests/shared_v1/test_bff_followup_core_regressions.py::test_dependency_d2_customers_search_should_resolve_static_route_not_dynamic_shadow[asyncio] - D2 source evidence: shared/install.py includes people router before legacy /customers/search; people.py /customers/{uid} can shadow static search.
 XFAIL tests/shared_v1/test_bff_followup_core_regressions.py::test_dependency_d3_customer_id_filter_should_be_supported_or_rejected_not_silently_ignored[asyncio] - D3 source evidence: shared/queries.py listing() has no customer_id filter and silently ignores immutable customer-ID filtering requirement.
 XFAIL tests/shared_v1/test_bff_followup_core_regressions.py::test_dependency_d4_deletion_outbox_should_not_starve_101st_event_after_first100_website_ack[asyncio] - D4 source evidence: shared/people.py /integrations/deletions uses .limit(100) pending events without pagination or excluding website-acknowledged rows.
+65 passed, 3 xfailed in 55.64s

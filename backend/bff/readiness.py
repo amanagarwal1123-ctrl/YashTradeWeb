@@ -41,11 +41,13 @@ def parse_health(status, health):
     if not isinstance(capabilities, dict) or capabilities.get('canonical_auth') != 1 or not isinstance(configuration, dict):
         raise TypeError('health')
     upstream = {'reachable': True, 'build': label(health.get('build')), 'commit': label(health.get('commit')), 'contract': None,
+                'credential_verification_supported': capabilities.get('credential_readiness') == 1,
                 'database_ready': health.get('database_ready') is True,
                 'configuration': {k: configuration.get(k) is True for k in CONFIGURATION_KEYS}}
     issues = {name: [] for name in MESSAGES}
-    if capabilities.get('credential_readiness') == 1 and isinstance(app_flows, dict):
-        if (status, health.get('status')) not in ((200, 'ok'), (503, 'not_ready')):
+    if upstream['credential_verification_supported']:
+        # Declared capability requires the per-flow payload; never fall back to public booleans.
+        if not isinstance(app_flows, dict) or (status, health.get('status')) not in ((200, 'ok'), (503, 'not_ready')):
             raise TypeError('status')
         upstream['contract'] = 'credential_readiness'
         for name in MESSAGES:
@@ -56,7 +58,8 @@ def parse_health(status, health):
             if not scoped['ready'] and not issues[name]:
                 issues[name].append('CANONICAL.FLOW_NOT_READY')
     else:
-        # Older public-health contract: no per-flow payload, so only HTTP 200 'ok' is interpretable.
+        # Older public-health contract: no per-flow payload, so only HTTP 200 'ok' is interpretable and
+        # credential matching stays UNKNOWN (credential_verified null), never reported as verified.
         if status != 200 or health.get('status') != 'ok':
             raise TypeError('legacy')
         upstream['contract'] = 'public_health'
@@ -109,7 +112,8 @@ class Readiness:
 
     async def compute(self):
         flows = {name: {'ready': False, 'issues': self.cfg.flow_issues(name), 'credential_verified': None} for name in MESSAGES}
-        upstream = {'reachable': False, 'build': None, 'commit': None, 'contract': None, 'database_ready': False, 'configuration': {}}
+        upstream = {'reachable': False, 'build': None, 'commit': None, 'contract': None, 'credential_verification_supported': False,
+                    'database_ready': False, 'configuration': {}}
         if self.cfg.valid_base:
             try:
                 upstream, issues = parse_health(*await self.canonical.probe('/health'))
@@ -166,7 +170,7 @@ async def health_report(app):
         pass
     operational = snapshot['configuration_ready'] and database_ready
     return {'status': 'ok' if operational else 'not_ready', 'build': BUILD,
-            'commit': app.state.cfg.build_commit or 'unrecorded', 'app_contract_commit': CONTRACT_COMMIT,
+            'commit': app.state.cfg.commit, 'app_contract_commit': CONTRACT_COMMIT,
             'integration_ready': operational, 'database_ready': database_ready,
             'configuration': app.state.cfg.presence(), **snapshot,
             'sms_delivery_verified': False, 'account_role_verified': False, 'real_login_verified_by_this_check': False}
