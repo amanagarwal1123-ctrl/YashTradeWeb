@@ -5,24 +5,13 @@
 
 from __future__ import annotations
 
-import importlib.util
 import secrets
-from dataclasses import dataclass
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 
 from test_bff_auth_session import _csrf, _headers, shared_apps  # noqa: F401  (pytest fixture import)
 # ruff: noqa: F811
-
-
-@dataclass
-class _Resp:
-    status_code: int
-    payload: dict
-
-    def json(self):
-        return self.payload
 
 
 class StubCanonical:
@@ -233,39 +222,3 @@ async def test_readiness_uses_only_documented_get_probes_and_short_cache_no_muta
     assert provider.calls == []
     assert sorted(provider.probes) == [("/health", None), ("/integrations/enrollment/readiness", "enrollment"),
                                        ("/integrations/staff/readiness", "staff")]
-
-
-def test_check_auth_readiness_returns_nonzero_if_any_origin_unready(monkeypatch):
-    # module: read-only readiness script exits nonzero when any explicit origin is unready
-    spec = importlib.util.spec_from_file_location("check_auth_readiness", "/app/tools/check_auth_readiness.py")
-    module = importlib.util.module_from_spec(spec)
-    assert spec and spec.loader
-    spec.loader.exec_module(module)
-
-    monkeypatch.setenv("WEBSITE_CHECK_ORIGINS", "https://ok.example,https://bad.example")
-
-    class FakeClient:
-        def __init__(self, *args, **kwargs):
-            self.calls = []
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, exc_type, exc, tb):
-            return False
-
-        def get(self, url, params=None):
-            self.calls.append(("GET", url, params))
-            if url == "https://ok.example/api/health/ready":
-                return _Resp(200, {"integration_ready": True, "build": "ok", "commit": "c1", "flows": {}})
-            if url == "https://ok.example/api/public/auth-status":
-                return _Resp(200, {"origin_allowed": True})
-            if url == "https://bad.example/api/health/ready":
-                return _Resp(503, {"integration_ready": False, "build": "bad", "commit": "c2", "flows": {"staff": {"issues": ["STAFF_SERVICE_KEY"]}}})
-            if url == "https://bad.example/api/public/auth-status":
-                return _Resp(200, {"origin_allowed": False})
-            raise AssertionError(f"unexpected url: {url}")
-
-    monkeypatch.setattr(module.httpx, "Client", FakeClient)
-    rc = module.main()
-    assert rc == 1

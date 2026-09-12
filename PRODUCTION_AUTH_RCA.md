@@ -1,3 +1,5 @@
+> Dated document. The single current owner checklist is `PRODUCTION_OPERATOR_HANDOFF.md`; contract pin is now app `9596a5578a61bb1fb187e63345b7f93eda95bc9c`.
+
 # Production login incident — root cause and recovery boundary
 
 ## Confirmed observations

@@ -134,6 +134,9 @@ async def test_full_readiness_verifies_both_credentials_once_each():
     assert snap["key_matching_verified_by_this_check"] is True
     assert snap["upstream"]["contract"] == "credential_readiness"
     assert snap["upstream"]["build"] == "app-test"
+    assert snap["upstream"]["capabilities"] == {"credential_readiness": True, "customer_id_history": False, "deletion_outbox_cursor": False, "enrollment_grants": True}
+    full = build(double=AppDouble(health_body(capabilities={"canonical_auth": 1, "enrollment_grants": 1, "credential_readiness": 1, "customer_id_history": 1, "deletion_outbox_cursor": 1})))[0]
+    assert (await full.snapshot())["upstream"]["capabilities"]["customer_id_history"] is True
     assert all(s["ready"] and s["credential_verified"] is True and s["issues"] == [] for s in snap["flows"].values())
     assert sorted(probes(double)) == [("GET", "/api/health", None), ("GET", "/api/integrations/enrollment/readiness", "enroll"),
                                       ("GET", "/api/integrations/staff/readiness", "staff")]
@@ -401,17 +404,61 @@ async def test_failed_or_missing_staff_credential_probe_leaves_staff_unavailable
 
 def test_placeholder_settings_report_invalid_not_present():
     # module: registered placeholder names stay unready and are reported as false by NAME, values never echoed
-    cfg = settings(base="PLACEHOLDER_NOT_CONFIGURED", enrollment_key="PLACEHOLDER_NOT_CONFIGURED_E",
-                   staff_key="PLACEHOLDER_NOT_CONFIGURED_S", build_commit="PLACEHOLDER_NOT_CONFIGURED")
+    cfg = settings(base="PLACEHOLDER_NOT_CONFIGURED", enrollment_key="SET_IN_PUBLISH_SECRETS",
+                   staff_key="SET_IN_PUBLISH_SECRETS", build_commit="SET_IN_PUBLISH_SECRETS")
+    assert cfg.base == "" and cfg.enrollment_key == "" and cfg.staff_key == "" and cfg.build_commit == ""
     flags = cfg.presence()
     assert flags["CANONICAL_API_BASE_URL"] is False and flags["ENROLLMENT_INTEGRATION_KEY"] is False
     assert flags["STAFF_SERVICE_KEY"] is False and flags["BUILD_COMMIT"] is False
     assert flags["SESSION_SECRET"] is True and flags["BFF_ALLOWED_ORIGINS"] is True
     assert cfg.commit == "unrecorded"
     assert cfg.valid_base is False
-    assert "CANONICAL_API_BASE_URL" in cfg.flow_issues("staff") and "STAFF_SERVICE_KEY" in cfg.flow_issues("staff")
+    assert cfg.flow_issues("staff") == ["CANONICAL_API_BASE_URL", "STAFF_SERVICE_KEY"], "identical placeholders never raise SERVICE_KEYS_MUST_DIFFER noise"
     assert "ENROLLMENT_INTEGRATION_KEY" in cfg.flow_issues("enrollment")
+    long_placeholder = "PLACEHOLDER_" + "x" * 40
+    assert settings(staff_key=long_placeholder).staff_key == "", "length alone never validates a placeholder"
     assert settings(build_commit="3384da292b44df321dcb9568f4f96264bf795647").commit == "3384da292b44df321dcb9568f4f96264bf795647"
+
+
+def test_from_env_uses_runtime_environment_over_dotenv_and_parses_origins(monkeypatch, tmp_path):
+    # module: loader precedence — injected runtime variables win; .env never overrides them; placeholders read as absent
+    from dotenv import load_dotenv
+    dotenv = tmp_path / ".env"
+    dotenv.write_text("STAFF_SERVICE_KEY=SET_IN_PUBLISH_SECRETS\nBFF_ALLOWED_ORIGINS=https://register.yashsilver.com,https://yash-register.emergent.host\n"
+                      "CANONICAL_API_BASE_URL=https://yash-tryon-test.emergent.host/api\nENROLLMENT_INTEGRATION_KEY=SET_IN_PUBLISH_SECRETS\nBUILD_COMMIT=SET_IN_PUBLISH_SECRETS\n")
+    for name in ("STAFF_SERVICE_KEY", "BFF_ALLOWED_ORIGINS", "CANONICAL_API_BASE_URL", "ENROLLMENT_INTEGRATION_KEY", "BUILD_COMMIT", "BFF_INGRESS_ORIGINS", "TRUSTED_INGRESS_CIDRS"):
+        monkeypatch.delenv(name, raising=False)
+    injected = "runtime-" + secrets.token_urlsafe(40)
+    monkeypatch.setenv("STAFF_SERVICE_KEY", injected)  # simulates Manage Publishes → Secrets
+    monkeypatch.setenv("MONGO_URL", "mongodb://localhost:27017")
+    monkeypatch.setenv("DB_NAME", "unused")
+    monkeypatch.setenv("SESSION_SECRET", secrets.token_urlsafe(48))
+    load_dotenv(dotenv)  # same call shape as backend/server.py: override=False
+    cfg = Settings.from_env()
+    assert cfg.staff_key == injected, "the .env placeholder must not replace the injected production value"
+    assert cfg.enrollment_key == "" and cfg.build_commit == "" and cfg.commit == "unrecorded"
+    assert cfg.base == "https://yash-tryon-test.emergent.host/api" and cfg.valid_base is True
+    assert cfg.origins == SITE_ORIGINS
+    assert cfg.flow_issues("staff") == [] and cfg.flow_issues("enrollment") == ["ENROLLMENT_INTEGRATION_KEY"]
+    monkeypatch.setenv("BFF_ALLOWED_ORIGINS", " https://register.yashsilver.com/ , https://yash-register.emergent.host ,SET_IN_PUBLISH_SECRETS")
+    assert Settings.from_env().origins == SITE_ORIGINS, "trailing slashes/whitespace normalised; placeholder entries dropped"
+
+
+def test_actual_backend_dotenv_declares_required_names_once_without_real_secrets_in_placeholders():
+    # module: the real backend/.env (gitignored) registers every production setting name exactly once
+    from dotenv import dotenv_values
+    from bff.config import is_placeholder
+    text = open("/app/backend/.env").read()
+    names = [line.split("=", 1)[0] for line in text.splitlines() if line and not line.startswith("#")]
+    for name in ("CANONICAL_API_BASE_URL", "BFF_ALLOWED_ORIGINS", "ENROLLMENT_INTEGRATION_KEY", "STAFF_SERVICE_KEY", "BUILD_COMMIT", "SESSION_SECRET", "MONGO_URL", "DB_NAME"):
+        assert names.count(name) == 1, name
+    values = dotenv_values("/app/backend/.env")
+    assert values["CANONICAL_API_BASE_URL"] == "https://yash-tryon-test.emergent.host/api"
+    assert values["BFF_ALLOWED_ORIGINS"] == "https://register.yashsilver.com,https://yash-register.emergent.host"
+    assert is_placeholder(values["BUILD_COMMIT"])
+    for key in ("ENROLLMENT_INTEGRATION_KEY", "STAFF_SERVICE_KEY"):
+        assert is_placeholder(values[key]) or len(values[key]) >= 32, key  # placeholder until set privately, never a weak real value
+    assert not is_placeholder(values["SESSION_SECRET"]) and len(values["SESSION_SECRET"]) >= 32
 
 
 @pytest.mark.anyio
@@ -435,7 +482,7 @@ async def test_both_production_website_origins_allowed_and_unrelated_origin_reje
         assert missing.status_code == 403 and missing.json()["code"] == "ORIGIN_REJECTED"
         ready = await client.get("/api/health/ready")
         assert ready.status_code == 200 and ready.json()["integration_ready"] is True
-        assert ready.json()["app_contract_commit"] == "6a6cdddb81a4c27b387144746a7b6cf7fefc85c2"
+        assert ready.json()["app_contract_commit"] == "9596a5578a61bb1fb187e63345b7f93eda95bc9c"
         assert ready.json()["key_matching_verified_by_this_check"] is True
         assert ready.json()["real_login_verified_by_this_check"] is False
         live = await client.get("/api/health/live")

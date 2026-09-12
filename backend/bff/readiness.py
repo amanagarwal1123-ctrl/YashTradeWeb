@@ -21,6 +21,8 @@ CREDENTIAL = {'staff': ('staff', '/integrations/staff/readiness'),
 INCOMPATIBLE = 'CANONICAL_UNAVAILABLE_OR_INCOMPATIBLE'
 MISMATCH = 'CANONICAL_CREDENTIAL_MISMATCH'
 CONFIGURATION_KEYS = ('JWT_SECRET', 'MSG91_AUTHKEY', 'ENROLLMENT_INTEGRATION_KEY', 'STAFF_SERVICE_KEY')
+# Optional app capabilities the website consumes (app 9596a55). Absent = feature withheld, never guessed.
+CAPABILITIES = ('credential_readiness', 'customer_id_history', 'deletion_outbox_cursor', 'enrollment_grants')
 PARSE_ERRORS = (UpstreamError, AttributeError, TypeError, ValueError, KeyError)
 
 
@@ -41,6 +43,7 @@ def parse_health(status, health):
     if not isinstance(capabilities, dict) or capabilities.get('canonical_auth') != 1 or not isinstance(configuration, dict):
         raise TypeError('health')
     upstream = {'reachable': True, 'build': label(health.get('build')), 'commit': label(health.get('commit')), 'contract': None,
+                'capabilities': {k: capabilities.get(k) == 1 for k in CAPABILITIES},
                 'credential_verification_supported': capabilities.get('credential_readiness') == 1,
                 'database_ready': health.get('database_ready') is True,
                 'configuration': {k: configuration.get(k) is True for k in CONFIGURATION_KEYS}}
@@ -112,8 +115,8 @@ class Readiness:
 
     async def compute(self):
         flows = {name: {'ready': False, 'issues': self.cfg.flow_issues(name), 'credential_verified': None} for name in MESSAGES}
-        upstream = {'reachable': False, 'build': None, 'commit': None, 'contract': None, 'credential_verification_supported': False,
-                    'database_ready': False, 'configuration': {}}
+        upstream = {'reachable': False, 'build': None, 'commit': None, 'contract': None, 'capabilities': {k: False for k in CAPABILITIES},
+                    'credential_verification_supported': False, 'database_ready': False, 'configuration': {}}
         if self.cfg.valid_base:
             try:
                 upstream, issues = parse_health(*await self.canonical.probe('/health'))
@@ -152,6 +155,12 @@ class Readiness:
         return {'flows': {name: {'available': state['ready'], 'message': '' if state['ready'] else MESSAGES[name]}
                           for name, state in result['flows'].items()},
                 'retry_after': 30, 'real_login_verified_by_this_check': False}
+
+
+async def ensure_capability(request, name, detail):
+    snapshot = await request.app.state.readiness.snapshot()
+    if not snapshot['upstream']['capabilities'].get(name):
+        fail(503, 'CAPABILITY_UNAVAILABLE', detail)
 
 
 async def ensure_flow(request, flow):

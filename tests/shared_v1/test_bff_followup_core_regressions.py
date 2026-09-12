@@ -376,63 +376,197 @@ async def test_media_usage_and_lifecycle_audit_reports_audited_true_zero_remote_
 
 
 @pytest.mark.anyio
-@pytest.mark.xfail(
-    strict=True,
-    reason="D2 source evidence: shared/install.py includes people router before legacy /customers/search; people.py /customers/{uid} can shadow static search.",
-)
-async def test_dependency_d2_customers_search_should_resolve_static_route_not_dynamic_shadow(bff_client, shared_apps):
-    # module: D2 regression — /customers/search should return search envelope, never dynamic customer detail handling
+async def test_d2_customer_search_returns_envelope_for_billing_and_admin_and_denies_telecaller(bff_client, shared_apps):
+    # module: D2 consumer — static /customers/search resolves for admin/billing with the documented envelope; no directory fallback
     await _login_role(bff_client, shared_apps, "9000000104")
-    res = await bff_client.get("/api/bff/customers/search?q=90")
+    res = await bff_client.get("/api/bff/customers/search?q=90000001")
     assert res.status_code == 200, res.text
     body = res.json()
-    assert isinstance(body.get("customers"), list)
+    assert body["query"] == "90000001" and body["limit"] == 20 and body["minimum_length"] == 2
+    ids = {c["id"] for c in body["customers"]}
+    assert "u_cust" in ids and not (ids & {"u_admin", "u_tele", "u_bill"}), "only customers, never staff"
+    assert all("role" not in c or c["role"] == "customer" for c in body["customers"])
+    short = await bff_client.get("/api/bff/customers/search?q=9")
+    assert short.status_code == 200 and short.json() == {"customers": [], "query": "9", "limit": 20, "minimum_length": 2}
+    literal = await bff_client.get("/api/bff/customers/search?q=search")
+    assert literal.status_code == 200 and literal.json()["customers"] == [], "the literal segment never resolves as a customer id"
+    denied_dir = await bff_client.get("/api/bff/customers?page=1&limit=20")
+    assert denied_dir.status_code == 403 and denied_dir.json()["code"] == "PERMISSION_DENIED", "billing has no full directory fallback"
 
+    await bff_client.post("/api/admin/auth/logout", headers=_headers(await _csrf(bff_client)))
+    await _login_role(bff_client, shared_apps, "9000000102")
+    tele = await bff_client.get("/api/bff/customers/search?q=90000001")
+    assert tele.status_code == 403 and tele.json()["code"] == "PERMISSION_DENIED"
 
-@pytest.mark.anyio
-@pytest.mark.xfail(
-    strict=True,
-    reason="D3 source evidence: shared/queries.py listing() has no customer_id filter and silently ignores immutable customer-ID filtering requirement.",
-)
-async def test_dependency_d3_customer_id_filter_should_be_supported_or_rejected_not_silently_ignored(bff_client, shared_apps):
-    # module: D3 regression — immutable customer-ID request history filter contract gap
+    await bff_client.post("/api/admin/auth/logout", headers=_headers(await _csrf(bff_client)))
     await _login_role(bff_client, shared_apps, "9000000101")
-    res = await bff_client.get("/api/bff/requests?customer_id=u_cust&page=1&limit=30")
-    assert res.status_code == 422, res.text
-    assert res.json().get("code") in {"UNSUPPORTED_FILTER", "INVALID_FILTER"}
+    admin = await bff_client.get("/api/bff/customers/search?q=TEST Customer")
+    assert admin.status_code == 200 and [c["id"] for c in admin.json()["customers"]] == ["u_cust"]
 
 
 @pytest.mark.anyio
-@pytest.mark.xfail(
-    strict=True,
-    reason="D4 source evidence: shared/people.py /integrations/deletions uses .limit(100) pending events without pagination or excluding website-acknowledged rows.",
-)
-async def test_dependency_d4_deletion_outbox_should_not_starve_101st_event_after_first100_website_ack(shared_apps):
-    # module: D4 regression — website ack of first 100 must not hide 101st pending event
-    now = datetime.now(timezone.utc).isoformat()
+async def test_d3_customer_id_history_is_paginated_complete_and_rejects_malformed_or_unknown_ids(bff_client, shared_apps):
+    # module: D3 consumer — /requests?customer_id= returns complete paginated history incl. legacy user_id rows; profile keeps recent-100
+    db = shared_apps["canonical_db"]
+    base = datetime.now(timezone.utc) - timedelta(days=200)
     docs = []
-    for i in range(1, 102):
-        docs.append(
-            {
-                "id": f"ev-{i:03d}",
-                "type": "account_erased",
-                "user_id": f"u_del_{i:03d}",
-                "created_at": now,
-                "status": "pending",
-                "required_acknowledgements": ["website", "sms_provider", "ai_provider"],
-                "acknowledged": ["website"] if i <= 100 else [],
-            }
-        )
-    await shared_apps["canonical_db"].integration_outbox.insert_many(docs)
+    for i in range(130):
+        at = (base + timedelta(hours=i)).isoformat()
+        doc = {"id": f"d3-q-{i:03d}", "request_type": "callback" if i % 2 else "ask_price", "status": "resolved" if i % 3 else "pending",
+               "user_name": "TEST Customer", "user_phone": "9000000103", "created_at": at, "updated_at": at, "pending_since": at,
+               "version": 0, "events": [], "assignee_id": "", "assigned_to": ""}
+        if i % 2:
+            doc["user_id"] = "u_cust"  # legacy rows carry only user_id
+        else:
+            doc["user_id"], doc["customer_id"] = "u_cust", "u_cust"
+        docs.append(doc)
+    docs.append({"id": "d3-other", "request_type": "callback", "status": "pending", "user_id": "u_other_cust", "customer_id": "u_other_cust",
+                 "user_name": "Other", "user_phone": "9000000103", "created_at": base.isoformat(), "updated_at": base.isoformat(),
+                 "pending_since": base.isoformat(), "version": 0, "events": []})
+    await db.requests.insert_many(docs)
+
+    await _login_role(bff_client, shared_apps, "9000000101")
+    first = await bff_client.get("/api/bff/requests?customer_id=u_cust&status=all&sort=newest&page=1&limit=100")
+    assert first.status_code == 200, first.text
+    body = first.json()
+    assert body["total"] == 130 and body["pages"] == 2 and body["customer_id"] == "u_cust"
+    assert len(body["requests"]) == 100
+    second = await bff_client.get("/api/bff/requests?customer_id=u_cust&status=all&sort=newest&page=2&limit=100")
+    assert second.status_code == 200 and len(second.json()["requests"]) == 30
+    ids = {r["id"] for r in body["requests"]} | {r["id"] for r in second.json()["requests"]}
+    assert ids == {f"d3-q-{i:03d}" for i in range(130)}, "same-phone snapshot rows of another customer are never matched"
+    assert "d3-other" not in ids
+    created = [r["created_at"] for r in body["requests"]]
+    assert created == sorted(created, reverse=True)
+
+    filtered = await bff_client.get("/api/bff/requests?customer_id=u_cust&status=pending&request_type=ask_price&sort=oldest&limit=50")
+    assert filtered.status_code == 200
+    rows = filtered.json()["requests"]
+    assert rows and all(r["status"] == "pending" and r["request_type"] == "ask_price" for r in rows)
+    assert filtered.json()["total"] == sum(1 for i in range(0, 130, 2) if i % 3 == 0)
+
+    profile = await bff_client.get("/api/bff/customers/u_cust")
+    assert profile.status_code == 200
+    assert len(profile.json()["queries"]) == 100 and profile.json()["detail_limit"] == 100
+    assert profile.json()["complete_history"].startswith("/api/requests?customer_id=u_cust")
+
+    encoded = await bff_client.get("/api/bff/requests?customer_id=%3Cscript%3E")
+    assert encoded.status_code == 422 and encoded.json()["code"] == "INVALID_FILTER"
+    malformed = await bff_client.get("/api/bff/requests?customer_id=not valid!")
+    assert malformed.status_code == 422 and malformed.json()["code"] == "INVALID_FILTER"
+    unknown = await bff_client.get("/api/bff/requests?customer_id=u_missing")
+    assert unknown.status_code == 404 and unknown.json()["code"] == "CUSTOMER_NOT_FOUND"
+
+
+@pytest.mark.anyio
+async def test_d3_history_is_withheld_when_the_app_lacks_customer_id_capability(bff_client, shared_apps):
+    # module: D3 guard — an older app that silently ignores customer_id must never yield another customer's history
+    readiness = shared_apps["bff_app"].state.readiness
+    real = await readiness.snapshot()
+    assert real["upstream"]["capabilities"]["customer_id_history"] is True, "pinned app 9596a55 advertises the capability"
+    degraded = {**real, "upstream": {**real["upstream"], "capabilities": {**real["upstream"]["capabilities"], "customer_id_history": False}}}
+    readiness._snapshot, readiness._until = degraded, readiness.clock() + 600
+    try:
+        await _login_role(bff_client, shared_apps, "9000000101")
+        withheld = await bff_client.get("/api/bff/requests?customer_id=u_cust&status=all")
+        assert withheld.status_code == 503 and withheld.json()["code"] == "CAPABILITY_UNAVAILABLE"
+        plain = await bff_client.get("/api/bff/requests?status=all&limit=5")
+        assert plain.status_code == 200
+    finally:
+        readiness.invalidate()
+
+
+def _erasure_events(count, start=1, acknowledged=()):
+    base = datetime.now(timezone.utc) - timedelta(days=1)
+    return [{"id": f"ev-{i:03d}", "type": "account_erased", "user_id": f"u_del_{i:03d}", "created_at": (base + timedelta(seconds=i)).isoformat(),
+             "status": "pending", "required_acknowledgements": ["website", "sms_provider", "ai_provider"], "acknowledged": list(acknowledged)}
+            for i in range(start, start + count)]
+
+
+@pytest.mark.anyio
+async def test_d4_deletion_feed_cursor_consumer_acknowledges_all_events_beyond_100_and_is_idempotent(bff_client, shared_apps):
+    # module: D4 consumer — >100 events via limit/after/next_cursor; website cleanup before ack; consumer-specific acks; no resurrection
+    canonical_db, website_db = shared_apps["canonical_db"], shared_apps["website_db"]
+    await canonical_db.integration_outbox.insert_many(_erasure_events(100, acknowledged=["website"]) + _erasure_events(137, start=101))
+    now = datetime.now(timezone.utc)
+    await website_db.bff_sessions.insert_one({"_id": "s-del-150", "canonical_user_id": "u_del_150", "phone": "9000000150",
+                                              "access_token": "x", "refresh_token": "y", "access_until": 0, "generation": 0,
+                                              "last_active": 0, "expires_at": now + timedelta(days=1)})
+    await website_db.bff_drafts.insert_one({"_id": "b1:enrollment", "purpose": "enrollment", "canonical_user_id": "u_del_151", "phone": "9000000151",
+                                            "phase": "complete", "expires_at": now + timedelta(days=1)})
+
+    await _login_role(bff_client, shared_apps, "9000000101")
+    run = await bff_client.post("/api/admin/deletions/reconcile", headers=_headers(await _csrf(bff_client)))
+    assert run.status_code == 200, run.text
+    result = run.json()
+    assert result["acknowledged"] == 137 and result["blocked_private_linkage_review"] == 0 and result["ack_failed_retry_later"] == 0
+    assert result["events_seen"] == 137 and result["external_erasure_complete"] is False
+    assert await website_db.bff_sessions.count_documents({"canonical_user_id": "u_del_150"}) == 0
+    assert await website_db.bff_drafts.count_documents({"canonical_user_id": "u_del_151"}) == 0
+
+    pending_for_website = await canonical_db.integration_outbox.count_documents({"type": "account_erased", "status": "pending", "acknowledged": {"$ne": "website"}})
+    assert pending_for_website == 0
+    still_pending_globally = await canonical_db.integration_outbox.count_documents({"type": "account_erased", "status": "pending"})
+    assert still_pending_globally == 237, "a website ack never completes the erasure for other consumers"
+    ev = await canonical_db.integration_outbox.find_one({"id": "ev-237"}, {"_id": 0})
+    assert ev["acknowledged"] == ["website"] and "website" in ev.get("acknowledged_at", {})
+
+    again = await bff_client.post("/api/admin/deletions/reconcile", headers=_headers(await _csrf(bff_client)))
+    assert again.status_code == 200 and again.json()["acknowledged"] == 0 and again.json()["events_seen"] == 0
 
     async with AsyncClient(transport=ASGITransport(app=shared_apps["canonical_server"].app), base_url="https://canonical.test") as canonical:
-        res = await canonical.get(
-            "/api/integrations/deletions",
-            headers={"X-Integration-Key": shared_apps["cfg"].enrollment_key},
-        )
-    assert res.status_code == 200, res.text
-    ids = {e["id"] for e in res.json().get("events", [])}
-    assert "ev-101" in ids
+        feed = await canonical.get("/api/integrations/deletions?limit=100", headers={"X-Integration-Key": shared_apps["cfg"].enrollment_key})
+    assert feed.status_code == 200 and feed.json()["events"] == [] and feed.json()["remaining_for_consumer"] == 0
+    assert feed.json()["consumer"] == "website"
+
+
+@pytest.mark.anyio
+async def test_d4_partial_failure_restart_and_retry_only_acknowledge_completed_cleanup(bff_client, shared_apps):
+    # module: D4 consumer — ack failure mid-page and a crash after cleanup leave events pending; retry completes without double work
+    canonical_db = shared_apps["canonical_db"]
+    await canonical_db.integration_outbox.insert_many(_erasure_events(150))
+    provider = shared_apps["bff_app"].state.canonical
+    original = provider.request
+    state = {"acks": 0, "fail_ids": {"ev-005", "ev-120"}, "crash_after": None}
+
+    async def flaky(method, path, **kwargs):
+        if method == "POST" and path.endswith("/ack"):
+            event_id = path.split("/")[-2]
+            if event_id in state["fail_ids"]:
+                state["fail_ids"].discard(event_id)
+                raise shared_apps["website_server"].UpstreamError(503, "UPSTREAM_UNCERTAIN", "simulated ack timeout")
+            result = await original(method, path, **kwargs)
+            state["acks"] += 1
+            if state["crash_after"] and state["acks"] >= state["crash_after"]:
+                state["crash_after"] = None
+                raise RuntimeError("simulated worker crash after 40 acknowledgements")
+            return result
+        return await original(method, path, **kwargs)
+
+    provider.request = flaky
+    try:
+        await _login_role(bff_client, shared_apps, "9000000101")
+        csrf = await _csrf(bff_client)
+        state["crash_after"] = 40
+        with pytest.raises(RuntimeError):  # isolated ASGI transport re-raises the simulated worker crash
+            await bff_client.post("/api/admin/deletions/reconcile", headers=_headers(csrf))
+        acked_after_crash = await canonical_db.integration_outbox.count_documents({"acknowledged": "website"})
+        assert acked_after_crash == 40, "only completed acknowledgements were recorded before the crash"
+
+        retry = await bff_client.post("/api/admin/deletions/reconcile", headers=_headers(csrf))
+        assert retry.status_code == 200, retry.text
+        assert retry.json()["ack_failed_retry_later"] == 1  # ev-120 failed once on this run (ev-005 failed before the crash)
+        assert retry.json()["acknowledged"] == 150 - 40 - 1
+        assert await canonical_db.integration_outbox.count_documents({"acknowledged": "website"}) == 149
+
+        final = await bff_client.post("/api/admin/deletions/reconcile", headers=_headers(csrf))
+        assert final.status_code == 200 and final.json()["acknowledged"] == 1 and final.json()["events_seen"] == 1
+        assert await canonical_db.integration_outbox.count_documents({"acknowledged": "website"}) == 150
+        docs = await canonical_db.integration_outbox.find({}, {"_id": 0, "acknowledged": 1}).to_list(200)
+        assert all(d["acknowledged"].count("website") == 1 for d in docs), "idempotent: never duplicated acknowledgements"
+        assert await canonical_db.integration_outbox.count_documents({"status": {"$ne": "pending"}}) == 0
+    finally:
+        provider.request = original
 
 
 def test_identity_export_projection_function_uses_stored_links_only_and_no_extra_fields():

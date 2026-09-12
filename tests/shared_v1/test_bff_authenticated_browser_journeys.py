@@ -284,6 +284,19 @@ async def test_authenticated_browser_journeys_routed_to_isolated_bff(shared_apps
             await page.wait_for_timeout(300)
             await page.screenshot(path=str(evidence_dir / "admin-staff-1440.jpeg"), type="jpeg", quality=20, full_page=False)
 
+            # D3 UI: complete paginated enquiry history by immutable canonical customer ID.
+            await page.click('[data-testid="customer-open-u_cust"]', force=True)
+            await page.wait_for_selector('[data-testid="customer-complete-history-table"]', timeout=15000)
+            await page.wait_for_selector('[data-testid="customer-complete-history-row-ui-q-1"]', timeout=15000)
+            assert (await page.inner_text('[data-testid="customer-complete-history-total"]')).strip() == "1"
+            await page.select_option('[data-testid="history-status"]', "resolved")
+            await page.wait_for_selector('[data-testid="customer-complete-history-empty"]', timeout=15000)
+            await page.select_option('[data-testid="history-status"]', "all")
+            await page.wait_for_selector('[data-testid="customer-complete-history-row-ui-q-1"]', timeout=15000)
+            history_calls = [e for e in api_events if e["path"].startswith("/api/bff/requests?") and "customer_id=u_cust" in e["path"]]
+            assert history_calls and all(e["status"] == 200 for e in history_calls)
+            await page.screenshot(path=str(evidence_dir / "customer-complete-history-1440.jpeg"), type="jpeg", quality=20, full_page=False)
+
             await page.click('[data-testid="nav-queries"]', force=True)
             await page.wait_for_selector('[data-testid="queries-table"]', timeout=15000)
             await page.click('[data-testid="nav-rates"]', force=True)
@@ -440,6 +453,19 @@ async def test_authenticated_browser_journeys_routed_to_isolated_bff(shared_apps
             await page.wait_for_selector('[data-testid="queries-table"]', timeout=15000)
             await page.click('[data-testid="nav-rates"]', force=True)
             await page.wait_for_selector('[data-testid="rates-status"]', timeout=15000)
+
+            # D2 UI: billing customer search envelope via the static canonical search route.
+            await page.click('[data-testid="nav-rewards"]', force=True)
+            await page.wait_for_selector('[data-testid="reward-customer-search"]', timeout=15000)
+            await page.fill('[data-testid="reward-customer-search"]', "T")
+            assert "at least 2" in await page.inner_text('[data-testid="reward-search-scope"]')
+            await page.fill('[data-testid="reward-customer-search"]', "TEST Customer")
+            await page.wait_for_selector('[data-testid="reward-search-pick-u_cust"]', timeout=15000)
+            search_calls = [e for e in api_events if e["path"].startswith("/api/bff/customers/search?")]
+            assert search_calls and all(e["status"] == 200 for e in search_calls)
+            await page.click('[data-testid="reward-search-pick-u_cust"]', force=True)
+            await page.wait_for_selector('[data-testid="reward-balance"]', timeout=15000)
+            await page.screenshot(path=str(evidence_dir / "billing-customer-search-1440.jpeg"), type="jpeg", quality=20, full_page=False)
 
             upload_events = [e for e in bridge_events if "/api/bff/products/upload-image" in e["path"] and e["method"] == "POST"]
             if not (upload_events and any(e["forwarded_len"] > 1024 for e in upload_events)):

@@ -3,6 +3,7 @@ import re
 from fastapi import APIRouter, Request, Depends
 from .security import staff_session, STAFF, rate_limit
 from .canonical import fail, UpstreamError
+from .readiness import ensure_capability
 
 router = APIRouter(prefix='/api/bff')
 A = {'admin'}
@@ -10,7 +11,8 @@ T = {'admin', 'telecaller'}
 B = {'admin', 'billing_executive'}
 ID = r'[A-Za-z0-9_-]+'
 RULES = [
-    ('GET', r'customers', A), ('GET|PATCH', rf'customers/{ID}', A),
+    # Static search precedes the dynamic customer reference so 'search' is never treated as an ID (D2).
+    ('GET', r'customers', A), ('GET', 'customers/search', B), ('GET|PATCH', rf'customers/{ID}', A),
     ('GET|POST', 'integrations/staff', A), ('PATCH|DELETE', rf'integrations/staff/{ID}', A),
     ('POST', rf'integrations/staff/{ID}/convert', A),
     ('GET', r'requests|requests/catalog|requests/staff-options', STAFF),
@@ -34,7 +36,7 @@ RULES = [
     ('GET', 'telecaller/customers|telecaller/summary', T),
     ('GET', rf'telecaller/customers/{ID}/activity', T), ('POST', rf'telecaller/customers/{ID}/action', T),
     ('GET|POST', 'rewards/config', A), ('POST', 'rewards/credit|rewards/deduct', B),
-    ('GET', rf'rewards/customer/{ID}|customers/search', B),
+    ('GET', rf'rewards/customer/{ID}', B),
     ('GET|POST', 'about|schemes|brands|showroom|exhibitions|knowledge|stories', A),
     ('PUT|DELETE', rf'(schemes|brands|showroom|exhibitions)/{ID}', A),
     ('DELETE', rf'about/{ID}', A), ('GET', 'admin/deletion-requests|admin/ai/reports', A),
@@ -77,6 +79,9 @@ async def proxy(path: str, request: Request, session=Depends(staff_session)):
                 raise ValueError()
         except ValueError:
             fail(422, 'INVALID_PAGINATION', 'Page must be at least 1.')
+    if path == 'requests' and params.get('customer_id'):
+        # Older app builds silently ignore customer_id (D3); never show another customer's history.
+        await ensure_capability(request, 'customer_id_history', 'Complete customer history requires the updated Yash Trade App backend.')
     if request.method != 'GET':
         await rate_limit(request, 'mutation:'+session['user']['id'])
     upstream = request.app.state.canonical

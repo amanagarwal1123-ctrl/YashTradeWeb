@@ -1,0 +1,61 @@
+{
+  "app_health": {
+    "http": 503,
+    "build": "shared-v1-owner-recovery-2026-09-12",
+    "commit": "unrecorded",
+    "staff": {
+      "ready": false,
+      "issues": [
+        "STAFF_SERVICE_KEY"
+      ]
+    },
+    "caps": {
+      "credential_readiness": 1,
+      "customer_id_history": null,
+      "deletion_outbox_cursor": null
+    }
+  },
+  "app_openapi_paths": 120,
+  "https://register.yashsilver.com": {
+    "ready_http": 503,
+    "build": "website-shared-v1-readiness-adapter-v2",
+    "commit": "unrecorded",
+    "pin": "6a6cdddb81a4c27b387144746a7b6cf7fefc85c2",
+    "issues": {
+      "staff": [
+        "CANONICAL_API_BASE_URL",
+        "STAFF_SERVICE_KEY"
+      ],
+      "enrollment": [
+        "CANONICAL_API_BASE_URL",
+        "ENROLLMENT_INTEGRATION_KEY"
+      ],
+      "deletion": [
+        "CANONICAL_API_BASE_URL",
+        "ENROLLMENT_INTEGRATION_KEY"
+      ]
+    },
+    "origin_allowed": true
+  },
+  "https://yash-register.emergent.host": {
+    "ready_http": 503,
+    "build": "website-shared-v1-readiness-adapter-v2",
+    "commit": "unrecorded",
+    "pin": "6a6cdddb81a4c27b387144746a7b6cf7fefc85c2",
+    "issues": {
+      "staff": [
+        "CANONICAL_API_BASE_URL",
+        "STAFF_SERVICE_KEY"
+      ],
+      "enrollment": [
+        "CANONICAL_API_BASE_URL",
+        "ENROLLMENT_INTEGRATION_KEY"
+      ],
+      "deletion": [
+        "CANONICAL_API_BASE_URL",
+        "ENROLLMENT_INTEGRATION_KEY"
+      ]
+    },
+    "origin_allowed": false
+  }
+}

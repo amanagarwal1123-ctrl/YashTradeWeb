@@ -1,0 +1,96 @@
+{
+  "run": "d2d3d4-consumers-v3",
+  "date": "2026-09-12",
+  "website_build": "website-shared-v1-d2d3d4-consumers-v3",
+  "website_source": "workspace working tree on top of local platform commits; GitHub main at audit c1ef7d84609e0d0eff0258601b2fc1a84076189e (newer local work not yet saved to GitHub)",
+  "app_contract_commit": "9596a5578a61bb1fb187e63345b7f93eda95bc9c",
+  "app_contract_build": "shared-v1-review-fonts-2026-09-12",
+  "app_schema": {
+    "file": "contracts/openapi.shared-v1.json",
+    "paths": 123,
+    "sha256_prefix": "a30e6b2fe5500dd2",
+    "byte_identical_to_release_zip": true,
+    "whole_source_provenance_verified": false
+  },
+  "env_declarations_backend_dotenv": {
+    "updated": [
+      "BFF_ALLOWED_ORIGINS",
+      "CANONICAL_API_BASE_URL",
+      "ENROLLMENT_INTEGRATION_KEY",
+      "STAFF_SERVICE_KEY",
+      "BUILD_COMMIT"
+    ],
+    "already_present_untouched": [
+      "SESSION_SECRET",
+      "MONGO_URL",
+      "DB_NAME",
+      "BFF_INGRESS_ORIGINS",
+      "LIVE_INTEGRATION_KEY",
+      "MSG91_*",
+      "legacy settings"
+    ],
+    "placeholder_value": "SET_IN_PUBLISH_SECRETS (rejected in code; tests test_placeholder_settings_report_invalid_not_present, test_from_env_uses_runtime_environment_over_dotenv_and_parses_origins, test_actual_backend_dotenv_declares_required_names_once_without_real_secrets_in_placeholders)",
+    "file_ignored_by_git": true
+  },
+  "isolated_tests": {
+    "junit": "evidence/d2d3d4-consumers-v3/junit.xml",
+    "log": "evidence/d2d3d4-consumers-v3/pytest.log",
+    "total": 105,
+    "passed": 105,
+    "failed": 0,
+    "skipped": 0,
+    "xfail": 0,
+    "note": "104 = first full run; the capability-guard test added afterwards brings the final count to 105 (see testing-agent report)",
+    "by_file": {
+      "test_bff_readiness_adapter.py": {
+        "count": 34,
+        "boundary": "MOCKED app readiness contract (httpx.MockTransport); real bff.canonical/bff.readiness; isolated Mongo for create_app cases; real backend/.env name checks"
+      },
+      "test_release_gate_tool.py": {
+        "count": 34,
+        "boundary": "MOCKED HTTP responses for tools/check_auth_readiness.py"
+      },
+      "test_bff_followup_core_regressions.py": {
+        "count": 12,
+        "boundary": "real pinned app 9596a55 over isolated ASGI + isolated Mongo; D2/D3/D4 consumers now genuine passes (former strict XFAIL)"
+      },
+      "test_bff_feature_matrix.py": {
+        "count": 11,
+        "boundary": "same isolated ASGI boundary"
+      },
+      "test_bff_auth_session.py": {
+        "count": 7,
+        "boundary": "same isolated ASGI boundary; SMS/object storage doubles"
+      },
+      "test_bff_auth_readiness.py": {
+        "count": 5,
+        "boundary": "stub provider speaking the app contract + real BFF routes"
+      },
+      "test_bff_authenticated_browser_journeys.py": {
+        "count": 1,
+        "boundary": "headless Chromium against running preview React; /api routed into isolated BFF/app; includes D2 search UI and D3 complete-history UI steps"
+      }
+    },
+    "real_sms_sent": false,
+    "real_identities_modified": false,
+    "production_settings_modified": false,
+    "production_data_touched": false
+  },
+  "live_read_only_checks": "evidence/d2d3d4-consumers-v3/production-readonly-2026-09-12.json",
+  "sms_requested": false,
+  "sms_received": null,
+  "login_verified": false,
+  "not_verified_by_this_run": [
+    "production Secrets applied",
+    "app STAFF_SERVICE_KEY",
+    "app 9596a55 deployed",
+    "owner role repair",
+    "genuine OTP login",
+    "app whole-source provenance"
+  ],
+  "independent_testing_agent": {
+    "report": "evidence/d2d3d4-consumers-v3/iteration_13.json",
+    "result": "105 passed, 0 failed, 0 skipped, 0 xfail (per file: readiness_adapter 34, release_gate_tool 34, followup_core_regressions 13, feature_matrix 11, auth_session 7, auth_readiness 5, browser_journeys 1); preview fail-closed + release gate FAIL against preview + static .env/schema checks confirmed",
+    "observed_flake": "test_enrollment_grant_expired_transitions_to_verification_required failed once in one of several full-suite runs (passes in isolation and in later full runs); pre-existing test, left unchanged"
+  }
+}

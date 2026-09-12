@@ -1,3 +1,5 @@
+> Dated document. The single current owner checklist is `PRODUCTION_OPERATOR_HANDOFF.md`; contract pin is now app `9596a5578a61bb1fb187e63345b7f93eda95bc9c`.
+
 # Narrow app/config follow-up — shared-v1 WEBSITE stage
 
 Pinned implementation **c4ee70d8134625a1a4e04073c43b9460c3c4e40d** is available and was read. Do not resend the old broad app prompt. No change to that app source was made here. This handoff contains only dependencies found during website implementation; unimplemented website controls are listed in `ADMIN_PARITY_CHECKLIST.md`, not assigned to the app team.

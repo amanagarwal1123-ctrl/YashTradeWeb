@@ -3,8 +3,21 @@ import re
 from dataclasses import dataclass
 from urllib.parse import urlsplit
 
-BUILD = 'website-shared-v1-readiness-adapter-v2'
-CONTRACT_COMMIT = '6a6cdddb81a4c27b387144746a7b6cf7fefc85c2'
+BUILD = 'website-shared-v1-d2d3d4-consumers-v3'
+CONTRACT_COMMIT = '9596a5578a61bb1fb187e63345b7f93eda95bc9c'
+# Bootstrap markers shared with the app (shared/core.py PLACEHOLDER_MARKERS): such values count as ABSENT.
+PLACEHOLDER_MARKERS = ('SET_IN_PUBLISH_SECRETS', 'PLACEHOLDER', 'REPLACE_ME', 'CHANGE_ME', 'UNCONFIGURED')
+
+
+def is_placeholder(value):
+    upper = value.strip().upper()
+    return not upper or any(marker in upper for marker in PLACEHOLDER_MARKERS)
+
+
+def setting(name):
+    """Runtime environment wins over .env (load_dotenv never overrides); placeholders read as ''."""
+    value = os.environ.get(name, '').strip()
+    return '' if is_placeholder(value) else value
 
 
 @dataclass
@@ -23,18 +36,27 @@ class Settings:
     ios_url: str = ''
     ingress_origins: tuple = ()
 
+    def __post_init__(self):
+        # Executable placeholder rejection for every construction path, not only from_env().
+        for field in ('base', 'enrollment_key', 'staff_key', 'session_secret', 'build_commit', 'android_url', 'ios_url'):
+            if is_placeholder(getattr(self, field)):
+                setattr(self, field, '')
+        self.origins = tuple(o for o in self.origins if not is_placeholder(o))
+        self.ingress_origins = tuple(o for o in self.ingress_origins if not is_placeholder(o))
+        self.trusted_ingress = tuple(o for o in self.trusted_ingress if not is_placeholder(o))
+
     @classmethod
     def from_env(cls):
         # Explicit per-runtime website origin allowlist; never depend on frontend files.
-        origins = os.environ.get('BFF_ALLOWED_ORIGINS', '')
+        origins = os.environ.get('BFF_ALLOWED_ORIGINS', '')  # list values are filtered per entry in __post_init__
         return cls(os.environ['MONGO_URL'], os.environ['DB_NAME'], tuple(x.strip().rstrip('/') for x in origins.split(',') if x.strip()),
-                   os.environ.get('CANONICAL_API_BASE_URL', '').strip().rstrip('/'),
-                   os.environ.get('ENROLLMENT_INTEGRATION_KEY', ''), os.environ.get('STAFF_SERVICE_KEY', ''),
-                   os.environ.get('SESSION_SECRET', ''), os.environ.get('BUILD_COMMIT', ''),
+                   setting('CANONICAL_API_BASE_URL').rstrip('/'),
+                   setting('ENROLLMENT_INTEGRATION_KEY'), setting('STAFF_SERVICE_KEY'),
+                   setting('SESSION_SECRET'), setting('BUILD_COMMIT'),
                    tuple(x.strip() for x in os.environ.get('TRUSTED_INGRESS_CIDRS', '').split(',') if x.strip()),
                    os.environ.get('FORWARD_CANONICAL_CLIENT_IP') == 'true',
-                   os.environ.get('ANDROID_APP_URL', '') if os.environ.get('ANDROID_RELEASE_VERIFIED') == 'true' else '',
-                   os.environ.get('IOS_APP_URL', '') if os.environ.get('IOS_RELEASE_VERIFIED') == 'true' else '',
+                   setting('ANDROID_APP_URL') if os.environ.get('ANDROID_RELEASE_VERIFIED') == 'true' else '',
+                   setting('IOS_APP_URL') if os.environ.get('IOS_RELEASE_VERIFIED') == 'true' else '',
                    tuple(x.strip().rstrip('/') for x in os.environ.get('BFF_INGRESS_ORIGINS', '').split(',') if x.strip()))
 
     @property

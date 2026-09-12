@@ -249,32 +249,60 @@ async def deletion_confirm(body: Verify, request: Request):
 
 
 async def consume_deletions(request):
+    """Cursor-paginated, consumer-specific deletion feed (app D4). Each event's website cleanup runs
+    first; only fully completed cleanup is acknowledged, one event at a time, so a crash, restart or
+    partial failure re-delivers the unacknowledged remainder. Acks are idempotent upstream."""
     db, upstream = request.app.state.db, request.app.state.canonical
-    events = (await upstream.request('GET', '/integrations/deletions', key='enrollment'))['events']
-    acknowledged, blocked = 0, 0
-    for event in events:
-        if event.get('type') != 'account_erased' or 'website' in event.get('acknowledged', []):
-            continue
-        uid = event.get('user_id')
-        if not uid:
-            continue
-        query = {'$or': [{k: uid} for k in ('canonical_user_id', 'live_user_id', 'user_id', 'subject_id')]}
-        # Restrict cleanup to website-owned session/draft/cache/outbox collections.
-        for coll in ('bff_sessions', 'bff_drafts', 'bff_cache', 'bff_outbox'):
-            await db[coll].delete_many(query)
-        # Pre-ID drafts cannot be mapped from the documented ID-only event. Wait for expiry,
-        # rather than acknowledging an unprovable erasure or inspecting canonical DB directly.
-        await db.bff_drafts.delete_many({'expires_at': {'$lte': now()}})
-        unresolved = await db.bff_drafts.count_documents({'purpose': 'enrollment', 'canonical_user_id': {'$exists': False}})
-        legacy = sum([await db[c].count_documents(query) for c in ('customers', 'staff_users', 'admin_sessions')])
-        if unresolved or legacy:
-            blocked += 1
-            continue
-        ack = await upstream.request('POST', '/integrations/deletions/'+event['id']+'/ack', key='enrollment')
-        if ack.get('acknowledged') != 'website' or ack.get('event_id') != event['id']:
-            fail(503, 'ACK_UNCONFIRMED', 'Website deletion acknowledgement was not confirmed.')
-        acknowledged += 1
-    return {'acknowledged': acknowledged, 'blocked_private_linkage_review': blocked, 'external_erasure_complete': False}
+    snapshot = await request.app.state.readiness.snapshot()
+    cursor_feed = snapshot['upstream']['capabilities'].get('deletion_outbox_cursor', False)
+    acknowledged, blocked, failed, seen, cursor = 0, 0, 0, 0, ''
+    for _ in range(50):  # bounded: at most 50 pages x 100 events per reconcile run
+        params = {'limit': 100, **({'after': cursor} if cursor else {})}
+        page = await upstream.request('GET', '/integrations/deletions', key='enrollment', params=params)
+        events = page.get('events')
+        if not isinstance(events, list):
+            fail(503, 'CONTRACT_MISMATCH', 'Canonical deletion feed shape is not recognised.')
+        for event in events:
+            seen += 1
+            if event.get('type') != 'account_erased' or 'website' in event.get('acknowledged', []) or not event.get('id'):
+                continue
+            outcome = await cleanup_event(db, event)
+            if outcome == 'blocked':
+                blocked += 1
+                continue
+            try:
+                ack = await upstream.request('POST', '/integrations/deletions/'+event['id']+'/ack', key='enrollment')
+            except UpstreamError as exc:
+                if exc.status == 404:
+                    continue  # event withdrawn upstream; nothing to acknowledge
+                failed += 1
+                continue
+            if ack.get('acknowledged') != 'website' or ack.get('event_id') != event['id']:
+                fail(503, 'ACK_UNCONFIRMED', 'Website deletion acknowledgement was not confirmed.')
+            acknowledged += 1
+        cursor = page.get('next_cursor') if page.get('has_more') else None
+        if not cursor:
+            break
+    else:
+        fail(503, 'RECONCILE_INCOMPLETE', 'Deletion feed still has pages; run the reconcile again.')
+    return {'acknowledged': acknowledged, 'blocked_private_linkage_review': blocked, 'ack_failed_retry_later': failed,
+            'events_seen': seen, 'cursor_feed': cursor_feed, 'external_erasure_complete': False}
+
+
+async def cleanup_event(db, event):
+    uid = event['user_id'] if isinstance(event.get('user_id'), str) and event['user_id'] else None
+    if not uid:
+        return 'blocked'
+    query = {'$or': [{k: uid} for k in ('canonical_user_id', 'live_user_id', 'user_id', 'subject_id')]}
+    # Restrict cleanup to website-owned session/draft/cache/outbox collections.
+    for coll in ('bff_sessions', 'bff_drafts', 'bff_cache', 'bff_outbox'):
+        await db[coll].delete_many(query)
+    # Pre-ID drafts cannot be mapped from the documented ID-only event. Wait for expiry,
+    # rather than acknowledging an unprovable erasure or inspecting canonical DB directly.
+    await db.bff_drafts.delete_many({'expires_at': {'$lte': now()}})
+    unresolved = await db.bff_drafts.count_documents({'purpose': 'enrollment', 'canonical_user_id': {'$exists': False}})
+    legacy = sum([await db[c].count_documents(query) for c in ('customers', 'staff_users', 'admin_sessions')])
+    return 'blocked' if unresolved or legacy else 'clean'
 
 
 @router.post('/admin/deletions/reconcile')

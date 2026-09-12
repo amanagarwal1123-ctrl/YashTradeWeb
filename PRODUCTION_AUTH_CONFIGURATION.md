@@ -1,4 +1,4 @@
-# One coordinated private configuration correction
+# One coordinated private configuration correction (dated 2026-09-11/12; current checklist: PRODUCTION_OPERATOR_HANDOFF.md)
 
 User approved configuration corrections without changing identities or rotating
 existing secrets. The OWNER applies them through Manage Publishes → Secrets followed by a
@@ -38,8 +38,8 @@ do not enable arbitrary forwarded headers or bypass canonical rate limits.
 The consolidated operator sequence (both projects, role repair, probe order) lives in
 `PRODUCTION_OPERATOR_HANDOFF.md`; this section only describes the website probes.
 
-The website readiness adapter (build `website-shared-v1-readiness-adapter-v2`, app contract
-`6a6cdddb81a4c27b387144746a7b6cf7fefc85c2`) reads the app's structured `GET /health`
+The website readiness adapter (build `website-shared-v1-d2d3d4-consumers-v3`, app contract
+`9596a5578a61bb1fb187e63345b7f93eda95bc9c`) reads the app's structured `GET /health`
 200/503 body per flow and, when `capabilities.credential_readiness=1`, verifies each
 configured secret with the server-only `GET /integrations/staff/readiness`
 (`X-Staff-Service-Key`) and `GET /integrations/enrollment/readiness` (`X-Integration-Key`).
@@ -57,9 +57,9 @@ After the corrected code/configuration are active:
 2. Check `/api/public/auth-status?website_origin=<that-exact-origin>`: staff,
    enrollment and deletion should be available and origin_allowed=true.
 3. `/api/health/live` is process liveness only, NOT a release/readiness check.
-4. Use `tools/check_auth_readiness.py` with privately configured
-   WEBSITE_CHECK_ORIGINS containing the two website origins. It only performs GETs,
-   never passes secret values and returns a nonzero exit code for incomplete setup.
+4. Use `tools/check_auth_readiness.py` (strict release gate: requires credential-verified readiness,
+   exact expected website build/SHA, app pin, upstream build/SHA and a publication receipt on BOTH
+   origins). It only performs GETs, never passes secret values and exits nonzero otherwise.
 5. Keep login/OTP/role regression verification in the isolated test suite. Credential
    verification proves key matching only; not SMS delivery, not a user's role. No production
    phone, account promotion, admin seeding or OTP dispatch is required by this task.

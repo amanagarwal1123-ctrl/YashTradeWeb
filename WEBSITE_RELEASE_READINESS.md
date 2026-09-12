@@ -1,3 +1,5 @@
+> Dated document. The single current owner checklist is `PRODUCTION_OPERATOR_HANDOFF.md`; contract pin is now app `9596a5578a61bb1fb187e63345b7f93eda95bc9c`.
+
 # WEBSITE release readiness — not a cutover approval
 
 As of11September2026, this build is suitable for **website code review with disclosed unfinished parity/validation**. It is **NOT ready for live cross-system acceptance**, **NOT cutover-ready**, and does not prove native store readiness.
