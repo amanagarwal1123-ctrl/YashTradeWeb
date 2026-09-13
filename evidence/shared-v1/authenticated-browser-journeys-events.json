@@ -352,6 +352,20 @@
     },
     {
       "method": "GET",
+      "path": "/api/bff/integrations/staff?role=telecaller&status=active",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests/staff-options",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
       "path": "/api/bff/requests/catalog",
       "native_len": 0,
       "forwarded_len": 0,
@@ -359,21 +373,7 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/requests/staff-options",
-      "native_len": 0,
-      "forwarded_len": 0,
-      "multipart_fallback": false
-    },
-    {
-      "method": "GET",
-      "path": "/api/bff/integrations/staff?role=telecaller&status=active",
-      "native_len": 0,
-      "forwarded_len": 0,
-      "multipart_fallback": false
-    },
-    {
-      "method": "GET",
-      "path": "/api/bff/integrations/staff?role=telecaller&status=active",
+      "path": "/api/bff/requests/metrics/summary?start=2026-09-13&end=2026-09-13&search=&request_type=",
       "native_len": 0,
       "forwarded_len": 0,
       "multipart_fallback": false
@@ -394,14 +394,7 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/requests/staff-options",
-      "native_len": 0,
-      "forwarded_len": 0,
-      "multipart_fallback": false
-    },
-    {
-      "method": "GET",
-      "path": "/api/bff/requests/metrics/summary?start=2026-09-13&end=2026-09-13&search=&request_type=",
+      "path": "/api/bff/integrations/staff?role=telecaller&status=active",
       "native_len": 0,
       "forwarded_len": 0,
       "multipart_fallback": false
@@ -409,6 +402,13 @@
     {
       "method": "GET",
       "path": "/api/bff/requests?page=1&limit=20&status=open&view=all&sort=oldest",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests/staff-options",
       "native_len": 0,
       "forwarded_len": 0,
       "multipart_fallback": false
@@ -423,6 +423,20 @@
     {
       "method": "GET",
       "path": "/api/bff/rates/history?days=7",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rates/latest",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rate-list",
       "native_len": 0,
       "forwarded_len": 0,
       "multipart_fallback": false
@@ -451,20 +465,6 @@
     {
       "method": "GET",
       "path": "/api/bff/rates/audit?page=1&limit=30",
-      "native_len": 0,
-      "forwarded_len": 0,
-      "multipart_fallback": false
-    },
-    {
-      "method": "GET",
-      "path": "/api/bff/rates/latest",
-      "native_len": 0,
-      "forwarded_len": 0,
-      "multipart_fallback": false
-    },
-    {
-      "method": "GET",
-      "path": "/api/bff/rate-list",
       "native_len": 0,
       "forwarded_len": 0,
       "multipart_fallback": false
@@ -569,20 +569,6 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/batches/b1/images?page=1&limit=20",
-      "native_len": 0,
-      "forwarded_len": 0,
-      "multipart_fallback": false
-    },
-    {
-      "method": "GET",
-      "path": "/api/bff/batches/b1/images?page=1&limit=20",
-      "native_len": 0,
-      "forwarded_len": 0,
-      "multipart_fallback": false
-    },
-    {
-      "method": "GET",
       "path": "/api/admin/auth/me",
       "native_len": 0,
       "forwarded_len": 0,
@@ -625,7 +611,7 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/files/yash-trade/products/manual/66f82fce960e0f8fed4a118d0d9c6177.jpg",
+      "path": "/api/bff/files/yash-trade/products/manual/a4c63e4ebb17a26bdada77122301269c.jpg",
       "native_len": 0,
       "forwarded_len": 0,
       "multipart_fallback": false
@@ -646,7 +632,7 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/files/yash-trade/products/manual/66f82fce960e0f8fed4a118d0d9c6177-thumb.jpg",
+      "path": "/api/bff/files/yash-trade/products/manual/a4c63e4ebb17a26bdada77122301269c-thumb.jpg",
       "native_len": 0,
       "forwarded_len": 0,
       "multipart_fallback": false
@@ -667,21 +653,21 @@
     },
     {
       "method": "GET",
+      "path": "/api/bff/batches",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/batches",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
       "path": "/api/bff/pdf-template/capabilities",
-      "native_len": 0,
-      "forwarded_len": 0,
-      "multipart_fallback": false
-    },
-    {
-      "method": "GET",
-      "path": "/api/bff/batches",
-      "native_len": 0,
-      "forwarded_len": 0,
-      "multipart_fallback": false
-    },
-    {
-      "method": "GET",
-      "path": "/api/bff/batches",
       "native_len": 0,
       "forwarded_len": 0,
       "multipart_fallback": false
@@ -696,6 +682,20 @@
     {
       "method": "GET",
       "path": "/api/bff/pdf-template/authoring.json",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/bff/batches",
+      "native_len": 64,
+      "forwarded_len": 64,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/batches",
       "native_len": 0,
       "forwarded_len": 0,
       "multipart_fallback": false
@@ -793,14 +793,14 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/rows/eff57f73669d50c867e0ce920cb63ea3/image",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/rows/246a2c91a0ec6277b7adef736e583ab7/image",
       "native_len": 0,
       "forwarded_len": 0,
       "multipart_fallback": false
     },
     {
       "method": "GET",
-      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/rows/246a2c91a0ec6277b7adef736e583ab7/image",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/rows/eff57f73669d50c867e0ce920cb63ea3/image",
       "native_len": 0,
       "forwarded_len": 0,
       "multipart_fallback": false
@@ -891,7 +891,7 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/files/yash-trade/products/manual/921941d675e06722db092388c030143f.jpg",
+      "path": "/api/bff/files/yash-trade/products/manual/72bebfd253b5fe90da8296671f162b38.jpg",
       "native_len": 0,
       "forwarded_len": 0,
       "multipart_fallback": false
@@ -961,13 +961,6 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/requests/staff-options",
-      "native_len": 0,
-      "forwarded_len": 0,
-      "multipart_fallback": false
-    },
-    {
-      "method": "GET",
       "path": "/api/bff/requests/catalog",
       "native_len": 0,
       "forwarded_len": 0,
@@ -976,6 +969,13 @@
     {
       "method": "GET",
       "path": "/api/bff/requests/metrics/summary?start=2026-09-13&end=2026-09-13&search=&request_type=",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests/staff-options",
       "native_len": 0,
       "forwarded_len": 0,
       "multipart_fallback": false
@@ -1017,21 +1017,21 @@
     },
     {
       "method": "GET",
-      "path": "/api/admin/winback/returning",
-      "native_len": 0,
-      "forwarded_len": 0,
-      "multipart_fallback": false
-    },
-    {
-      "method": "GET",
-      "path": "/api/admin/winback/returning",
-      "native_len": 0,
-      "forwarded_len": 0,
-      "multipart_fallback": false
-    },
-    {
-      "method": "GET",
       "path": "/api/admin/winback/contacts?status=&source=&page=1&limit=20",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/winback/returning",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/winback/returning",
       "native_len": 0,
       "forwarded_len": 0,
       "multipart_fallback": false
@@ -1059,7 +1059,7 @@
     },
     {
       "method": "PATCH",
-      "path": "/api/admin/winback/contacts/RV45AYNd93V0oIaM",
+      "path": "/api/admin/winback/contacts/cmxFp2WA6D9vCKi2",
       "native_len": 49,
       "forwarded_len": 49,
       "multipart_fallback": false
@@ -1143,6 +1143,20 @@
     },
     {
       "method": "GET",
+      "path": "/api/bff/rate-list",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rate-list",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
       "path": "/api/bff/rates/history?days=7",
       "native_len": 0,
       "forwarded_len": 0,
@@ -1151,20 +1165,6 @@
     {
       "method": "GET",
       "path": "/api/bff/rates/latest",
-      "native_len": 0,
-      "forwarded_len": 0,
-      "multipart_fallback": false
-    },
-    {
-      "method": "GET",
-      "path": "/api/bff/rate-list",
-      "native_len": 0,
-      "forwarded_len": 0,
-      "multipart_fallback": false
-    },
-    {
-      "method": "GET",
-      "path": "/api/bff/rate-list",
       "native_len": 0,
       "forwarded_len": 0,
       "multipart_fallback": false
@@ -1192,13 +1192,6 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/requests/staff-options",
-      "native_len": 0,
-      "forwarded_len": 0,
-      "multipart_fallback": false
-    },
-    {
-      "method": "GET",
       "path": "/api/bff/requests/catalog",
       "native_len": 0,
       "forwarded_len": 0,
@@ -1207,13 +1200,6 @@
     {
       "method": "GET",
       "path": "/api/bff/requests/catalog",
-      "native_len": 0,
-      "forwarded_len": 0,
-      "multipart_fallback": false
-    },
-    {
-      "method": "GET",
-      "path": "/api/bff/requests?page=1&limit=20&status=open&view=all&sort=oldest",
       "native_len": 0,
       "forwarded_len": 0,
       "multipart_fallback": false
@@ -1234,7 +1220,14 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/rates/latest",
+      "path": "/api/bff/requests/staff-options",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests?page=1&limit=20&status=open&view=all&sort=oldest",
       "native_len": 0,
       "forwarded_len": 0,
       "multipart_fallback": false
@@ -1255,13 +1248,6 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/rates/history?days=7",
-      "native_len": 0,
-      "forwarded_len": 0,
-      "multipart_fallback": false
-    },
-    {
-      "method": "GET",
       "path": "/api/bff/rates/latest",
       "native_len": 0,
       "forwarded_len": 0,
@@ -1277,6 +1263,20 @@
     {
       "method": "GET",
       "path": "/api/bff/rate-list",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rates/latest",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rates/history?days=7",
       "native_len": 0,
       "forwarded_len": 0,
       "multipart_fallback": false
@@ -1570,22 +1570,22 @@
     },
     {
       "method": "GET",
+      "path": "/api/bff/integrations/staff?role=telecaller&status=active",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests/staff-options",
+      "status": 200
+    },
+    {
+      "method": "GET",
       "path": "/api/bff/requests/catalog",
       "status": 200
     },
     {
       "method": "GET",
-      "path": "/api/bff/requests/staff-options",
-      "status": 200
-    },
-    {
-      "method": "GET",
-      "path": "/api/bff/integrations/staff?role=telecaller&status=active",
-      "status": 200
-    },
-    {
-      "method": "GET",
-      "path": "/api/bff/integrations/staff?role=telecaller&status=active",
+      "path": "/api/bff/requests/metrics/summary?start=2026-09-13&end=2026-09-13&search=&request_type=",
       "status": 200
     },
     {
@@ -1600,17 +1600,17 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/requests/staff-options",
-      "status": 200
-    },
-    {
-      "method": "GET",
-      "path": "/api/bff/requests/metrics/summary?start=2026-09-13&end=2026-09-13&search=&request_type=",
+      "path": "/api/bff/integrations/staff?role=telecaller&status=active",
       "status": 200
     },
     {
       "method": "GET",
       "path": "/api/bff/requests?page=1&limit=20&status=open&view=all&sort=oldest",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests/staff-options",
       "status": 200
     },
     {
@@ -1621,6 +1621,16 @@
     {
       "method": "GET",
       "path": "/api/bff/rates/history?days=7",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rates/latest",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rate-list",
       "status": 200
     },
     {
@@ -1641,16 +1651,6 @@
     {
       "method": "GET",
       "path": "/api/bff/rates/audit?page=1&limit=30",
-      "status": 200
-    },
-    {
-      "method": "GET",
-      "path": "/api/bff/rates/latest",
-      "status": 200
-    },
-    {
-      "method": "GET",
-      "path": "/api/bff/rate-list",
       "status": 200
     },
     {
@@ -1725,16 +1725,6 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/batches/b1/images?page=1&limit=20",
-      "status": 200
-    },
-    {
-      "method": "GET",
-      "path": "/api/bff/batches/b1/images?page=1&limit=20",
-      "status": 200
-    },
-    {
-      "method": "GET",
       "path": "/api/admin/auth/me",
       "status": 200
     },
@@ -1765,7 +1755,7 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/files/yash-trade/products/manual/66f82fce960e0f8fed4a118d0d9c6177.jpg",
+      "path": "/api/bff/files/yash-trade/products/manual/a4c63e4ebb17a26bdada77122301269c.jpg",
       "status": 200
     },
     {
@@ -1780,7 +1770,7 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/files/yash-trade/products/manual/66f82fce960e0f8fed4a118d0d9c6177-thumb.jpg",
+      "path": "/api/bff/files/yash-trade/products/manual/a4c63e4ebb17a26bdada77122301269c-thumb.jpg",
       "status": 200
     },
     {
@@ -1795,17 +1785,17 @@
     },
     {
       "method": "GET",
+      "path": "/api/bff/batches",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/batches",
+      "status": 200
+    },
+    {
+      "method": "GET",
       "path": "/api/bff/pdf-template/capabilities",
-      "status": 200
-    },
-    {
-      "method": "GET",
-      "path": "/api/bff/batches",
-      "status": 200
-    },
-    {
-      "method": "GET",
-      "path": "/api/bff/batches",
       "status": 200
     },
     {
@@ -1816,6 +1806,16 @@
     {
       "method": "GET",
       "path": "/api/bff/pdf-template/authoring.json",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/bff/batches",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/batches",
       "status": 200
     },
     {
@@ -1885,12 +1885,12 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/rows/eff57f73669d50c867e0ce920cb63ea3/image",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/rows/246a2c91a0ec6277b7adef736e583ab7/image",
       "status": 200
     },
     {
       "method": "GET",
-      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/rows/246a2c91a0ec6277b7adef736e583ab7/image",
+      "path": "/api/bff/pdf-upload/6477a9d3d9de781277ae02cd27c34487/rows/eff57f73669d50c867e0ce920cb63ea3/image",
       "status": 200
     },
     {
@@ -1955,7 +1955,7 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/files/yash-trade/products/manual/921941d675e06722db092388c030143f.jpg",
+      "path": "/api/bff/files/yash-trade/products/manual/72bebfd253b5fe90da8296671f162b38.jpg",
       "status": 200
     },
     {
@@ -2005,17 +2005,17 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/requests/staff-options",
-      "status": 200
-    },
-    {
-      "method": "GET",
       "path": "/api/bff/requests/catalog",
       "status": 200
     },
     {
       "method": "GET",
       "path": "/api/bff/requests/metrics/summary?start=2026-09-13&end=2026-09-13&search=&request_type=",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests/staff-options",
       "status": 200
     },
     {
@@ -2045,17 +2045,17 @@
     },
     {
       "method": "GET",
-      "path": "/api/admin/winback/returning",
-      "status": 200
-    },
-    {
-      "method": "GET",
-      "path": "/api/admin/winback/returning",
-      "status": 200
-    },
-    {
-      "method": "GET",
       "path": "/api/admin/winback/contacts?status=&source=&page=1&limit=20",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/winback/returning",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/winback/returning",
       "status": 200
     },
     {
@@ -2075,7 +2075,7 @@
     },
     {
       "method": "PATCH",
-      "path": "/api/admin/winback/contacts/RV45AYNd93V0oIaM",
+      "path": "/api/admin/winback/contacts/cmxFp2WA6D9vCKi2",
       "status": 200
     },
     {
@@ -2135,22 +2135,22 @@
     },
     {
       "method": "GET",
+      "path": "/api/bff/rate-list",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rate-list",
+      "status": 200
+    },
+    {
+      "method": "GET",
       "path": "/api/bff/rates/history?days=7",
       "status": 200
     },
     {
       "method": "GET",
       "path": "/api/bff/rates/latest",
-      "status": 200
-    },
-    {
-      "method": "GET",
-      "path": "/api/bff/rate-list",
-      "status": 200
-    },
-    {
-      "method": "GET",
-      "path": "/api/bff/rate-list",
       "status": 200
     },
     {
@@ -2170,22 +2170,12 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/requests/staff-options",
-      "status": 200
-    },
-    {
-      "method": "GET",
       "path": "/api/bff/requests/catalog",
       "status": 200
     },
     {
       "method": "GET",
       "path": "/api/bff/requests/catalog",
-      "status": 200
-    },
-    {
-      "method": "GET",
-      "path": "/api/bff/requests?page=1&limit=20&status=open&view=all&sort=oldest",
       "status": 200
     },
     {
@@ -2200,7 +2190,12 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/rates/latest",
+      "path": "/api/bff/requests/staff-options",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests?page=1&limit=20&status=open&view=all&sort=oldest",
       "status": 200
     },
     {
@@ -2215,11 +2210,6 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/rates/history?days=7",
-      "status": 200
-    },
-    {
-      "method": "GET",
       "path": "/api/bff/rates/latest",
       "status": 200
     },
@@ -2231,6 +2221,16 @@
     {
       "method": "GET",
       "path": "/api/bff/rate-list",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rates/latest",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rates/history?days=7",
       "status": 200
     },
     {

@@ -411,8 +411,19 @@ async def test_authenticated_browser_journeys_routed_to_isolated_bff(shared_apps
                 await page.click('[data-testid="pdf-download-authoring-json"]', force=True)
             authoring_download = await authoring_info.value
             assert authoring_download.suggested_filename.endswith(".json")
-            await page.select_option('[data-testid="pdf-batch"]', "b1")
+            # Reported bug: file chosen but no batch → button disabled with no explanation. Now the reason is shown,
+            # and a batch can be created and auto-selected inline.
             await page.set_input_files('[data-testid="pdf-file-input"]', str(PDF_FILE))
+            await page.wait_for_selector('[data-testid="pdf-file-summary"]', timeout=10000)
+            assert await page.is_disabled('[data-testid="pdf-upload-start"]')
+            assert "Choose a batch" in await page.inner_text('[data-testid="pdf-upload-blocker"]')
+            await page.fill('[data-testid="pdf-new-batch"]', "TEST Import batch")
+            await page.click('[data-testid="pdf-create-batch"]', force=True)
+            await page.wait_for_function("document.querySelector('[data-testid=\"pdf-batch\"]').value !== ''", timeout=15000)
+            await page.wait_for_selector('[data-testid="pdf-upload-blocker"]', state="hidden", timeout=10000)
+            assert await page.is_enabled('[data-testid="pdf-upload-start"]')
+            assert await shared_apps["canonical_db"].batches.count_documents({"name": "TEST Import batch"}) == 1
+            await page.select_option('[data-testid="pdf-batch"]', "b1")
             await page.click('[data-testid="pdf-upload-start"]', force=True)
             try:
                 await page.wait_for_selector('[data-testid="pdf-resume-identity"]', timeout=25000)
