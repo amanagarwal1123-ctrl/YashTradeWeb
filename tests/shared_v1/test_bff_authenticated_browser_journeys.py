@@ -261,6 +261,39 @@ async def test_authenticated_browser_journeys_routed_to_isolated_bff(shared_apps
             await page.click('[data-testid="public-otp-verify-button"]', force=True)
             await page.wait_for_selector('[data-testid="public-success-heading"]', timeout=20000)
 
+            # Public deletion page: optional win-back opt-in + reason (account still deleted), then "talk to us first" callback.
+            now_iso = datetime.now(timezone.utc).isoformat()
+            for uid, phone, name in (("u_ui_leaver", "9000000138", "TEST UI Leaver"), ("u_ui_stayer", "9000000139", "TEST UI Stayer")):
+                await shared_apps["canonical_db"].users.insert_one({"id": uid, "phone": phone, "phone_normalized": phone, "name": name, "role": "customer",
+                    "status": "active", "account_status": "active", "session_version": 0, "phone_verified": True, "onboarding_status": "completed",
+                    "shop_name": f"{name} Shop", "location": "Nagpur", "created_at": now_iso, "registered_at": now_iso, "updated_at": now_iso})
+            await page.goto(f"{FRONTEND_URL}/delete-account", wait_until="domcontentloaded")
+            await page.wait_for_selector('[data-testid="delete-phone-input"]', timeout=30000)
+            await page.fill('[data-testid="delete-phone-input"]', "9000000138")
+            await page.click('[data-testid="delete-submit-button"]', force=True)
+            await page.wait_for_selector('[data-testid="delete-otp-input"]', timeout=15000)
+            await page.fill('[data-testid="delete-otp-input"]', shared_apps["sent_otps"][("9000000138", "deletion")])
+            await page.select_option('[data-testid="delete-reason-select"]', "other_supplier")
+            await page.click('[data-testid="winback-consent-checkbox"]', force=True)
+            await page.click('[data-testid="delete-confirm-checkbox"]', force=True)
+            await page.click('[data-testid="delete-submit-button"]', force=True)
+            await page.wait_for_selector('[data-testid="deletion-winback-kept"]', timeout=20000)
+            await page.screenshot(path=str(evidence_dir / "public-deletion-winback-1440.jpeg"), type="jpeg", quality=20, full_page=False)
+            assert (await shared_apps["canonical_db"].users.find_one({"id": "u_ui_leaver"}))["account_status"] == "deleted"
+
+            await page.goto(f"{FRONTEND_URL}/delete-account", wait_until="domcontentloaded")
+            await page.wait_for_selector('[data-testid="delete-phone-input"]', timeout=30000)
+            await page.fill('[data-testid="delete-phone-input"]', "9000000139")
+            await page.click('[data-testid="delete-submit-button"]', force=True)
+            await page.wait_for_selector('[data-testid="callback-toggle-button"]', timeout=15000)
+            await page.fill('[data-testid="delete-otp-input"]', shared_apps["sent_otps"][("9000000139", "deletion")])
+            await page.click('[data-testid="callback-toggle-button"]', force=True)
+            await page.fill('[data-testid="callback-note-input"]', "Call after 5pm")
+            await page.click('[data-testid="delete-submit-button"]', force=True)
+            await page.wait_for_selector('[data-testid="callback-result"]', timeout=20000)
+            assert (await shared_apps["canonical_db"].users.find_one({"id": "u_ui_stayer"}))["account_status"] == "active"
+            assert await shared_apps["website_db"].bff_winback_contacts.count_documents({}) == 2
+
             # Admin login + Users / Queries / Rates / Products with real upload bridging.
             await page.goto(f"{FRONTEND_URL}/admin/login", wait_until="domcontentloaded")
             await page.wait_for_selector('[data-testid="admin-login-phone-input"]', timeout=30000)
@@ -447,6 +480,23 @@ async def test_authenticated_browser_journeys_routed_to_isolated_bff(shared_apps
             await page.wait_for_selector('[data-testid="nav-queries"]', timeout=15000)
             await page.click('[data-testid="nav-queries"]', force=True)
             await page.wait_for_selector('[data-testid="queries-table"]', timeout=15000)
+
+            # Telecaller: Win-back & Churn console — both consented contacts visible, one worked, churn summary anonymous.
+            await page.click('[data-testid="nav-winback"]', force=True)
+            await page.wait_for_selector('[data-testid="winback-contacts-table"]', timeout=15000)
+            await page.wait_for_selector('[data-testid="churn-summary"]', timeout=15000)
+            assert await page.locator('[data-testid^="winback-contacts-row-"]').count() == 2
+            assert "1 deletions" in await page.inner_text('[data-testid="churn-summary"]')
+            await page.locator('[data-testid^="winback-open-"]').first.click(force=True)
+            await page.wait_for_selector('[data-testid="winback-editor"]', timeout=10000)
+            await page.fill('[data-testid="winback-note"]', "Spoke to customer")
+            await page.click('[data-testid="winback-mark-contacted"]', force=True)
+            await page.wait_for_selector('[data-testid="winback-editor"]', state="hidden", timeout=10000)
+            assert await page.locator('[data-testid^="winback-contacts-"][data-testid$="-status"]', has_text="Contacted").count() == 1
+            for width in (320, 768, 1440):
+                await _assert_no_overflow(page, width, 1080, "admin-winback")
+            await page.set_viewport_size({"width": 1440, "height": 1080})
+            await page.screenshot(path=str(evidence_dir / "admin-winback-1440.jpeg"), type="jpeg", quality=20, full_page=False)
 
             # Billing: Queries + Rates navigation.
             await page.click('[data-testid="admin-logout-button"]', force=True)

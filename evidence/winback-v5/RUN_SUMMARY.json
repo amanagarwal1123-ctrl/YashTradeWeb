@@ -1,0 +1,26 @@
+{
+ "stage": "website-shared-v1-winback-v5",
+ "date": "2026-09-13",
+ "features": [
+  "win-back opt-in at deletion (consent-based contacts, 12m TTL, opt-out erasure)",
+  "pre-deletion callback (/api/delete/callback, account kept)",
+  "anonymous churn statistics (bff_churn, no identifier)",
+  "deleted-number recognition (keyed HMAC hash, /admin/winback/match, Returning badge; effective only if the app allows re-registration of deleted numbers)"
+ ],
+ "refused_as_requested": "shadow copy of deleted customer accounts on the website (Google Play deletion policy / DPDP; would falsify the D4 acknowledgement)",
+ "tests": {
+  "suite": "tests/shared_v1",
+  "passed": 114,
+  "failed": 0,
+  "skipped": 0,
+  "junit": "evidence/winback-v5/junit.xml",
+  "log": "evidence/winback-v5/pytest.log",
+  "testing_agent": "evidence/winback-v5/iteration_15.json (114/114, compliance review PASS on 6 checks, preview+frontend smoke PASS)"
+ },
+ "screens": [
+  "evidence/shared-v1/public-deletion-winback-1440.jpeg",
+  "evidence/shared-v1/admin-winback-1440.jpeg"
+ ],
+ "sms_sent": 0,
+ "production_identities_touched": 0
+}

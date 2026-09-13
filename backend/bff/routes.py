@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from .canonical import fail, UpstreamError
 from .security import browser, cookie, digest, now, rate_limit, staff_session, public_staff, COOKIE, BROWSER, client_ip
 from .readiness import ensure_flow
+from . import winback
 
 router = APIRouter(prefix='/api')
 
@@ -19,6 +20,15 @@ class Phone(BaseModel):
 class Verify(Phone):
     otp: str = Field(pattern=r'^[0-9]{4}$')
     challenge_id: str = Field(min_length=1, max_length=160)
+
+
+class DeletionConfirm(Verify):
+    winback_consent: bool = False  # explicit, unticked by default: keep name/phone for offers after deletion
+    reason: Literal[winback.REASONS] | None = None
+
+
+class DeletionCallback(Verify):
+    note: str = Field('', max_length=300)
 
 
 class Enrollment(Phone):
@@ -183,6 +193,7 @@ async def persist_enrollment(request, did, draft):
             'download': request.app.state.cfg.downloads()}
     await request.app.state.db.bff_drafts.update_one({'_id': did}, {'$set': {'phase': 'complete', 'canonical_user_id': customer['id'], 'result': safe},
                                                                 '$unset': {'verified_payload': '', 'payload': ''}})
+    await winback.note_returning(request.app.state.db, request.app.state.cfg, draft['phone'], customer['id'])
     return safe
 
 
@@ -236,16 +247,34 @@ async def deletion_send(body: Phone, request: Request):
 
 
 @router.post('/delete/confirm')
-async def deletion_confirm(body: Verify, request: Request):
+async def deletion_confirm(body: DeletionConfirm, request: Request):
     did, draft, grant = await verify_challenge(request, body, 'deletion')
+    before = await winback.profile(request, body.phone)  # read once, before erasure, for consented win-back / anonymous churn only
     result = await request.app.state.canonical.request('DELETE', '/integrations/customers/'+body.phone,
         key='enrollment', extra={'X-Verification-Grant': grant['verification_grant']})
     if not result.get('deleted') or not result.get('reference'):
         fail(503, 'DELETION_UNCONFIRMED', 'Canonical deletion was not confirmed.')
-    await request.app.state.db.bff_drafts.delete_many({'phone': body.phone})
-    await request.app.state.db.bff_sessions.delete_many({'phone': body.phone})
+    db, cfg = request.app.state.db, request.app.state.cfg
+    await winback.remember_deleted_number(db, cfg, body.phone)
+    await winback.stage_churn_detail(db, result['reference'], before, body.reason)
+    if body.winback_consent:
+        await winback.save_contact(db, body.phone, before, 'deletion_optin', 'new', reason=body.reason)
+    await db.bff_drafts.delete_many({'phone': body.phone})
+    await db.bff_sessions.delete_many({'phone': body.phone})
     cleanup = await consume_deletions(request)
-    return {**result, 'website_cleanup': cleanup}
+    return {**result, 'website_cleanup': cleanup, 'winback_contact_kept': body.winback_consent}
+
+
+@router.post('/delete/callback')
+async def deletion_callback(body: DeletionCallback, request: Request):
+    """'Talk to us first': the same deletion OTP proves number ownership, the account is KEPT, and a consented
+    callback request is recorded for the team. The canonical verification grant is discarded unused."""
+    did, draft, _ = await verify_challenge(request, body, 'deletion')
+    before = await winback.profile(request, body.phone)
+    reference = await winback.save_contact(request.app.state.db, body.phone, before, 'pre_deletion_callback', 'callback_requested',
+                                           note=body.note.strip() or None)
+    await request.app.state.db.bff_drafts.delete_one({'_id': did})
+    return {'callback_requested': True, 'account_deleted': False, 'reference': reference}
 
 
 async def consume_deletions(request):
@@ -266,7 +295,7 @@ async def consume_deletions(request):
             seen += 1
             if event.get('type') != 'account_erased' or 'website' in event.get('acknowledged', []) or not event.get('id'):
                 continue
-            outcome = await cleanup_event(db, event)
+            outcome = await cleanup_event(db, event, request.app.state.cfg)
             if outcome == 'blocked':
                 blocked += 1
                 continue
@@ -289,14 +318,19 @@ async def consume_deletions(request):
             'events_seen': seen, 'cursor_feed': cursor_feed, 'external_erasure_complete': False}
 
 
-async def cleanup_event(db, event):
+async def cleanup_event(db, event, cfg):
     uid = event['user_id'] if isinstance(event.get('user_id'), str) and event['user_id'] else None
     if not uid:
         return 'blocked'
     query = {'$or': [{k: uid} for k in ('canonical_user_id', 'live_user_id', 'user_id', 'subject_id')]}
-    # Restrict cleanup to website-owned session/draft/cache/outbox collections.
-    for coll in ('bff_sessions', 'bff_drafts', 'bff_cache', 'bff_outbox'):
+    # Deleted-number recognition needs the keyed hash before the website's own drafts are erased.
+    async for draft in db.bff_drafts.find({'canonical_user_id': uid, 'phone': {'$type': 'string'}}, {'phone': 1}):
+        await winback.remember_deleted_number(db, cfg, draft['phone'], event.get('created_at'))
+    # Restrict cleanup to website-owned session/draft/cache/outbox collections (consented win-back contacts and
+    # anonymous churn rows are not account data and are deliberately not touched here).
+    for coll in ('bff_sessions', 'bff_drafts', 'bff_cache', 'bff_outbox', 'bff_returning'):
         await db[coll].delete_many(query)
+    await winback.record_churn(db, event)
     # Pre-ID drafts cannot be mapped from the documented ID-only event. Wait for expiry,
     # rather than acknowledging an unprovable erasure or inspecting canonical DB directly.
     await db.bff_drafts.delete_many({'expires_at': {'$lte': now()}})

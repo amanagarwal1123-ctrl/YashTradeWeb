@@ -22,6 +22,7 @@ import Content from '@/pages/admin/Content';
 import MediaUsage from '@/pages/admin/MediaUsage';
 import Leads from '@/pages/admin/Leads';
 import Rewards from '@/pages/admin/Rewards';
+import Winback from '@/pages/admin/Winback';
 import "@/App.css";
 import '@/shared.css';
 
@@ -44,6 +45,7 @@ export default function App() {
           <Route path="rates" element={<Rates />} />
           <Route path="leads" element={<Leads />} />
           <Route path="rewards" element={<Rewards />} />
+          <Route path="winback" element={<Winback />} />
           <Route path="catalog-author" element={<CatalogAuthor />} />
           <Route path="pdf-import" element={<PdfImport />} />
           <Route path="batches" element={<Batches />} />

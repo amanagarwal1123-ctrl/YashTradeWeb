@@ -1,0 +1,33 @@
+{
+  "summary": "Independent regression + compliance code review + preview smoke for win-back/churn/returning feature (shared-v1 v5). All 114 pytest tests passed. All 3 preview backend smoke checks passed. All 4 frontend smoke checks passed (delete-phone-input, availability notice, Privacy retention rows). Code review found no compliance deviations across the six required checks.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/test_reports/pytest/shared_v1_iter15.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "(a) bff_churn insert (winback.py L83-85) stores only deleted_month/registered_month/location/reason/source/recorded_at — no canonical user id, phone or name. PASS.",
+    "(a) bff_deleted_numbers doc keyed by HMAC-SHA256(session_secret, phone) with only deleted_at/expires_at fields — phone never stored, no id/name. PASS.",
+    "(b) deletion_confirm (routes.py L260) calls save_contact ONLY when body.winback_consent is truthy; deletion_callback (L274) saves a contact only because the customer explicitly submitted the callback endpoint. PASS.",
+    "(c) cleanup_event (routes.py L331) deletes only bff_sessions/bff_drafts/bff_cache/bff_outbox/bff_returning — bff_winback_contacts and bff_churn are intentionally excluded and bff_returning is included for the erased canonical user id. PASS.",
+    "(d) opt_out (winback.py L149) $unset on phone/name/shop_name/location/note — matches spec exactly. PASS.",
+    "(e) staff() helper (winback.py L102-104) enforces role in {admin, telecaller}; other roles get 403 PERMISSION_DENIED. All /api/admin/winback/* endpoints Depend on staff_session and call staff(session). PASS.",
+    "(f) deletion_callback (routes.py L268-277) only verifies challenge, saves contact, deletes draft — no canonical DELETE call and the verification_grant is discarded. PASS.",
+    "Minor observation (non-blocking): winback.stage_churn_detail stores location and registered_month keyed by digest(reference) in bff_churn_pending; while reference is a canonical erasure reference (not phone/id), it does have a 30-day TTL and is merged in on the D4 event. Considered acceptable per design comment.",
+    "Minor observation (non-blocking): winback.save_contact stores phone/name/shop_name/location — this is by-design for consented contacts and is documented in the module docstring."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "none",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "tests/shared_v1 = 114 tests, all passing in ~66s. Preview backend build='website-shared-v1-owner-admin-pin-v4'. Never call /send-otp, /verify-otp, /delete/*, /enroll/* on the preview/production origin. Never use phone 9999813334. Preview /delete-account correctly renders phone input + 'Verification is unavailable on this website address' notice (placeholder keys by design). Privacy page contains both 'Win-back contact details' and 'Deleted-number recognition' retention rows.",
+  "detailed_check_results": {
+    "pytest tests/shared_v1": {"passed": 114, "failed": 0, "skipped": 0, "duration_s": 65.66},
+    "GET /api/health/live": {"http": 200, "build": "website-shared-v1-owner-admin-pin-v4"},
+    "GET /api/admin/winback/contacts (no cookie)": {"http": 401, "code": "AUTH_REQUIRED"},
+    "GET /api/admin/winback/churn (no cookie)": {"http": 401, "code": "AUTH_REQUIRED"},
+    "GET /delete-account": {"phone_input_testid_present": true, "availability_notice_present": true},
+    "GET /privacy": {"winback_contact_row_present": true, "deleted_number_row_present": true}
+  },
+  "rca of the issue": "N/A — no issues found."
+}

@@ -72,6 +72,76 @@
     },
     {
       "method": "POST",
+      "path": "/api/delete/send-otp",
+      "native_len": 22,
+      "forwarded_len": 22,
+      "multipart_fallback": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/delete/confirm",
+      "native_len": 134,
+      "forwarded_len": 134,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/public/auth-status?website_origin=https:%2F%2Fsilver-checkout-1.preview.emergentagent.com",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/public/auth-status?website_origin=https:%2F%2Fsilver-checkout-1.preview.emergentagent.com",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/security/csrf",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/delete/send-otp",
+      "native_len": 22,
+      "forwarded_len": 22,
+      "multipart_fallback": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/delete/callback",
+      "native_len": 109,
+      "forwarded_len": 109,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/public/auth-status?website_origin=https:%2F%2Fsilver-checkout-1.preview.emergentagent.com",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/public/auth-status?website_origin=https:%2F%2Fsilver-checkout-1.preview.emergentagent.com",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/security/csrf",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "POST",
       "path": "/api/admin/auth/send-otp",
       "native_len": 22,
       "forwarded_len": 22,
@@ -145,6 +215,13 @@
       "path": "/api/bff/customers?page=1&limit=20",
       "native_len": 0,
       "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/winback/match",
+      "native_len": 73,
+      "forwarded_len": 73,
       "multipart_fallback": false
     },
     {
@@ -275,13 +352,6 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/integrations/staff?role=telecaller&status=active",
-      "native_len": 0,
-      "forwarded_len": 0,
-      "multipart_fallback": false
-    },
-    {
-      "method": "GET",
       "path": "/api/bff/requests/catalog",
       "native_len": 0,
       "forwarded_len": 0,
@@ -296,6 +366,20 @@
     },
     {
       "method": "GET",
+      "path": "/api/bff/integrations/staff?role=telecaller&status=active",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/integrations/staff?role=telecaller&status=active",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
       "path": "/api/bff/requests?page=1&limit=20&status=open&view=all&sort=oldest",
       "native_len": 0,
       "forwarded_len": 0,
@@ -324,14 +408,28 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/integrations/staff?role=telecaller&status=active",
+      "path": "/api/bff/requests?page=1&limit=20&status=open&view=all&sort=oldest",
       "native_len": 0,
       "forwarded_len": 0,
       "multipart_fallback": false
     },
     {
       "method": "GET",
-      "path": "/api/bff/requests?page=1&limit=20&status=open&view=all&sort=oldest",
+      "path": "/api/admin/auth/me",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rates/history?days=7",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rate-list",
       "native_len": 0,
       "forwarded_len": 0,
       "multipart_fallback": false
@@ -352,28 +450,7 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/rate-list",
-      "native_len": 0,
-      "forwarded_len": 0,
-      "multipart_fallback": false
-    },
-    {
-      "method": "GET",
-      "path": "/api/admin/auth/me",
-      "native_len": 0,
-      "forwarded_len": 0,
-      "multipart_fallback": false
-    },
-    {
-      "method": "GET",
       "path": "/api/bff/rates/audit?page=1&limit=30",
-      "native_len": 0,
-      "forwarded_len": 0,
-      "multipart_fallback": false
-    },
-    {
-      "method": "GET",
-      "path": "/api/bff/rates/history?days=7",
       "native_len": 0,
       "forwarded_len": 0,
       "multipart_fallback": false
@@ -548,7 +625,7 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/files/yash-trade/products/manual/e25197fb4b56b081301e4b52ae2561be.jpg",
+      "path": "/api/bff/files/yash-trade/products/manual/66f82fce960e0f8fed4a118d0d9c6177.jpg",
       "native_len": 0,
       "forwarded_len": 0,
       "multipart_fallback": false
@@ -569,7 +646,7 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/files/yash-trade/products/manual/e25197fb4b56b081301e4b52ae2561be-thumb.jpg",
+      "path": "/api/bff/files/yash-trade/products/manual/66f82fce960e0f8fed4a118d0d9c6177-thumb.jpg",
       "native_len": 0,
       "forwarded_len": 0,
       "multipart_fallback": false
@@ -814,7 +891,7 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/files/yash-trade/products/manual/1e380b9c74878b14003d1e1336b20e9d.jpg",
+      "path": "/api/bff/files/yash-trade/products/manual/921941d675e06722db092388c030143f.jpg",
       "native_len": 0,
       "forwarded_len": 0,
       "multipart_fallback": false
@@ -884,6 +961,13 @@
     },
     {
       "method": "GET",
+      "path": "/api/bff/requests/staff-options",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
       "path": "/api/bff/requests/catalog",
       "native_len": 0,
       "forwarded_len": 0,
@@ -891,7 +975,7 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/requests/staff-options",
+      "path": "/api/bff/requests/metrics/summary?start=2026-09-13&end=2026-09-13&search=&request_type=",
       "native_len": 0,
       "forwarded_len": 0,
       "multipart_fallback": false
@@ -919,14 +1003,77 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/requests/metrics/summary?start=2026-09-13&end=2026-09-13&search=&request_type=",
+      "path": "/api/bff/requests?page=1&limit=20&status=open&view=all&sort=oldest",
       "native_len": 0,
       "forwarded_len": 0,
       "multipart_fallback": false
     },
     {
       "method": "GET",
-      "path": "/api/bff/requests?page=1&limit=20&status=open&view=all&sort=oldest",
+      "path": "/api/admin/auth/me",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/winback/returning",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/winback/returning",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/winback/contacts?status=&source=&page=1&limit=20",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/winback/contacts?status=&source=&page=1&limit=20",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/winback/churn?months=12",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/winback/churn?months=12",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/admin/winback/contacts/RV45AYNd93V0oIaM",
+      "native_len": 49,
+      "forwarded_len": 49,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/winback/contacts?status=&source=&page=1&limit=20",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/winback/churn?months=12",
       "native_len": 0,
       "forwarded_len": 0,
       "multipart_fallback": false
@@ -989,7 +1136,14 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/rate-list",
+      "path": "/api/bff/rates/history?days=7",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rates/history?days=7",
       "native_len": 0,
       "forwarded_len": 0,
       "multipart_fallback": false
@@ -1003,13 +1157,6 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/rates/history?days=7",
-      "native_len": 0,
-      "forwarded_len": 0,
-      "multipart_fallback": false
-    },
-    {
-      "method": "GET",
       "path": "/api/bff/rate-list",
       "native_len": 0,
       "forwarded_len": 0,
@@ -1017,7 +1164,7 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/rates/history?days=7",
+      "path": "/api/bff/rate-list",
       "native_len": 0,
       "forwarded_len": 0,
       "multipart_fallback": false
@@ -1045,21 +1192,28 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/requests/catalog",
-      "native_len": 0,
-      "forwarded_len": 0,
-      "multipart_fallback": false
-    },
-    {
-      "method": "GET",
-      "path": "/api/bff/requests/catalog",
-      "native_len": 0,
-      "forwarded_len": 0,
-      "multipart_fallback": false
-    },
-    {
-      "method": "GET",
       "path": "/api/bff/requests/staff-options",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests/catalog",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests/catalog",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests?page=1&limit=20&status=open&view=all&sort=oldest",
       "native_len": 0,
       "forwarded_len": 0,
       "multipart_fallback": false
@@ -1080,7 +1234,7 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/requests?page=1&limit=20&status=open&view=all&sort=oldest",
+      "path": "/api/bff/rates/latest",
       "native_len": 0,
       "forwarded_len": 0,
       "multipart_fallback": false
@@ -1101,21 +1255,14 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/rates/latest",
-      "native_len": 0,
-      "forwarded_len": 0,
-      "multipart_fallback": false
-    },
-    {
-      "method": "GET",
-      "path": "/api/bff/rates/latest",
-      "native_len": 0,
-      "forwarded_len": 0,
-      "multipart_fallback": false
-    },
-    {
-      "method": "GET",
       "path": "/api/bff/rates/history?days=7",
+      "native_len": 0,
+      "forwarded_len": 0,
+      "multipart_fallback": false
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rates/latest",
       "native_len": 0,
       "forwarded_len": 0,
       "multipart_fallback": false
@@ -1223,6 +1370,56 @@
     },
     {
       "method": "POST",
+      "path": "/api/delete/send-otp",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/delete/confirm",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/public/auth-status?website_origin=https:%2F%2Fsilver-checkout-1.preview.emergentagent.com",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/public/auth-status?website_origin=https:%2F%2Fsilver-checkout-1.preview.emergentagent.com",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/security/csrf",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/delete/send-otp",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/delete/callback",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/public/auth-status?website_origin=https:%2F%2Fsilver-checkout-1.preview.emergentagent.com",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/public/auth-status?website_origin=https:%2F%2Fsilver-checkout-1.preview.emergentagent.com",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/security/csrf",
+      "status": 200
+    },
+    {
+      "method": "POST",
       "path": "/api/admin/auth/send-otp",
       "status": 200
     },
@@ -1274,6 +1471,11 @@
     {
       "method": "GET",
       "path": "/api/bff/customers?page=1&limit=20",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/winback/match",
       "status": 200
     },
     {
@@ -1368,11 +1570,6 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/integrations/staff?role=telecaller&status=active",
-      "status": 200
-    },
-    {
-      "method": "GET",
       "path": "/api/bff/requests/catalog",
       "status": 200
     },
@@ -1383,6 +1580,16 @@
     },
     {
       "method": "GET",
+      "path": "/api/bff/integrations/staff?role=telecaller&status=active",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/integrations/staff?role=telecaller&status=active",
+      "status": 200
+    },
+    {
+      "method": "GET",
       "path": "/api/bff/requests?page=1&limit=20&status=open&view=all&sort=oldest",
       "status": 200
     },
@@ -1403,12 +1610,22 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/integrations/staff?role=telecaller&status=active",
+      "path": "/api/bff/requests?page=1&limit=20&status=open&view=all&sort=oldest",
       "status": 200
     },
     {
       "method": "GET",
-      "path": "/api/bff/requests?page=1&limit=20&status=open&view=all&sort=oldest",
+      "path": "/api/admin/auth/me",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rates/history?days=7",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rate-list",
       "status": 200
     },
     {
@@ -1423,22 +1640,7 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/rate-list",
-      "status": 200
-    },
-    {
-      "method": "GET",
-      "path": "/api/admin/auth/me",
-      "status": 200
-    },
-    {
-      "method": "GET",
       "path": "/api/bff/rates/audit?page=1&limit=30",
-      "status": 200
-    },
-    {
-      "method": "GET",
-      "path": "/api/bff/rates/history?days=7",
       "status": 200
     },
     {
@@ -1563,7 +1765,7 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/files/yash-trade/products/manual/e25197fb4b56b081301e4b52ae2561be.jpg",
+      "path": "/api/bff/files/yash-trade/products/manual/66f82fce960e0f8fed4a118d0d9c6177.jpg",
       "status": 200
     },
     {
@@ -1578,7 +1780,7 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/files/yash-trade/products/manual/e25197fb4b56b081301e4b52ae2561be-thumb.jpg",
+      "path": "/api/bff/files/yash-trade/products/manual/66f82fce960e0f8fed4a118d0d9c6177-thumb.jpg",
       "status": 200
     },
     {
@@ -1753,7 +1955,7 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/files/yash-trade/products/manual/1e380b9c74878b14003d1e1336b20e9d.jpg",
+      "path": "/api/bff/files/yash-trade/products/manual/921941d675e06722db092388c030143f.jpg",
       "status": 200
     },
     {
@@ -1803,12 +2005,17 @@
     },
     {
       "method": "GET",
+      "path": "/api/bff/requests/staff-options",
+      "status": 200
+    },
+    {
+      "method": "GET",
       "path": "/api/bff/requests/catalog",
       "status": 200
     },
     {
       "method": "GET",
-      "path": "/api/bff/requests/staff-options",
+      "path": "/api/bff/requests/metrics/summary?start=2026-09-13&end=2026-09-13&search=&request_type=",
       "status": 200
     },
     {
@@ -1828,12 +2035,57 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/requests/metrics/summary?start=2026-09-13&end=2026-09-13&search=&request_type=",
+      "path": "/api/bff/requests?page=1&limit=20&status=open&view=all&sort=oldest",
       "status": 200
     },
     {
       "method": "GET",
-      "path": "/api/bff/requests?page=1&limit=20&status=open&view=all&sort=oldest",
+      "path": "/api/admin/auth/me",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/winback/returning",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/winback/returning",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/winback/contacts?status=&source=&page=1&limit=20",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/winback/contacts?status=&source=&page=1&limit=20",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/winback/churn?months=12",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/winback/churn?months=12",
+      "status": 200
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/admin/winback/contacts/RV45AYNd93V0oIaM",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/winback/contacts?status=&source=&page=1&limit=20",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/winback/churn?months=12",
       "status": 200
     },
     {
@@ -1878,7 +2130,12 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/rate-list",
+      "path": "/api/bff/rates/history?days=7",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rates/history?days=7",
       "status": 200
     },
     {
@@ -1888,17 +2145,12 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/rates/history?days=7",
-      "status": 200
-    },
-    {
-      "method": "GET",
       "path": "/api/bff/rate-list",
       "status": 200
     },
     {
       "method": "GET",
-      "path": "/api/bff/rates/history?days=7",
+      "path": "/api/bff/rate-list",
       "status": 200
     },
     {
@@ -1918,17 +2170,22 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/requests/catalog",
-      "status": 200
-    },
-    {
-      "method": "GET",
-      "path": "/api/bff/requests/catalog",
-      "status": 200
-    },
-    {
-      "method": "GET",
       "path": "/api/bff/requests/staff-options",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests/catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests/catalog",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/requests?page=1&limit=20&status=open&view=all&sort=oldest",
       "status": 200
     },
     {
@@ -1943,7 +2200,7 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/requests?page=1&limit=20&status=open&view=all&sort=oldest",
+      "path": "/api/bff/rates/latest",
       "status": 200
     },
     {
@@ -1958,17 +2215,12 @@
     },
     {
       "method": "GET",
-      "path": "/api/bff/rates/latest",
-      "status": 200
-    },
-    {
-      "method": "GET",
-      "path": "/api/bff/rates/latest",
-      "status": 200
-    },
-    {
-      "method": "GET",
       "path": "/api/bff/rates/history?days=7",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/bff/rates/latest",
       "status": 200
     },
     {

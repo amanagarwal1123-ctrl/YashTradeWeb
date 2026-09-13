@@ -14,6 +14,7 @@ from bff.canonical import Canonical, UpstreamError
 from bff.security import security_middleware
 from bff.routes import router
 from bff.proxy import router as proxy_router
+from bff.winback import router as winback_router
 from bff.readiness import Readiness, health_report
 
 logging.getLogger('httpx').setLevel(logging.WARNING)
@@ -30,7 +31,8 @@ def create_app(settings=None, database=None, provider=None):
         if not cfg.ready:
             logging.getLogger('bff.configuration').warning('auth_configuration_incomplete %s',
                 {flow: cfg.flow_issues(flow) for flow in ('staff', 'enrollment', 'deletion')})
-        for name in ('bff_sessions', 'bff_browsers', 'bff_drafts', 'bff_limits'):
+        for name in ('bff_sessions', 'bff_browsers', 'bff_drafts', 'bff_limits', 'bff_winback_contacts', 'bff_deleted_numbers',
+                     'bff_churn_pending', 'bff_churn_marks'):
             await database[name].create_index('expires_at', expireAfterSeconds=0)
         yield
         if mongo:
@@ -79,6 +81,7 @@ def create_app(settings=None, database=None, provider=None):
 
     app.include_router(router)
     app.include_router(proxy_router)
+    app.include_router(winback_router)
     return app
 
 

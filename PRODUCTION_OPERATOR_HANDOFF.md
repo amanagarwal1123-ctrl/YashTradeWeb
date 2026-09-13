@@ -128,3 +128,15 @@ requirement only; login is not blocked by it) and the deployed build is still
   (`ANDROID_APP_URL`/`IOS_APP_URL` with `*_RELEASE_VERIFIED=true`) once published.
 - Website: D2/D3/D4 + owner-admin consumer tests pass against pin `a0b1e80`
   (`evidence/owner-admin-pin-v4/`); re-pin only after inspecting any later app commit.
+
+## Website-local, consent-based retention (added 13 Sep 2026) — what the website keeps after a deletion
+Deleted ACCOUNT data is never kept (the D4 acknowledgement remains truthful). The website keeps only:
+- `bff_winback_contacts`: name/phone/shop/place of customers who **ticked the optional offers box** on
+  the website deletion page or **asked for a callback before deleting** (`/api/delete/callback`, account
+  kept). 12-month expiry; "Opt out" in Admin → Win-back & Churn erases the details immediately.
+- `bff_churn`: anonymous deletion statistics (month, place, reason, website/app) — no identifier.
+- `bff_deleted_numbers`: keyed one-way hash of a deleted number (24 months) to flag a returning
+  registration to staff (`/admin/users` "Returning" badge). Effective only if the app ever allows a deleted
+  number to register again — today the app tombstones deleted numbers (`DELETED_IDENTITY`).
+Privacy policy (website `/privacy` §9) lists these three rows. The app's Data Safety form should declare
+the same purposes if the in-app deletion screen ever mirrors the opt-in.

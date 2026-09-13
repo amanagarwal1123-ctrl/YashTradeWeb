@@ -217,6 +217,9 @@ export default function Privacy() {
             head={["Data", "Retention"]}
             rows={[
               ["Account and profile data (name, mobile, shop, location, preferences)", "While active. Canonical account access is revoked and the profile anonymized after verified deletion. External erasure requires separate acknowledgements."],
+              ["Win-back contact details — only if you tick the optional offers box while deleting, or ask us for a callback before deleting", "Name, mobile, shop and place, kept separately from the deleted account for up to 12 months so our team can contact you about offers or return your call. Withdraw at any time by telling the caller or writing to info@yashornaments.in; your details are erased immediately."],
+              ["Deleted-number recognition", "A keyed one-way hash of a deleted mobile number for up to 24 months, used only to flag a returning registration to our team. The number itself is not kept and cannot be recovered from the hash."],
+              ["Reason for leaving and churn statistics", "Anonymous counts only (month, place, reason) with no name, number or identifier."],
               ["One-time passwords", "Valid for 10 minutes; purpose-bound verification is performed by the canonical app service."],
               ["SMS delivery logs and provider-held records", "Provider retention and erasure require operational confirmation; website deletion does not prove provider erasure."],
               ["Enquiries, orders, cart and wishlist", `While your account is active. Orders that resulted in a sale are retained as business/tax records (see below).`],
