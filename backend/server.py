@@ -15,6 +15,7 @@ from bff.security import security_middleware
 from bff.routes import router
 from bff.proxy import router as proxy_router
 from bff.winback import router as winback_router
+from bff.pdf_watch import router as pdf_watch_router, ImportWatch
 from bff.readiness import Readiness, health_report
 
 logging.getLogger('httpx').setLevel(logging.WARNING)
@@ -32,9 +33,11 @@ def create_app(settings=None, database=None, provider=None):
             logging.getLogger('bff.configuration').warning('auth_configuration_incomplete %s',
                 {flow: cfg.flow_issues(flow) for flow in ('staff', 'enrollment', 'deletion')})
         for name in ('bff_sessions', 'bff_browsers', 'bff_drafts', 'bff_limits', 'bff_winback_contacts', 'bff_deleted_numbers',
-                     'bff_churn_pending', 'bff_churn_marks'):
+                     'bff_churn_pending', 'bff_churn_marks', 'bff_pdf_watch'):
             await database[name].create_index('expires_at', expireAfterSeconds=0)
+        await app.state.pdf_watch.restore()
         yield
+        app.state.pdf_watch.shutdown()
         if mongo:
             mongo.close()
 
@@ -43,6 +46,7 @@ def create_app(settings=None, database=None, provider=None):
     app.state.cfg, app.state.db = cfg, database
     app.state.canonical = provider or Canonical(cfg)
     app.state.readiness = Readiness(cfg, app.state.canonical)
+    app.state.pdf_watch = ImportWatch(app)
     app.middleware('http')(security_middleware)
 
     @app.exception_handler(UpstreamError)
@@ -82,6 +86,7 @@ def create_app(settings=None, database=None, provider=None):
     app.include_router(router)
     app.include_router(proxy_router)
     app.include_router(winback_router)
+    app.include_router(pdf_watch_router)
     return app
 
 

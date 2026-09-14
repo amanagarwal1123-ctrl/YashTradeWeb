@@ -114,6 +114,13 @@ async def proxy(path: str, request: Request, session=Depends(staff_session)):
         if media:
             return await upstream.binary(request.method, '/'+path, token=session['token'], json=body, params=params)
         result = await upstream.request(request.method, '/'+path, token=session['token'], json=body, params=params, extra=extra)
+        watched = re.fullmatch(rf'pdf-upload/({ID})/(complete|resume|pause|cancel|commit)', path)
+        if watched and request.method == 'POST':
+            jid, action = watched.groups()
+            if action in ('complete', 'resume'):
+                await request.app.state.pdf_watch.start(jid, session['sid'], session['user']['id'])
+            else:
+                await request.app.state.pdf_watch.stop(jid, {'pause': 'paused_by_operator', 'cancel': 'cancelled_by_operator', 'commit': 'finished'}[action])
         # Rewrite ONLY the exact configured canonical prefix. External legacy hosts remain
         # external and receive no canonical credentials from browser image rendering.
         prefix = request.app.state.cfg.base + '/files/'

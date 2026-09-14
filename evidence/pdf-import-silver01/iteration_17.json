@@ -1,0 +1,33 @@
+{
+  "summary": "Independently confirmed the RENDER_TIMEOUT auto-resume fix. Ran the 4 targeted pdf_watch tests (4 passed in 13.88s), the full shared_v1 regression (117 passed + 1 transient OTP_COOLDOWN failure in test_d4_partial_failure_restart_and_retry_only_acknowledge_completed_cleanup which passed cleanly on isolated rerun after the 60s OTP cooldown window — effectively 118/118), preview smoke (401 AUTH_REQUIRED on GET /api/admin/pdf-watch/anything without cookie; 200 with build 'website-shared-v1-owner-admin-pin-v4' on /api/health/live), and static code review of /app/backend/bff/pdf_watch.py + proxy hook.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "tests/shared_v1/test_bff_followup_core_regressions.py::test_d4_partial_failure_restart_and_retry_only_acknowledge_completed_cleanup", "issue": "Intermittent 429 OTP_COOLDOWN when scheduled within 60s of another test's send-otp for the same phone (9000000101). Passes on isolated rerun. Not a product bug — test isolation/ordering concern. Consider a per-phone cooldown reset fixture or unique phone-per-test."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/tests/shared_v1/test_bff_pdf_watch.py",
+    "/app/backend/bff/pdf_watch.py",
+    "/app/backend/bff/proxy.py"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "(a) Watcher calls only canonical GET /pdf-upload/{jid}/status (L87) and POST /pdf-upload/{jid}/resume (L119) — no commit/rows/cancel. PASS.",
+    "(b) Stops (not resumes) on FINAL=(review, committed, cancelled, expired) → 'finished' (L101-102), and on phase paused → 'paused_by_operator' / uploading → 'upload_incomplete' (L103-104). PASS.",
+    "(c) Non-transient error paths (anything not starting with RENDER_TIMEOUT:/RENDER_RESOURCE_LIMIT:/IMPORT_PROCESSING_FAILED:) stop with 'needs_correction' before any resume POST is issued (L108-109), so zero resumes for BOUNDARY_ERROR etc. PASS.",
+    "(d) token() only reads bff_sessions (L67); no update to last_active. Session-gone/expired path returns stop('session_ended') at L84-85 and L117-118. PASS.",
+    "(e) Proxy hook (proxy.py L117-123) arms watcher only for POST complete/resume; stands down (stop) for pause/cancel/commit. PASS.",
+    "(f) public() response projects only upload_id, active, max_attempts_per_page + PUBLIC fields (phase, page, attempts, total_resumes, last_error, last_resume_at, stopped_reason, started_at, updated_at). No sid, no owner_id (owned() strips owner_id before public()), no tokens. PASS.",
+    "Minor observation (not a bug): owned() fetches owner_id then public() drops it — clear separation is intentional; consider a brief inline comment to prevent future regressions if PUBLIC is ever expanded."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (118/118 after transient OTP cooldown rerun; targeted 4/4)", "frontend": "skipped (backend-only run per request)"},
+  "test_credentials": "None usable in preview (placeholder keys by design); isolated pytest suite uses SMS capture double with phones 9000000101/9000000201/... (never 9999813334).",
+  "seed_data_creation": "None (pytest uses in-memory object store per test).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "The single flaky failure in test_d4_partial_failure_restart_and_retry_only_acknowledge_completed_cleanup is an OTP-cooldown collision (60s window) when the full suite runs the auth_session tests just before it with the same phone. Isolated rerun passes in 2.4s. If observed again, wait 65s and rerun that test only. No pdf_watch tracebacks in backend.err.log. Preview build tag is 'website-shared-v1-owner-admin-pin-v4'.",
+  "rca of the issue": "Production RENDER_TIMEOUT reproduced by monkeypatching canonical run_parser to raise once on page index 1. Website ImportWatch (armed via the /pdf-upload/{jid}/complete|resume proxy hook) polls canonical status, detects phase=error with transient prefix, waits backoff(15s*attempt, max 60s), POSTs /pdf-upload/{jid}/resume with the owner's rotated staff token (never extending last_active), and lets the canonical worker continue from next_page. Attempts reset when pages_processed advances; hard caps (MAX_ATTEMPTS_PER_PAGE=5, MAX_TOTAL_RESUMES=400, MAX_HOURS=6) prevent runaway. Test confirms: active=true, total_resumes=1, attempts=1, page=1, last_error=RENDER_TIMEOUT, no 'sid' in response, then phase=review with exactly 3 import rows (no duplicate analysis), and watch record ends stopped_reason='finished'."
+}

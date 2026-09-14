@@ -1,4 +1,4 @@
-import React,{useEffect,useRef,useState} from 'react';
+import React,{useCallback,useEffect,useRef,useState} from 'react';
 import {createSHA256} from 'hash-wasm';
 import {PageTitle,State,useResource,Notice,Field} from '@/components/admin/SharedUI';
 import {PdfReview} from '@/components/admin/PdfReview';
@@ -10,10 +10,14 @@ export default function PdfImport(){
  const {me}=useAdmin(),key=`yash-pdf-resume-v1-${me.id}`,cap=useResource('/pdf-template/capabilities'),batches=useResource('/batches');
  const [saved,setSaved]=useState(()=>{try{return JSON.parse(localStorage.getItem(key)||'null');}catch{return null;}}),[batch,setBatch]=useState(saved?.batch_id||''),[mode,setMode]=useState(saved?.mode||'template_v1'),[file,setFile]=useState(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[progress,setProgress]=useState('');
  const stop=useRef(false),status=useResource(saved?`/pdf-upload/${saved.upload_id}/status`:null,{},true);
+ const [watch,setWatch]=useState(null);
  useEffect(()=>()=>{stop.current=true;},[]);
  useEffect(()=>{if(!saved)return;localStorage.setItem(key,JSON.stringify(saved));},[saved,key]);
- const phase=status.data?.phase,loadStatus=status.load;
- useEffect(()=>{if(!['queued','analyzing'].includes(phase))return;const timer=setInterval(()=>{if(!document.hidden)loadStatus();},3000);return()=>clearInterval(timer);},[phase,loadStatus]);
+ const phase=status.data?.phase,loadStatus=status.load,jobId=saved?.upload_id;
+ const loadWatch=useCallback(async()=>{if(!jobId)return;try{const r=await api.get(`/admin/pdf-watch/${jobId}`);setWatch(r.data);}catch(e){if(e.response?.status===404)setWatch(null);}},[jobId]);
+ useEffect(()=>{setWatch(null);loadWatch();},[loadWatch]);
+ const working=['queued','analyzing'].includes(phase)||(phase==='error'&&watch?.active);
+ useEffect(()=>{if(!working)return;const timer=setInterval(()=>{if(!document.hidden){loadStatus();loadWatch();}},3000);return()=>clearInterval(timer);},[working,loadStatus,loadWatch]);
  const start=async()=>{if(!file||!cap.data)return;setBusy(true);setError('');stop.current=false;try{
   const lim=cap.data.limits;if(!file.name.toLowerCase().endsWith('.pdf')||file.size>lim.max_bytes)throw new Error(`Select a PDF within ${lim.max_bytes} bytes.`);
   setProgress('Checking file identity…');const sha256=await hashFile(file,lim.chunk_bytes);
@@ -32,9 +36,19 @@ export default function PdfImport(){
    }setProgress(`Uploaded ${Math.min(file.size,(i+1)*init.chunk_size)} of ${file.size} bytes`);
   }
   if(!stop.current)await shared.write('post',`/pdf-upload/${init.upload_id}/complete`,{});
-  await status.load();
+  await status.load();await loadWatch();
  }catch(e){setError(e.response?errMsg(e):e.message);}finally{setBusy(false);}};
- const action=async kind=>{if(!saved)return;if(kind==='cancel'&&!window.confirm('Cancel this import permanently? A paused import can resume; a cancelled one cannot.'))return;stop.current=true;setError('');try{await shared.write('post',`/pdf-upload/${saved.upload_id}/${kind}`,{});await status.load();}catch(e){setError(errMsg(e));}};
+ const action=async kind=>{if(!saved)return;if(kind==='cancel'&&!window.confirm('Cancel this import permanently? A paused import can resume; a cancelled one cannot.'))return;stop.current=true;setError('');try{await shared.write('post',`/pdf-upload/${saved.upload_id}/${kind}`,{});await status.load();await loadWatch();}catch(e){setError(errMsg(e));}};
+ const watchText=()=>{if(!watch)return '';const page=(watch.page??0)+1,max=watch.max_attempts_per_page;
+  if(watch.active)return `Website auto-retry is ON. If the app server runs out of its 25-second page budget, the website resumes from the saved checkpoint automatically (now at page ${page}, attempt ${watch.attempts||0} of ${max} for this page, ${watch.total_resumes||0} automatic resume${watch.total_resumes===1?'':'s'} so far). You may close this tab and come back to review later.`;
+  return {finished:'',paused_by_operator:'Auto-retry paused with the import. Use Resume analysis to continue.',stopped_by_operator:'Auto-retry stopped by you.',cancelled_by_operator:'',upload_incomplete:'Auto-retry waits for the file transfer to finish.',
+   needs_correction:'Auto-retry stopped: the app reported a problem with the PDF itself. Correct the source and upload again.',
+   page_retry_exhausted:`Auto-retry stopped: page ${page} failed ${max} times in a row on the app server (${watch.last_error||'RENDER_TIMEOUT'}). This is the app server's per-page time budget, not your file — nothing was lost; ${watch.page||0} pages are saved. Click Resume analysis to try again (auto-retry restarts), preferably when the app is less busy, or ask the app team to raise the page budget.`,
+   resume_budget_exhausted:'Auto-retry stopped after 400 automatic resumes. Click Resume analysis to continue from the checkpoint.',
+   time_budget_exhausted:'Auto-retry stopped after 6 hours. Click Resume analysis to continue from the checkpoint.',
+   session_ended:'Auto-retry stopped because your website session ended. You are signed in again now — click Resume analysis to continue from the checkpoint.',
+   access_ended:'Auto-retry stopped: the app no longer accepts this session for the import. Click Resume analysis to continue.',
+   app_unreachable:'Auto-retry stopped: the app could not be reached for two minutes. Click Resume analysis when it is back.'}[watch.stopped_reason]??'';};
  const sample=async()=>{setError('');try{await download('/pdf-template/sample.pdf','Yash-Catalog-Template-v1.pdf');}catch(e){setError(errMsg(e));}};
  const [newBatch,setNewBatch]=useState(''),[creating,setCreating]=useState(false);
  const createBatch=async()=>{const name=newBatch.trim();if(!name)return;setCreating(true);setError('');try{const created=await shared.write('post','/batches',{name,metal_type:'silver',category:''});await batches.load();if(created?.id)setBatch(created.id);setNewBatch('');}catch(e){setError(errMsg(e));}finally{setCreating(false);}};
@@ -49,7 +63,7 @@ export default function PdfImport(){
  <div className="flex flex-wrap gap-2"><Button disabled={busy||!file||!batch||!cap.data||fileTooBig||fileNotPdf||['committed','cancelled'].includes(status.data?.phase)} onClick={start} data-testid="pdf-upload-start">{busy?'Transferring…':saved?'Resume same-file transfer':'Upload & analyze'}</Button>{saved&&<><Button variant="outline" data-testid="pdf-pause" disabled={['committed','cancelled'].includes(status.data?.phase)} onClick={()=>action('pause')}>Pause</Button><Button variant="outline" data-testid="pdf-resume-analysis" disabled={busy||!['paused','error'].includes(status.data?.phase)} onClick={()=>action('resume')}>Resume analysis</Button><Button variant="destructive" data-testid="pdf-cancel" disabled={status.data?.phase==='committed'} onClick={()=>action('cancel')}>Cancel import</Button></>}</div>
  {blocker&&<p className="text-sm text-amber-800 mt-2" data-testid="pdf-upload-blocker">{blocker}</p>}
  <p className="my-3 text-sm" data-testid="pdf-upload-progress">{progress}</p>
- {saved&&<><State resource={status} id="pdf-job"/><p data-testid="pdf-resume-identity" className="text-xs break-all">{saved.filename} · {saved.file_size} bytes · Job {saved.upload_id}</p>{status.data&&<><div className="metrics-strip"><div>Phase<strong data-testid="pdf-phase">{status.data.phase}</strong></div><div>Bytes<strong data-testid="pdf-byte-progress">{status.data.bytes_received} / {status.data.file_size}</strong></div><div>Analysis pages<strong data-testid="pdf-page-progress">{status.data.pages_processed} / {status.data.total_pages??'Unknown'}</strong></div><div>Detected products<strong data-testid="pdf-product-count">{status.data.product_count}</strong></div></div><Notice id="pdf-job-error">{status.data.error}</Notice>
+ {saved&&<><State resource={status} id="pdf-job"/><p data-testid="pdf-resume-identity" className="text-xs break-all">{saved.filename} · {saved.file_size} bytes · Job {saved.upload_id}</p>{status.data&&<><div className="metrics-strip"><div>Phase<strong data-testid="pdf-phase">{status.data.phase}</strong></div><div>Bytes<strong data-testid="pdf-byte-progress">{status.data.bytes_received} / {status.data.file_size}</strong></div><div>Analysis pages<strong data-testid="pdf-page-progress">{status.data.pages_processed} / {status.data.total_pages??'Unknown'}</strong></div><div>Detected products<strong data-testid="pdf-product-count">{status.data.product_count}</strong></div></div><Notice id="pdf-job-error">{status.data.error}</Notice>{watchText()&&<p className={`text-sm mt-2 ${watch?.active?'text-emerald-800':'text-amber-800'}`} data-testid="pdf-watch">{watchText()}</p>}
  {['review','committed'].includes(status.data.phase)&&<PdfReview job={saved.upload_id} status={status.data} capabilities={cap.data} onStatus={status.load}/>}
  {['committed','cancelled','expired'].includes(status.data.phase)&&<Button className="mt-5" variant="outline" data-testid="pdf-new-import" onClick={()=>{localStorage.removeItem(key);setSaved(null);setFile(null);setProgress('');}}>Start another import</Button>}</>}</>}
  </>;

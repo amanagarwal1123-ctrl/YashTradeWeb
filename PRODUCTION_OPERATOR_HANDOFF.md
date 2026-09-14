@@ -140,3 +140,17 @@ Deleted ACCOUNT data is never kept (the D4 acknowledgement remains truthful). Th
   number to register again — today the app tombstones deleted numbers (`DELETED_IDENTITY`).
 Privacy policy (website `/privacy` §9) lists these three rows. The app's Data Safety form should declare
 the same purposes if the in-app deletion screen ever mirrors the opt-in.
+
+## Reviewed PDF import on the live app server (13 Sep 2026)
+Observed: `Silver_Upload_01.pdf` (152 pages, 300 products, valid template v1) uploaded fully, then the app
+analysis stopped at page 20 with `RENDER_TIMEOUT: page exceeds the resource budget`. That is the **app
+server's** per-page budget (`page_timeout_seconds = 25`, worker CPU 22 s / 512 MiB in
+`shared/pdf_jobs.py` + `tools/parse_catalog_page.py`), not the file — the same PDF needs ~0.6 s per page here.
+- Website now keeps the import moving: after *Upload & analyze* or *Resume analysis* the BFF watches the
+  job with the operator's own session and re-queues from the saved checkpoint after a transient page
+  failure (≤5 attempts per page, backoff 15–60 s, ≤400 resumes, ≤6 h). It stands down on Pause/Cancel,
+  on PDF defects (`BOUNDARY_*`, `UNSUPPORTED_LAYOUT`, …), and when the website session ends
+  (the website never keeps a session alive by itself). The import page shows the state and what to do.
+- App team (owner to request in the app chat): raise `page_timeout_seconds` to ~90 s and/or give the
+  app container more CPU; optionally cache the opened document per job instead of reopening the 24 MB
+  file for every page. Until then a page that consistently needs > 25 s will exhaust the 5 attempts.
