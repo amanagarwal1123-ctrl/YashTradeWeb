@@ -424,11 +424,23 @@ async def test_authenticated_browser_journeys_routed_to_isolated_bff(shared_apps
             assert await page.is_enabled('[data-testid="pdf-upload-start"]')
             assert await shared_apps["canonical_db"].batches.count_documents({"name": "TEST Import batch"}) == 1
             await page.select_option('[data-testid="pdf-batch"]', "b1")
+            # Multi-file queue: two distinct PDFs (same content, different bytes → different job ids) upload one after
+            # another; both reach review, the first review opens automatically with a green completion banner.
+            second_pdf = Path("/app/evidence/shared-v1/sample-second-copy.pdf")
+            second_pdf.write_bytes(PDF_FILE.read_bytes() + b"\n%second copy for the queue test\n")
+            await page.set_input_files('[data-testid="pdf-file-input"]', [str(PDF_FILE), str(second_pdf)])
+            assert "2 files" in await page.inner_text('[data-testid="pdf-upload-start"]')
             await page.click('[data-testid="pdf-upload-start"]', force=True)
             try:
-                await page.wait_for_selector('[data-testid="pdf-resume-identity"]', timeout=25000)
-                await page.wait_for_selector('[data-testid="pdf-byte-progress"]', timeout=25000)
+                await page.wait_for_selector('[data-testid^="pdf-resume-identity-"]', timeout=25000)
+                await page.wait_for_selector('[data-testid^="pdf-byte-progress-"]', timeout=25000)
                 await page.wait_for_selector('[data-testid="pdf-preview-table"]', timeout=30000)
+                await page.wait_for_function("[...document.querySelectorAll('[data-testid^=\"pdf-phase-\"]')].filter(e => e.innerText === 'review').length === 2", timeout=30000)
+                banners = await page.locator('[data-testid^="pdf-job-banner-text-"]').all_inner_texts()
+                assert len(banners) == 2 and all("Upload and analysis complete ✓" in b and "3 products" in b for b in banners), banners
+                assert "2 of 4 slots in use" in await page.inner_text('[data-testid="pdf-jobs-heading"]')
+                assert await shared_apps['canonical_db'].import_jobs.count_documents({'phase': 'review'}) == 2
+                await page.screenshot(path=str(evidence_dir / 'pdf-queue-two-files-1440.jpeg'),type='jpeg',quality=20,full_page=False)
                 previews = page.locator('button[data-testid^="pdf-review-"]')
                 assert await previews.count() == 3
                 await previews.first.click()

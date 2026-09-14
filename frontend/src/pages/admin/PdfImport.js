@@ -1,70 +1,62 @@
-import React,{useCallback,useEffect,useRef,useState} from 'react';
-import {createSHA256} from 'hash-wasm';
+import React,{useEffect,useRef,useState} from 'react';
 import {PageTitle,State,useResource,Notice,Field} from '@/components/admin/SharedUI';
-import {PdfReview} from '@/components/admin/PdfReview';
+import {ImportJob} from '@/components/admin/ImportJob';
 import {useAdmin} from '@/components/admin/AdminLayout';
-import {api,shared,download,errMsg} from '@/lib/api';
+import {shared,download,errMsg} from '@/lib/api';
+import {loadJobs,saveJobs,transferFile,fileProblem,DONE,MAX_ACTIVE} from '@/lib/pdfImport';
 import {Button} from '@/components/ui/button';
-async function hashFile(file,chunk){const hash=await createSHA256();hash.init();for(let n=0;n<file.size;n+=chunk)hash.update(new Uint8Array(await file.slice(n,n+chunk).arrayBuffer()));return hash.digest('hex');}
+
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const mib=n=>(n/1048576).toFixed(1);
+
 export default function PdfImport(){
- const {me}=useAdmin(),key=`yash-pdf-resume-v1-${me.id}`,cap=useResource('/pdf-template/capabilities'),batches=useResource('/batches');
- const [saved,setSaved]=useState(()=>{try{return JSON.parse(localStorage.getItem(key)||'null');}catch{return null;}}),[batch,setBatch]=useState(saved?.batch_id||''),[mode,setMode]=useState(saved?.mode||'template_v1'),[file,setFile]=useState(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[progress,setProgress]=useState('');
- const stop=useRef(false),status=useResource(saved?`/pdf-upload/${saved.upload_id}/status`:null,{},true);
- const [watch,setWatch]=useState(null);
- useEffect(()=>()=>{stop.current=true;},[]);
- useEffect(()=>{if(!saved)return;localStorage.setItem(key,JSON.stringify(saved));},[saved,key]);
- const phase=status.data?.phase,loadStatus=status.load,jobId=saved?.upload_id;
- const loadWatch=useCallback(async()=>{if(!jobId)return;try{const r=await api.get(`/admin/pdf-watch/${jobId}`);setWatch(r.data);}catch(e){if(e.response?.status===404)setWatch(null);}},[jobId]);
- useEffect(()=>{setWatch(null);loadWatch();},[loadWatch]);
- const working=['queued','analyzing'].includes(phase)||(phase==='error'&&watch?.active);
- useEffect(()=>{if(!working)return;const timer=setInterval(()=>{if(!document.hidden){loadStatus();loadWatch();}},3000);return()=>clearInterval(timer);},[working,loadStatus,loadWatch]);
- const start=async()=>{if(!file||!cap.data)return;setBusy(true);setError('');stop.current=false;try{
-  const lim=cap.data.limits;if(!file.name.toLowerCase().endsWith('.pdf')||file.size>lim.max_bytes)throw new Error(`Select a PDF within ${lim.max_bytes} bytes.`);
-  setProgress('Checking file identity…');const sha256=await hashFile(file,lim.chunk_bytes);
-  if(saved&&(saved.sha256!==sha256||saved.file_size!==file.size||saved.filename!==file.name))throw new Error('Wrong file for resume. Select the same original filename, size and SHA-256.');
-  const init=await shared.write('post','/pdf-upload/init',{batch_id:batch,filename:file.name,file_size:file.size,sha256,total_chunks:Math.ceil(file.size/lim.chunk_bytes),mode});
-  const resume={upload_id:init.upload_id,batch_id:batch,filename:file.name,file_size:file.size,sha256,mode};setSaved(resume);localStorage.setItem(key,JSON.stringify(resume));
-  let current=await shared.get(`/pdf-upload/${init.upload_id}/status`);if(current.phase==='paused')current=await shared.write('post',`/pdf-upload/${init.upload_id}/resume`,{});
-  if(!['uploading','paused'].includes(current.phase)){setProgress(`Transfer already ${current.phase}.`);await status.load();return;}
-  const acknowledged=new Set(current.received_chunk_indices||[]);
-  for(let i=0;i<Math.ceil(file.size/init.chunk_size);i++){
-   if(stop.current)break;if(acknowledged.has(i))continue;
-   const blob=file.slice(i*init.chunk_size,Math.min(file.size,(i+1)*init.chunk_size)),bytes=await blob.arrayBuffer();const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))).map(b=>b.toString(16).padStart(2,'0')).join('');
-   let accepted=false;for(let attempt=0;attempt<3&&!accepted;attempt++){
-    try{const form=new FormData();form.append('file',blob,`chunk-${i}`);await api.post(`/bff/pdf-upload/${init.upload_id}/chunk`,form,{params:{chunk_index:i},headers:{'X-Chunk-Sha256':hash}});accepted=true;}
-    catch(e){if(e.response&&e.response.status<500)throw e;const s=await shared.get(`/pdf-upload/${init.upload_id}/status`);accepted=s.received_chunk_indices.includes(i);if(s.phase!=='uploading')throw new Error('Upload state changed. Refresh status before resuming.');if(!accepted&&attempt===2)throw e;}
-   }setProgress(`Uploaded ${Math.min(file.size,(i+1)*init.chunk_size)} of ${file.size} bytes`);
-  }
-  if(!stop.current)await shared.write('post',`/pdf-upload/${init.upload_id}/complete`,{});
-  await status.load();await loadWatch();
- }catch(e){setError(e.response?errMsg(e):e.message);}finally{setBusy(false);}};
- const action=async kind=>{if(!saved)return;if(kind==='cancel'&&!window.confirm('Cancel this import permanently? A paused import can resume; a cancelled one cannot.'))return;stop.current=true;setError('');try{await shared.write('post',`/pdf-upload/${saved.upload_id}/${kind}`,{});await status.load();await loadWatch();}catch(e){setError(errMsg(e));}};
- const watchText=()=>{if(!watch)return '';const page=(watch.page??0)+1,max=watch.max_attempts_per_page;
-  if(watch.active)return `Website auto-retry is ON. If the app server runs out of its 25-second page budget, the website resumes from the saved checkpoint automatically (now at page ${page}, attempt ${watch.attempts||0} of ${max} for this page, ${watch.total_resumes||0} automatic resume${watch.total_resumes===1?'':'s'} so far). You may close this tab and come back to review later.`;
-  return {finished:'',paused_by_operator:'Auto-retry paused with the import. Use Resume analysis to continue.',stopped_by_operator:'Auto-retry stopped by you.',cancelled_by_operator:'',upload_incomplete:'Auto-retry waits for the file transfer to finish.',
-   needs_correction:'Auto-retry stopped: the app reported a problem with the PDF itself. Correct the source and upload again.',
-   page_retry_exhausted:`Auto-retry stopped: page ${page} failed ${max} times in a row on the app server (${watch.last_error||'RENDER_TIMEOUT'}). This is the app server's per-page time budget, not your file — nothing was lost; ${watch.page||0} pages are saved. Click Resume analysis to try again (auto-retry restarts), preferably when the app is less busy, or ask the app team to raise the page budget.`,
-   resume_budget_exhausted:'Auto-retry stopped after 400 automatic resumes. Click Resume analysis to continue from the checkpoint.',
-   time_budget_exhausted:'Auto-retry stopped after 6 hours. Click Resume analysis to continue from the checkpoint.',
-   session_ended:'Auto-retry stopped because your website session ended. You are signed in again now — click Resume analysis to continue from the checkpoint.',
-   access_ended:'Auto-retry stopped: the app no longer accepts this session for the import. Click Resume analysis to continue.',
-   app_unreachable:'Auto-retry stopped: the app could not be reached for two minutes. Click Resume analysis when it is back.'}[watch.stopped_reason]??'';};
- const sample=async()=>{setError('');try{await download('/pdf-template/sample.pdf','Yash-Catalog-Template-v1.pdf');}catch(e){setError(errMsg(e));}};
+ const {me}=useAdmin(),cap=useResource('/pdf-template/capabilities'),batches=useResource('/batches'),lim=cap.data?.limits;
+ const [jobs,setJobs]=useState(()=>loadJobs(me.id)),[phases,setPhases]=useState({}),[reviewOpen,setReviewOpen]=useState(null);
+ const [batch,setBatch]=useState(''),[mode,setMode]=useState('template_v1'),[files,setFiles]=useState([]),[progress,setProgress]=useState({}),[running,setRunning]=useState(false),[waiting,setWaiting]=useState(false),[error,setError]=useState('');
  const [newBatch,setNewBatch]=useState(''),[creating,setCreating]=useState(false);
+ const stop=useRef(false),jobsRef=useRef(jobs),phasesRef=useRef(phases),reviewRef=useRef(reviewOpen);
+ useEffect(()=>{jobsRef.current=jobs;saveJobs(me.id,jobs);},[jobs,me.id]);
+ useEffect(()=>{phasesRef.current=phases;},[phases]);
+ useEffect(()=>{reviewRef.current=reviewOpen;},[reviewOpen]);
+ useEffect(()=>()=>{stop.current=true;},[]);
+ const activeCount=()=>jobsRef.current.filter(j=>!DONE.includes(phasesRef.current[j.upload_id])&&phasesRef.current[j.upload_id]!=='missing').length;
+ const onChanged=(jid,phase)=>{setPhases(p=>p[jid]===phase?p:{...p,[jid]:phase});if(phase==='review'&&!reviewRef.current)setReviewOpen(jid);};
+ const upsert=record=>setJobs(prev=>prev.some(j=>j.upload_id===record.upload_id)?prev.map(j=>j.upload_id===record.upload_id?{...j,...record,created_at:j.created_at}:j):[record,...prev]);
+ const note=(name,patch)=>setProgress(p=>({...p,[name]:{...(p[name]||{}),...patch}}));
+
+ const run=async()=>{
+  if(running||!files.length||!lim)return;setRunning(true);setError('');stop.current=false;const queue=[...files];
+  while(queue.length&&!stop.current){
+   if(activeCount()>=MAX_ACTIVE){setWaiting(true);await sleep(5000);continue;}
+   setWaiting(false);const file=queue.shift();note(file.name,{text:'Starting…',error:'',done:false});
+   try{
+    const {record,outcome}=await transferFile({file,batch,mode,limits:lim,onProgress:text=>note(file.name,{text}),shouldStop:()=>stop.current});
+    upsert(record);
+    note(file.name,{upload_id:record.upload_id,done:outcome!=='stopped',text:outcome==='stopped'?'Transfer stopped — select the file again to resume.':outcome==='queued'?'Upload complete ✓ — queued for analysis.':`Already ${outcome.slice(8)} on the app — nothing to upload.`});
+   }catch(e){
+    if(e.response?.data?.code==='ACTIVE_IMPORT_LIMIT'){queue.unshift(file);note(file.name,{text:'Waiting for a free import slot…'});setWaiting(true);await sleep(5000);continue;}
+    note(file.name,{error:e.response?errMsg(e):e.message,done:true});
+   }
+  }
+  setRunning(false);setWaiting(false);
+ };
  const createBatch=async()=>{const name=newBatch.trim();if(!name)return;setCreating(true);setError('');try{const created=await shared.write('post','/batches',{name,metal_type:'silver',category:''});await batches.load();if(created?.id)setBatch(created.id);setNewBatch('');}catch(e){setError(errMsg(e));}finally{setCreating(false);}};
- const lim=cap.data?.limits,fileTooBig=!!(file&&lim&&file.size>lim.max_bytes),fileNotPdf=!!(file&&!file.name.toLowerCase().endsWith('.pdf'));
- const blocker=saved?'':!cap.data?(cap.error?'Import limits could not be loaded — refresh above.':'Loading import limits…'):batches.error?'Batch list could not be loaded — refresh below.':!batch?(batches.data?.batches?.length?'Choose a batch above to enable “Upload & analyze”.':'No batches exist yet — create one below to enable “Upload & analyze”.'):!file?'Choose a PDF to enable “Upload & analyze”.':fileNotPdf?'Only .pdf files can be imported.':fileTooBig?`This file is larger than the ${(lim.max_bytes/1024/1024).toFixed(0)} MiB limit.`:'';
+ const sample=async()=>{setError('');try{await download('/pdf-template/sample.pdf','Yash-Catalog-Template-v1.pdf');}catch(e){setError(errMsg(e));}};
+ const batchName=id=>(batches.data?.batches||[]).find(b=>b.id===id)?.name;
+ const problems=files.map(f=>fileProblem(f,lim)).filter(Boolean);
+ const blocker=!cap.data?(cap.error?'Import limits could not be loaded — refresh above.':'Loading import limits…'):batches.error?'Batch list could not be loaded — refresh below.':!batch?(batches.data?.batches?.length?'Choose a batch above to enable “Upload & analyze”.':'No batches exist yet — create one below to enable “Upload & analyze”.'):!files.length?'Choose one or more PDFs to enable “Upload & analyze”.':problems[0]||'';
+ const active=jobs.filter(j=>!DONE.includes(phases[j.upload_id])&&phases[j.upload_id]!=='missing').length;
+
  return <><PageTitle actions={<><Button variant="outline" data-testid="pdf-download-sample" onClick={sample}>Download sample PDF</Button><Button variant="outline" data-testid="pdf-download-authoring-json" onClick={async()=>{try{await download('/pdf-template/authoring.json','Yash-Catalog-v1.json');}catch(e){setError(errMsg(e));}}}>Authoring JSON</Button></>}>Reviewed PDF import</PageTitle><State resource={cap} id="pdf-capabilities"/><Notice id="pdf-upload-error">{error}</Notice>
- {cap.data&&<p className="text-sm my-4" data-testid="pdf-limits">Configured: {(cap.data.limits.max_bytes/1024/1024).toFixed(0)} MiB · {cap.data.limits.max_pages} pages · {cap.data.limits.chunk_bytes/1024} KiB chunks. Not a proven production maximum. Sample: three products, two guide pages, up to two products per page.</p>}
- <div className="filters"><Field name="pdf-batch" title="Batch" options={[{value:'',label:batches.busy&&!batches.data?'Loading batches…':'Choose batch'},...(batches.data?.batches||[]).map(b=>({value:b.id,label:b.name}))]} value={batch} disabled={!!saved} onChange={setBatch}/><Field name="pdf-mode" title="Import mode" options={[{value:'template_v1',label:'Template v1'},{value:'legacy_pages',label:'Legacy pages · manual review'}]} value={mode} disabled={!!saved} onChange={setMode}/></div>
- {!saved&&<div className="flex flex-wrap items-end gap-2 my-2"><Field name="pdf-new-batch" title="Or create a new batch for this import" value={newBatch} onChange={setNewBatch} disabled={creating}/><Button variant="outline" disabled={creating||!newBatch.trim()} data-testid="pdf-create-batch" onClick={createBatch}>{creating?'Creating…':'Create & select batch'}</Button><State resource={batches} id="pdf-batches"/></div>}
- <label className="field my-4">{saved?'Reselect original PDF to resume':'Choose PDF'}<input type="file" accept="application/pdf,.pdf" disabled={busy} data-testid="pdf-file-input" onChange={e=>{if(e.target.files?.[0])setFile(e.target.files[0]);}}/></label>
- {file&&<p className="text-sm -mt-2 mb-3" data-testid="pdf-file-summary">{file.name} · {(file.size/1024/1024).toFixed(1)} MiB{lim?` · ${Math.ceil(file.size/lim.chunk_bytes)} chunks`:''}</p>}
- <div className="flex flex-wrap gap-2"><Button disabled={busy||!file||!batch||!cap.data||fileTooBig||fileNotPdf||['committed','cancelled'].includes(status.data?.phase)} onClick={start} data-testid="pdf-upload-start">{busy?'Transferring…':saved?'Resume same-file transfer':'Upload & analyze'}</Button>{saved&&<><Button variant="outline" data-testid="pdf-pause" disabled={['committed','cancelled'].includes(status.data?.phase)} onClick={()=>action('pause')}>Pause</Button><Button variant="outline" data-testid="pdf-resume-analysis" disabled={busy||!['paused','error'].includes(status.data?.phase)} onClick={()=>action('resume')}>Resume analysis</Button><Button variant="destructive" data-testid="pdf-cancel" disabled={status.data?.phase==='committed'} onClick={()=>action('cancel')}>Cancel import</Button></>}</div>
- {blocker&&<p className="text-sm text-amber-800 mt-2" data-testid="pdf-upload-blocker">{blocker}</p>}
- <p className="my-3 text-sm" data-testid="pdf-upload-progress">{progress}</p>
- {saved&&<><State resource={status} id="pdf-job"/><p data-testid="pdf-resume-identity" className="text-xs break-all">{saved.filename} · {saved.file_size} bytes · Job {saved.upload_id}</p>{status.data&&<><div className="metrics-strip"><div>Phase<strong data-testid="pdf-phase">{status.data.phase}</strong></div><div>Bytes<strong data-testid="pdf-byte-progress">{status.data.bytes_received} / {status.data.file_size}</strong></div><div>Analysis pages<strong data-testid="pdf-page-progress">{status.data.pages_processed} / {status.data.total_pages??'Unknown'}</strong></div><div>Detected products<strong data-testid="pdf-product-count">{status.data.product_count}</strong></div></div><Notice id="pdf-job-error">{status.data.error}</Notice>{watchText()&&<p className={`text-sm mt-2 ${watch?.active?'text-emerald-800':'text-amber-800'}`} data-testid="pdf-watch">{watchText()}</p>}
- {['review','committed'].includes(status.data.phase)&&<PdfReview job={saved.upload_id} status={status.data} capabilities={cap.data} onStatus={status.load}/>}
- {['committed','cancelled','expired'].includes(status.data.phase)&&<Button className="mt-5" variant="outline" data-testid="pdf-new-import" onClick={()=>{localStorage.removeItem(key);setSaved(null);setFile(null);setProgress('');}}>Start another import</Button>}</>}</>}
+ {lim&&<p className="text-sm my-4" data-testid="pdf-limits">Configured: {(lim.max_bytes/1048576).toFixed(0)} MiB · {lim.max_pages} pages · {lim.chunk_bytes/1024} KiB chunks per file · up to {MAX_ACTIVE} imports open at once (app limit) · files upload one after another and the app analyses them in turn.</p>}
+ <div className="filters"><Field name="pdf-batch" title="Batch" options={[{value:'',label:batches.busy&&!batches.data?'Loading batches…':'Choose batch'},...(batches.data?.batches||[]).map(b=>({value:b.id,label:b.name}))]} value={batch} disabled={running} onChange={setBatch}/><Field name="pdf-mode" title="Import mode" options={[{value:'template_v1',label:'Template v1'},{value:'legacy_pages',label:'Legacy pages · manual review'}]} value={mode} disabled={running} onChange={setMode}/></div>
+ <div className="flex flex-wrap items-end gap-2 my-2"><Field name="pdf-new-batch" title="Or create a new batch for this import" value={newBatch} onChange={setNewBatch} disabled={creating}/><Button variant="outline" disabled={creating||!newBatch.trim()} data-testid="pdf-create-batch" onClick={createBatch}>{creating?'Creating…':'Create & select batch'}</Button><State resource={batches} id="pdf-batches"/></div>
+ <label className="field my-4">Choose PDF(s) — select several to queue them; to resume an interrupted transfer, select the same file again<input type="file" multiple accept="application/pdf,.pdf" disabled={running} data-testid="pdf-file-input" onChange={e=>{setFiles(Array.from(e.target.files||[]));setProgress({});}}/></label>
+ {files.length>0&&<ul className="text-sm -mt-2 mb-3 space-y-1" data-testid="pdf-file-summary">{files.map((f,i)=>{const p=progress[f.name],bad=fileProblem(f,lim);return <li key={f.name+f.size} data-testid={`pdf-file-${i}`}><span className="font-medium">{f.name}</span> · {mib(f.size)} MiB{lim?` · ${Math.ceil(f.size/lim.chunk_bytes)} chunks`:''}{bad&&<span className="text-amber-800"> · {bad}</span>}{p?.error&&<span className="text-red-700" role="alert"> · {p.error}</span>}{p?.text&&!p.error&&<span className={p.done?'text-emerald-800':'text-sky-800'}> · {p.text}</span>}</li>;})}</ul>}
+ <div className="flex flex-wrap gap-2"><Button disabled={running||!files.length||!batch||!cap.data||problems.length>0} onClick={run} data-testid="pdf-upload-start">{running?'Transferring…':files.length>1?`Upload & analyze ${files.length} files`:'Upload & analyze'}</Button>{running&&<Button variant="outline" data-testid="pdf-queue-stop" onClick={()=>{stop.current=true;}}>Stop after current file</Button>}</div>
+ {blocker&&!running&&<p className="text-sm text-amber-800 mt-2" data-testid="pdf-upload-blocker">{blocker}</p>}
+ {waiting&&<p className="text-sm text-amber-800 mt-2" role="status" data-testid="pdf-queue-waiting">The app allows {MAX_ACTIVE} open imports at a time and all slots are in use. The next file uploads automatically as soon as you commit or cancel one of the imports below (selected files wait in this browser tab).</p>}
+ <section className="detail-section"><h2 data-testid="pdf-jobs-heading">Imports ({jobs.length}) · {active} of {MAX_ACTIVE} slots in use</h2>{!jobs.length&&<p className="text-sm text-slate-500" data-testid="pdf-jobs-empty">No imports yet. Each upload appears here with its own progress, review and outcome.</p>}
+  {jobs.map(j=><ImportJob key={j.upload_id} job={j} batchName={batchName(j.batch_id)} capabilities={cap.data} transfer={Object.values(progress).find(p=>p.upload_id===j.upload_id)} reviewOpen={reviewOpen===j.upload_id} onToggleReview={()=>setReviewOpen(reviewOpen===j.upload_id?null:j.upload_id)} onChanged={onChanged} onRemove={()=>{setJobs(prev=>prev.filter(x=>x.upload_id!==j.upload_id));if(reviewOpen===j.upload_id)setReviewOpen(null);}}/>)}</section>
  </>;
 }
