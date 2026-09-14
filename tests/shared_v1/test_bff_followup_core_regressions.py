@@ -335,6 +335,20 @@ async def test_deletion_grant_cleanup_ack_and_no_resurrection_via_enrollment(bff
     assert deleted.get("deleted") is True
     assert deleted.get("reference")
     assert "website_cleanup" in deleted
+    # 14 Sep app contract: required_acknowledgements=["website"] → the website's ack completes the deletion, but only
+    # after its own rows are verifiably gone; provider copies are disclosed as NOT erased, never claimed.
+    assert deleted["website_acknowledged"] is True and deleted["deletion_complete"] is True
+    assert deleted["awaiting_other_consumers"] == [] and deleted["provider_copies_erased"] is False
+    cleanup = deleted["website_cleanup"]
+    assert cleanup["completed"] >= 1 and deleted["reference"] in cleanup["completed_events"] and deleted["reference"] in cleanup["acknowledged_events"]
+    assert cleanup["provider_copies_erased"] is False and cleanup["external_erasure_complete"] is False
+    assert await shared_apps["website_db"].bff_sessions.count_documents({"canonical_user_id": "u_delete_me"}) == 0
+    assert await shared_apps["website_db"].bff_drafts.count_documents({"canonical_user_id": "u_delete_me"}) == 0
+    outbox = await shared_apps["canonical_db"].integration_outbox.find_one({"id": deleted["reference"]}, {"_id": 0})
+    assert outbox["status"] == "acknowledged" and outbox["required_acknowledgements"] == ["website"] and outbox["acknowledged"] == ["website"]
+    assert outbox.get("completed_at")
+    request_row = await shared_apps["canonical_db"].deletion_requests.find_one({"reference": deleted["reference"]}, {"_id": 0})
+    assert request_row["status"] == "completed" and request_row.get("completed_at"), "app marks the deletion complete on the website ack"
 
     # No resurrection via enrollment with same deleted phone.
     enroll_payload = {
@@ -507,7 +521,7 @@ async def test_owner_admin_bootstrap_on_pinned_app_promotes_same_record_and_webs
     assert upstream["capabilities"]["owner_admin_bootstrap"] is True
     assert upstream["owner_admin"] == {"reported": True, "ready": True, "issues": [], "state": "already_admin", "phone_suffix": "0106"}
     assert "u_owner_fixture" not in ready.text
-    assert ready.json()["app_contract_commit"] == "a0b1e8085ba6ac679fa0f5ec4e106d928057ed8f"
+    assert ready.json()["app_contract_commit"] == "281067bb04bd8bd82a01cb7a34099bd8762de611"
 
     # Canonical role → website admin experience (routes by /auth/me, not by phone or key).
     me = await _login_role(bff_client, shared_apps, "9000000106")
@@ -531,10 +545,10 @@ async def test_owner_admin_bootstrap_on_pinned_app_promotes_same_record_and_webs
     assert bff_client.cookies.get("__Host-yash_session") is None
 
 
-def _erasure_events(count, start=1, acknowledged=()):
+def _erasure_events(count, start=1, acknowledged=(), required=("website", "sms_provider", "ai_provider")):
     base = datetime.now(timezone.utc) - timedelta(days=1)
     return [{"id": f"ev-{i:03d}", "type": "account_erased", "user_id": f"u_del_{i:03d}", "created_at": (base + timedelta(seconds=i)).isoformat(),
-             "status": "pending", "required_acknowledgements": ["website", "sms_provider", "ai_provider"], "acknowledged": list(acknowledged)}
+             "status": "pending", "required_acknowledgements": list(required), "acknowledged": list(acknowledged)}
             for i in range(start, start + count)]
 
 
@@ -542,7 +556,9 @@ def _erasure_events(count, start=1, acknowledged=()):
 async def test_d4_deletion_feed_cursor_consumer_acknowledges_all_events_beyond_100_and_is_idempotent(bff_client, shared_apps):
     # module: D4 consumer — >100 events via limit/after/next_cursor; website cleanup before ack; consumer-specific acks; no resurrection
     canonical_db, website_db = shared_apps["canonical_db"], shared_apps["website_db"]
-    await canonical_db.integration_outbox.insert_many(_erasure_events(100, acknowledged=["website"]) + _erasure_events(137, start=101))
+    # 100 already acknowledged + 137 legacy events (three consumers listed) + 3 events on the 14 Sep contract (website only).
+    await canonical_db.integration_outbox.insert_many(_erasure_events(100, acknowledged=["website"]) + _erasure_events(137, start=101)
+                                                      + _erasure_events(3, start=301, required=("website",)))
     now = datetime.now(timezone.utc)
     await website_db.bff_sessions.insert_one({"_id": "s-del-150", "canonical_user_id": "u_del_150", "phone": "9000000150",
                                               "access_token": "x", "refresh_token": "y", "access_until": 0, "generation": 0,
@@ -554,17 +570,22 @@ async def test_d4_deletion_feed_cursor_consumer_acknowledges_all_events_beyond_1
     run = await bff_client.post("/api/admin/deletions/reconcile", headers=_headers(await _csrf(bff_client)))
     assert run.status_code == 200, run.text
     result = run.json()
-    assert result["acknowledged"] == 137 and result["blocked_private_linkage_review"] == 0 and result["ack_failed_retry_later"] == 0
-    assert result["events_seen"] == 137 and result["external_erasure_complete"] is False
+    assert result["acknowledged"] == 140 and result["blocked_private_linkage_review"] == 0 and result["ack_failed_retry_later"] == 0
+    assert result["events_seen"] == 140 and result["external_erasure_complete"] is False and result["provider_copies_erased"] is False
+    assert result["completed"] == 3 and sorted(result["completed_events"]) == ["ev-301", "ev-302", "ev-303"]
+    assert len(result["acknowledged_events"]) == 140 and "ev-237" in result["acknowledged_events"]
+    assert result["awaiting_other_consumers"] == ["ai_provider", "sms_provider"], "legacy consumers are reported, never acknowledged for"
     assert await website_db.bff_sessions.count_documents({"canonical_user_id": "u_del_150"}) == 0
     assert await website_db.bff_drafts.count_documents({"canonical_user_id": "u_del_151"}) == 0
 
     pending_for_website = await canonical_db.integration_outbox.count_documents({"type": "account_erased", "status": "pending", "acknowledged": {"$ne": "website"}})
     assert pending_for_website == 0
     still_pending_globally = await canonical_db.integration_outbox.count_documents({"type": "account_erased", "status": "pending"})
-    assert still_pending_globally == 237, "a website ack never completes the erasure for other consumers"
+    assert still_pending_globally == 237, "a website ack never completes a legacy erasure event that lists other consumers"
     ev = await canonical_db.integration_outbox.find_one({"id": "ev-237"}, {"_id": 0})
     assert ev["acknowledged"] == ["website"] and "website" in ev.get("acknowledged_at", {})
+    new_contract = await canonical_db.integration_outbox.find_one({"id": "ev-302"}, {"_id": 0})
+    assert new_contract["status"] == "acknowledged" and new_contract.get("completed_at"), "website-only event completes on the website ack"
 
     again = await bff_client.post("/api/admin/deletions/reconcile", headers=_headers(await _csrf(bff_client)))
     assert again.status_code == 200 and again.json()["acknowledged"] == 0 and again.json()["events_seen"] == 0

@@ -15,7 +15,7 @@ export default function Winback(){
   const [f,setF]=useState({status:'',source:'',page:1,limit:20}),[selected,setSelected]=useState(null),[note,setNote]=useState(''),[msg,setMsg]=useState(''),[busy,setBusy]=useState(false);
   const contacts=useLocal('/admin/winback/contacts',f),churn=useLocal('/admin/winback/churn',{months:12}),returning=useLocal('/admin/winback/returning');
   const set=(k,v)=>setF(s=>({...s,[k]:v,page:1}));
-  const act=async(action)=>{setBusy(true);setMsg('');try{if(action==='opt_out')await api.post(`/admin/winback/contacts/${selected.id}/opt-out`);else await api.patch(`/admin/winback/contacts/${selected.id}`,{action,note});setMsg(action==='opt_out'?'Consent withdrawn; personal details erased.':`Marked ${label(action)}.`);setSelected(null);setNote('');await contacts.load();await churn.load();}catch(e){setMsg(errMsg(e));}finally{setBusy(false);}};
+  const act=async(action)=>{setBusy(true);setMsg('');try{if(action==='opt_out')await api.post(`/admin/winback/contacts/${selected.id}/opt-out`);else await api.patch(`/admin/winback/contacts/${selected.id}`,{action,note});await contacts.load();await churn.load();setMsg(action==='opt_out'?'Consent withdrawn; personal details erased.':`Marked ${label(action)}.`);setSelected(null);setNote('');}catch(e){setMsg(errMsg(e));}finally{setBusy(false);}};
   const w=churn.data?.winback;
   return <><PageTitle>Win-back & Churn</PageTitle><Notice id="winback-result">{msg}</Notice>
     <Notice id="winback-boundary">Only customers who ticked the offers opt-in while deleting, or asked for a callback first, appear here. Deleted account data is never kept. Withdraw consent the moment a customer asks — “Opt out” erases their details.</Notice>

@@ -31,7 +31,7 @@ the app chat. Older staging-only / no-SMS / unknown-app-commit instructions are 
 ## Pins and identities
 | Item | Value |
 |---|---|
-| App contract source (isolated fixture + `CONTRACT_COMMIT`) | `a0b1e8085ba6ac679fa0f5ec4e106d928057ed8f` ("Default owner administrator: OWNER_ADMIN_PHONE=9999813334 …", build `shared-v1-review-fonts-2026-09-12`, OpenAPI 123 paths sha256 `a30e6b2f…` byte-identical to the previous pin 9596a55 and to the ZIP schema) |
+| App contract source (isolated fixture + `CONTRACT_COMMIT`) | `281067bb04bd8bd82a01cb7a34099bd8762de611` ("Google Play submission changes", build `shared-v1-store-submission-2026-09-13`, 14 Sep 2026 privacy/deletion contract `required_acknowledgements=["website"]`; previous pins a0b1e80, 9596a55, 6a6cddd, c4ee70d) |
 | App whole-source provenance | VERIFIED 2026-09-12 against `WEBSITE_RELEASE_HANDOFF.zip` from packaging commit `9e5aa3e` (manifest `source_commit=a0b1e80`): all 8 handoff-file sha256 + Git blob ids match; whole-tree digest `6834fad2…` over 394 blobs matches. Note: the ZIP inside `a0b1e80` itself is the previous package (built from `84a11f9`) — by the app's packaging model the rebuilt ZIP lives in the next commit. |
 | Website build | `website-shared-v1-owner-admin-pin-v4` |
 | Website GitHub `main` at audit | `c1ef7d84609e0d0eff0258601b2fc1a84076189e` — newer local work is NOT on GitHub until Save to GitHub |

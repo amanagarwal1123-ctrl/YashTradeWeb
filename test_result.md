@@ -101,3 +101,82 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+user_problem_statement: "Apply WEBSITE_PRIVACY_UPDATE.md + GOOGLE_PLAY_DATA_SAFETY.md handoff (14 Sep 2026): align /privacy wording, make /delete-account show distinct states (app erased / website cleaned+acknowledged → deletion complete / provider copies NOT erased), and make the D4 deletion consumer acknowledge only after verified website-local cleanup under the new contract required_acknowledgements=['website']. Pin app contract 281067b. Test the deletion journey end to end (mocked SMS only)."
+
+backend:
+  - task: "D4 deletion consumer + /delete/confirm outcome fields (website_acknowledged, deletion_complete, awaiting_other_consumers, provider_copies_erased)"
+    implemented: true
+    working: true
+    file: "backend/bff/routes.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "consume_deletions returns acknowledged_events/completed_events/awaiting_other_consumers; cleanup_event re-counts WEBSITE_OWNED rows and returns 'blocked' if any residual; ack only after verified cleanup. Verified by pytest: deletion grant test + D4 cursor test (140 events incl. 3 website-only contract events → completed=3, legacy events stay pending globally) + winback tests."
+  - task: "Public config privacy_updated=2026-09-14, deletion_url, privacy_url"
+    implemented: true
+    working: true
+    file: "backend/bff/routes.py"
+    stuck_count: 0
+    priority: "low"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "GET /api/public/config now returns privacy_updated 2026-09-14 + canonical deletion_url/privacy_url."
+
+frontend:
+  - task: "Privacy policy replacement wording (AI, staff uploads, deletion, staff/review accounts, providers table, pending owner facts)"
+    implemented: true
+    working: true
+    file: "frontend/src/pages/Privacy.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "19 sections; effective 14 September 2026; no [OWNER:…] placeholders rendered — unconfirmed hosting facts rendered as data-testid=privacy-pending-fact italic text. Browser journey asserts wording."
+  - task: "Delete-account outcome states (DeletionOutcome: app / website / providers / kept rows)"
+    implemented: true
+    working: true
+    file: "frontend/src/pages/DeleteAccount.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "testids deletion-result-heading, deletion-reference, deletion-app-status, deletion-website-status (ok when acknowledged, pending otherwise), deletion-awaiting (legacy consumers), deletion-provider-status (warn: NOT erased), deletion-kept, deletion-winback-kept, deletion-policy-link. Browser journey asserts 'Your account has been deleted' + 'deletion recorded as complete'."
+  - task: "Winback console: refresh table before closing editor"
+    implemented: true
+    working: true
+    file: "frontend/src/pages/admin/Winback.js"
+    stuck_count: 0
+    priority: "low"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "act() now reloads contacts/churn before hiding the editor so the status column is fresh when the dialog closes (fixed a race seen in the browser journey)."
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 21
+  run_ui: true
+
+test_plan:
+  current_focus:
+    - "D4 deletion consumer + /delete/confirm outcome fields"
+    - "Delete-account outcome states"
+    - "Privacy policy replacement wording"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "main"
+    message: "Run the isolated suite: `cd /app && PYMUPDF_MESSAGE=fd:2 python -m pytest -q -p no:warnings` (expects 118 passed incl. the browser journey; Playwright chromium is installed at /pw-browsers, reinstall with `python -m playwright install chromium` if missing). Preview UI is intentionally fail-closed for OTP (placeholder keys) — do NOT try real OTPs; E2E deletion must be exercised through the isolated fixtures in tests/shared_v1 (test_bff_followup_core_regressions.py::test_deletion…, test_bff_winback.py, browser journey). Never touch 9999813334."

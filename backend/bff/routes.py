@@ -238,7 +238,8 @@ async def enrollment_state(request: Request):
 async def public_config(request: Request):
     return {'company_name': 'Yash Ornaments', 'legal_entity': 'Yash Silver House Pvt. Ltd.',
             'support_email': 'info@yashornaments.in', 'download': request.app.state.cfg.downloads(),
-            'privacy_updated': '2026-09-11', 'deletion_sla_days': 30}
+            'privacy_updated': '2026-09-14', 'deletion_sla_days': 30,
+            'deletion_url': 'https://register.yashsilver.com/delete-account', 'privacy_url': 'https://register.yashsilver.com/privacy'}
 
 
 @router.post('/delete/send-otp')
@@ -262,7 +263,12 @@ async def deletion_confirm(body: DeletionConfirm, request: Request):
     await db.bff_drafts.delete_many({'phone': body.phone})
     await db.bff_sessions.delete_many({'phone': body.phone})
     cleanup = await consume_deletions(request)
-    return {**result, 'website_cleanup': cleanup, 'winback_contact_kept': body.winback_consent}
+    reference = result['reference']
+    return {**result, 'website_cleanup': cleanup, 'winback_contact_kept': body.winback_consent,
+            'website_acknowledged': reference in cleanup['acknowledged_events'],
+            'deletion_complete': reference in cleanup['completed_events'],
+            'awaiting_other_consumers': cleanup['awaiting_other_consumers'],
+            'provider_copies_erased': False}
 
 
 @router.post('/delete/callback')
@@ -285,6 +291,7 @@ async def consume_deletions(request):
     snapshot = await request.app.state.readiness.snapshot()
     cursor_feed = snapshot['upstream']['capabilities'].get('deletion_outbox_cursor', False)
     acknowledged, blocked, failed, seen, cursor = 0, 0, 0, 0, ''
+    acknowledged_events, completed_events, awaiting = [], [], set()
     for _ in range(50):  # bounded: at most 50 pages x 100 events per reconcile run
         params = {'limit': 100, **({'after': cursor} if cursor else {})}
         page = await upstream.request('GET', '/integrations/deletions', key='enrollment', params=params)
@@ -309,13 +316,25 @@ async def consume_deletions(request):
             if ack.get('acknowledged') != 'website' or ack.get('event_id') != event['id']:
                 fail(503, 'ACK_UNCONFIRMED', 'Website deletion acknowledgement was not confirmed.')
             acknowledged += 1
+            acknowledged_events.append(event['id'])
+            # required_acknowledgements=["website"] (app ≥ 14 Sep 2026): our acknowledgement completes the deletion.
+            # Older events may still list consumers that can never acknowledge; report them, never pretend they did.
+            if ack.get('all_acknowledged') is True:
+                completed_events.append(event['id'])
+            else:
+                awaiting.update(set(ack.get('required_acknowledgements') or []) - set(ack.get('acknowledged_by') or []) - {'website'})
         cursor = page.get('next_cursor') if page.get('has_more') else None
         if not cursor:
             break
     else:
         fail(503, 'RECONCILE_INCOMPLETE', 'Deletion feed still has pages; run the reconcile again.')
-    return {'acknowledged': acknowledged, 'blocked_private_linkage_review': blocked, 'ack_failed_retry_later': failed,
-            'events_seen': seen, 'cursor_feed': cursor_feed, 'external_erasure_complete': False}
+    return {'acknowledged': acknowledged, 'completed': len(completed_events), 'acknowledged_events': acknowledged_events,
+            'completed_events': completed_events, 'awaiting_other_consumers': sorted(awaiting),
+            'blocked_private_linkage_review': blocked, 'ack_failed_retry_later': failed, 'events_seen': seen, 'cursor_feed': cursor_feed,
+            'provider_copies_erased': False, 'external_erasure_complete': False}
+
+
+WEBSITE_OWNED = ('bff_sessions', 'bff_drafts', 'bff_cache', 'bff_outbox', 'bff_returning')
 
 
 async def cleanup_event(db, event, cfg):
@@ -328,8 +347,12 @@ async def cleanup_event(db, event, cfg):
         await winback.remember_deleted_number(db, cfg, draft['phone'], event.get('created_at'))
     # Restrict cleanup to website-owned session/draft/cache/outbox collections (consented win-back contacts and
     # anonymous churn rows are not account data and are deliberately not touched here).
-    for coll in ('bff_sessions', 'bff_drafts', 'bff_cache', 'bff_outbox', 'bff_returning'):
+    for coll in WEBSITE_OWNED:
         await db[coll].delete_many(query)
+    # Acknowledge only what is provably gone: any residual row for this account keeps the event unacknowledged.
+    residual = sum([await db[coll].count_documents(query) for coll in WEBSITE_OWNED])
+    if residual:
+        return 'blocked'
     await winback.record_churn(db, event)
     # Pre-ID drafts cannot be mapped from the documented ID-only event. Wait for expiry,
     # rather than acknowledging an unprovable erasure or inspecting canonical DB directly.

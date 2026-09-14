@@ -2,7 +2,7 @@
 
 These are WEBSITE tests, not the historical app54-test report. Root `pytest.ini` restricts default discovery to this isolated suite. Do not explicitly run old legacy website tests against real accounts or providers.
 
-Prerequisites: normal website dependencies + pytest/pytest-asyncio/playwright/PyMuPDF/Pillow; configured local MONGO_URL; Chromium. Fetch the pinned app source **a0b1e8085ba6ac679fa0f5ec4e106d928057ed8f** (build `shared-v1-review-fonts-2026-09-12`, 123-path schema saved at `contracts/openapi.shared-v1.json`) into private `/root/yash-contract` (the source/tests/fixtures remain outside the public website repository; earlier runs pinned c4ee70d, 6a6cddd and 9596a55). No production key or realSMS is needed.
+Prerequisites: normal website dependencies + pytest/pytest-asyncio/playwright/PyMuPDF/Pillow; configured local MONGO_URL; Chromium. Fetch the pinned app source **281067bb04bd8bd82a01cb7a34099bd8762de611** (build `shared-v1-store-submission-2026-09-13`, 14 Sep 2026 privacy/deletion contract: `required_acknowledgements=["website"]`; 123-path schema saved at `contracts/openapi.shared-v1.json`) into private `/root/yash-contract` (the source/tests/fixtures remain outside the public website repository; earlier runs pinned c4ee70d, 6a6cddd, 9596a55 and a0b1e80). No production key or realSMS is needed.
 
 ```sh
 pytest -q --junitxml=evidence/auth-production-incident/readiness-adapter-v2/junit.xml

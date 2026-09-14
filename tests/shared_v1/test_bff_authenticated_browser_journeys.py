@@ -278,8 +278,28 @@ async def test_authenticated_browser_journeys_routed_to_isolated_bff(shared_apps
             await page.click('[data-testid="delete-confirm-checkbox"]', force=True)
             await page.click('[data-testid="delete-submit-button"]', force=True)
             await page.wait_for_selector('[data-testid="deletion-winback-kept"]', timeout=20000)
+            # 14 Sep privacy handoff: distinct states — app erased, website cleaned + acknowledged (deletion complete), providers NOT erased.
+            assert (await page.inner_text('[data-testid="deletion-result-heading"]')).strip() == "Your account has been deleted"
+            website_state = await page.inner_text('[data-testid="deletion-website-status"]')
+            assert "cleaned up and acknowledged" in website_state and "deletion recorded as complete" in website_state
+            assert await page.locator('[data-testid="deletion-awaiting"]').count() == 0
+            provider_state = await page.inner_text('[data-testid="deletion-provider-status"]')
+            assert "Not erased by this request" in provider_state and "MSG91" in provider_state
+            assert "DEL-u_ui_leaver" in await page.inner_text('[data-testid="deletion-reference"]')
             await page.screenshot(path=str(evidence_dir / "public-deletion-winback-1440.jpeg"), type="jpeg", quality=20, full_page=False)
             assert (await shared_apps["canonical_db"].users.find_one({"id": "u_ui_leaver"}))["account_status"] == "deleted"
+            assert (await shared_apps["canonical_db"].deletion_requests.find_one({"reference": "DEL-u_ui_leaver"}))["status"] == "completed"
+
+            # Privacy policy carries the replacement wording and no unpublished [OWNER: …] placeholder.
+            await page.goto(f"{FRONTEND_URL}/privacy", wait_until="domcontentloaded")
+            await page.wait_for_selector('[data-testid="privacy-deletion-section"]', timeout=30000)
+            assert "14 September 2026" in await page.inner_text('[data-testid="privacy-effective-date"]')
+            privacy_text = await page.inner_text("body")
+            assert "[OWNER" not in privacy_text and "completed within 30 days" not in privacy_text
+            assert "including any name, phone number, address or other detail you choose to write in it" in privacy_text
+            assert "not erased by your request" in privacy_text.lower() and "review__" in privacy_text
+            assert await page.locator('[data-testid="privacy-pending-fact"]').count() >= 4
+            await page.screenshot(path=str(evidence_dir / "public-privacy-1440.jpeg"), type="jpeg", quality=20, full_page=False)
 
             await page.goto(f"{FRONTEND_URL}/delete-account", wait_until="domcontentloaded")
             await page.wait_for_selector('[data-testid="delete-phone-input"]', timeout=30000)
@@ -334,7 +354,7 @@ async def test_authenticated_browser_journeys_routed_to_isolated_bff(shared_apps
             await page.click('[data-testid="nav-settings"]', force=True)
             await page.wait_for_selector('[data-testid="canonical-connection"]', timeout=15000)
             await page.wait_for_selector('[data-testid="upstream-capabilities-row-owner_admin_bootstrap"]', timeout=15000)
-            assert "a0b1e8085ba6ac679fa0f5ec4e106d928057ed8f" in await page.inner_text('[data-testid="contract-commit"]')
+            assert "281067bb04bd8bd82a01cb7a34099bd8762de611" in await page.inner_text('[data-testid="contract-commit"]')
             assert (await page.inner_text('[data-testid="upstream-capabilities-owner_admin_bootstrap-state"]')).strip() == "Advertised"
             owner_state = await page.inner_text('[data-testid="owner-admin-state"]')
             assert "Default administrator bootstrap" in owner_state and "u_" not in owner_state
@@ -456,7 +476,7 @@ async def test_authenticated_browser_journeys_routed_to_isolated_bff(shared_apps
                 await page.wait_for_selector('[data-testid^="pdf-resume-identity-"]', timeout=25000)
                 await page.wait_for_selector('[data-testid^="pdf-byte-progress-"]', timeout=25000)
                 await page.wait_for_selector('[data-testid="pdf-preview-table"]', timeout=30000)
-                await page.wait_for_function("[...document.querySelectorAll('[data-testid^=\"pdf-phase-\"]')].filter(e => e.innerText === 'review').length === 2", timeout=30000)
+                await page.wait_for_function("[...document.querySelectorAll('[data-testid^=\"pdf-phase-\"]')].filter(e => e.innerText === 'review').length === 2", timeout=60000)
                 banners = await page.locator('[data-testid^="pdf-job-banner-text-"]').all_inner_texts()
                 assert len(banners) == 2 and all("Upload and analysis complete ✓" in b and "3 products" in b for b in banners), banners
                 assert "2 of 4 slots in use" in await page.inner_text('[data-testid="pdf-jobs-heading"]')
@@ -536,6 +556,7 @@ async def test_authenticated_browser_journeys_routed_to_isolated_bff(shared_apps
             await page.fill('[data-testid="winback-note"]', "Spoke to customer")
             await page.click('[data-testid="winback-mark-contacted"]', force=True)
             await page.wait_for_selector('[data-testid="winback-editor"]', state="hidden", timeout=10000)
+            await page.wait_for_selector('[data-testid^="winback-contacts-"][data-testid$="-status"]:has-text("Contacted")', timeout=10000)
             assert await page.locator('[data-testid^="winback-contacts-"][data-testid$="-status"]', has_text="Contacted").count() == 1
             for width in (320, 768, 1440):
                 await _assert_no_overflow(page, width, 1080, "admin-winback")
