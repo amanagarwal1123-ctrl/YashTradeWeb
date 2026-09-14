@@ -23,27 +23,30 @@ export function fileProblem(file,limits){
 }
 
 /** Transfers one PDF (new or resumed) through the BFF; resolves with the job record and how it ended. */
-export async function transferFile({file,batch,mode,limits,onProgress,shouldStop}){
+export async function transferFile({file,batch,mode,limits,onProgress,onInit,shouldStop}){
   const problem=fileProblem(file,limits);if(problem)throw new Error(problem);
-  onProgress('Checking file identity…');
+  onProgress('Checking file identity…',0);
   const sha256=await hashFile(file,limits.chunk_bytes),total=Math.ceil(file.size/limits.chunk_bytes);
   const init=await shared.write('post','/pdf-upload/init',{batch_id:batch,filename:file.name,file_size:file.size,sha256,total_chunks:total,mode});
   const record={upload_id:init.upload_id,batch_id:batch,filename:file.name,file_size:file.size,sha256,mode,created_at:Date.now()};
+  onInit?.(record);
   let current=await shared.get(`/pdf-upload/${init.upload_id}/status`);
   if(current.phase==='paused')current=await shared.write('post',`/pdf-upload/${init.upload_id}/resume`,{});
   if(!['uploading'].includes(current.phase))return {record,outcome:`already ${current.phase}`};
   const acknowledged=new Set(current.received_chunk_indices||[]);
+  const report=i=>onProgress(`Uploading… ${Math.round(Math.min(file.size,(i+1)*init.chunk_size)/file.size*100)}%`,Math.min(file.size,(i+1)*init.chunk_size));
   for(let i=0;i<total;i++){
     if(shouldStop())return {record,outcome:'stopped'};
-    if(acknowledged.has(i))continue;
+    if(acknowledged.has(i)){report(i);continue;}
     const blob=file.slice(i*init.chunk_size,Math.min(file.size,(i+1)*init.chunk_size)),digest=await hex(await blob.arrayBuffer());
     let accepted=false;
     for(let attempt=0;attempt<3&&!accepted;attempt++){
       try{const form=new FormData();form.append('file',blob,`chunk-${i}`);await api.post(`/bff/pdf-upload/${init.upload_id}/chunk`,form,{params:{chunk_index:i},headers:{'X-Chunk-Sha256':digest}});accepted=true;}
       catch(e){if(e.response&&e.response.status<500)throw e;const s=await shared.get(`/pdf-upload/${init.upload_id}/status`);accepted=(s.received_chunk_indices||[]).includes(i);if(s.phase!=='uploading')throw new Error('Upload state changed. Refresh status before resuming.');if(!accepted&&attempt===2)throw e;}
     }
-    onProgress(`Uploaded ${Math.min(file.size,(i+1)*init.chunk_size)} of ${file.size} bytes`);
+    report(i);
   }
+  onProgress('Finishing upload…',file.size);
   await shared.write('post',`/pdf-upload/${init.upload_id}/complete`,{});
   return {record,outcome:'queued'};
 }

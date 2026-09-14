@@ -401,6 +401,8 @@ async def test_authenticated_browser_journeys_routed_to_isolated_bff(shared_apps
             stored_product = await shared_apps['canonical_db'].products.find_one({'product_code':'TEST-UI-ADMIN-001'}, {'_id':0})
             assert stored_product and len(stored_product['images']) == 1
 
+            await shared_apps["canonical_db"].batches.update_one({"id": "b2"}, {"$set": {"id": "b2", "name": "TEST Batch 2", "status": "active",
+                "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()}}, upsert=True)
             await page.click('[data-testid="products-import"]', force=True)
             await page.wait_for_selector('[data-testid="pdf-file-input"]', timeout=15000)
             async with page.expect_download() as sample_info:
@@ -411,12 +413,14 @@ async def test_authenticated_browser_journeys_routed_to_isolated_bff(shared_apps
                 await page.click('[data-testid="pdf-download-authoring-json"]', force=True)
             authoring_download = await authoring_info.value
             assert authoring_download.suggested_filename.endswith(".json")
-            # Reported bug: file chosen but no batch → button disabled with no explanation. Now the reason is shown,
-            # and a batch can be created and auto-selected inline.
+            # Reported bug: file chosen but no batch → button disabled with no explanation. Now the reason is shown
+            # prominently, and a batch can be created and auto-selected inline. (Two batches exist so nothing is
+            # auto-selected; with exactly one batch the page selects it by itself.)
             await page.set_input_files('[data-testid="pdf-file-input"]', str(PDF_FILE))
             await page.wait_for_selector('[data-testid="pdf-file-summary"]', timeout=10000)
             assert await page.is_disabled('[data-testid="pdf-upload-start"]')
-            assert "Choose a batch" in await page.inner_text('[data-testid="pdf-upload-blocker"]')
+            assert "choose a batch" in (await page.inner_text('[data-testid="pdf-upload-blocker"]')).lower()
+            assert "required" in (await page.inner_text('[data-testid="pdf-batch-row"]')).lower()
             await page.fill('[data-testid="pdf-new-batch"]', "TEST Import batch")
             await page.click('[data-testid="pdf-create-batch"]', force=True)
             await page.wait_for_function("document.querySelector('[data-testid=\"pdf-batch\"]').value !== ''", timeout=15000)
@@ -432,6 +436,13 @@ async def test_authenticated_browser_journeys_routed_to_isolated_bff(shared_apps
             assert "2 files" in await page.inner_text('[data-testid="pdf-upload-start"]')
             await page.click('[data-testid="pdf-upload-start"]', force=True)
             try:
+                # Reported: "the button just disables" → a live progress panel + bars must be visible while transferring.
+                await page.wait_for_selector('[data-testid="pdf-queue-progress"]', timeout=15000)
+                assert "Uploading file 1 of 2" in await page.inner_text('[data-testid="pdf-queue-progress-text"]')
+                assert await page.get_attribute('[data-testid="pdf-queue-progress-bar"]', "role") == "progressbar"
+                await page.wait_for_selector('[data-testid="pdf-file-progress-0"]', timeout=15000)
+                assert "Transferring" in await page.inner_text('[data-testid="pdf-upload-start"]')
+                await page.screenshot(path=str(evidence_dir / 'pdf-queue-progress-1440.jpeg'), type='jpeg', quality=20, full_page=False)
                 await page.wait_for_selector('[data-testid^="pdf-resume-identity-"]', timeout=25000)
                 await page.wait_for_selector('[data-testid^="pdf-byte-progress-"]', timeout=25000)
                 await page.wait_for_selector('[data-testid="pdf-preview-table"]', timeout=30000)

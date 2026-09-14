@@ -38,6 +38,11 @@ export function banner(s,transfer,watch){
  }
 }
 
+export function ProgressBar({id,value,done}){
+ const pct=Math.max(0,Math.min(100,Math.round(value||0)));
+ return <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-slate-200" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} data-testid={id}><div className={`h-full rounded-full transition-[width] duration-300 ${done?'bg-emerald-600':'bg-sky-600'}`} style={{width:`${pct}%`}} data-testid={`${id}-fill`}/></div>;
+}
+
 export function ImportJob({job,batchName,capabilities,transfer,reviewOpen,onToggleReview,onRemove,onChanged}){
  const jid=job.upload_id,status=useResource(`/pdf-upload/${jid}/status`,{},true),[watch,setWatch]=useState(null),[error,setError]=useState(''),[busy,setBusy]=useState(false);
  const loadWatch=useCallback(async()=>{try{const r=await api.get(`/admin/pdf-watch/${jid}`);setWatch(r.data);}catch(e){if(e.response?.status===404)setWatch(null);}},[jid]);
@@ -50,7 +55,7 @@ export function ImportJob({job,batchName,capabilities,transfer,reviewOpen,onTogg
  const b=banner(s,transfer,watch),Icon=ICON[b.tone],done=['committed','cancelled','expired'].includes(phase);
  return <section className="app-dialog" data-testid={`pdf-job-${jid}`}>
   <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="!mb-1" data-testid={`pdf-job-title-${jid}`}>{job.filename}</h2><p className="text-xs text-slate-500 break-all" data-testid={`pdf-resume-identity-${jid}`}>{job.file_size} bytes · batch {batchName||job.batch_id} · {job.mode==='legacy_pages'?'legacy pages':'template v1'} · Job {jid}</p></div><State resource={status} id={`pdf-job-status-${jid}`}/></div>
-  <div className={`mt-4 flex items-start gap-3 rounded-md border px-4 py-3 text-sm ${TONE[b.tone]}`} role={b.tone==='warn'?'alert':undefined} data-testid={`pdf-job-banner-${jid}`}><Icon className={`mt-0.5 shrink-0 ${b.tone==='info'?'animate-spin':''}`} size={20} aria-hidden="true"/><span data-testid={`pdf-job-banner-text-${jid}`}>{b.text}</span></div>
+  <div className={`mt-4 rounded-md border px-4 py-3 text-sm ${TONE[b.tone]}`} role={b.tone==='warn'?'alert':undefined} data-testid={`pdf-job-banner-${jid}`}><div className="flex items-start gap-3"><Icon className={`mt-0.5 shrink-0 ${b.tone==='info'?'animate-spin':''}`} size={20} aria-hidden="true"/><span data-testid={`pdf-job-banner-text-${jid}`}>{b.text}</span></div>{transfer&&!transfer.done&&!transfer.error&&<ProgressBar id={`pdf-job-progress-${jid}`} value={transfer.total?(transfer.bytes||0)/transfer.total*100:0}/>}</div>
   {s&&<div className="metrics-strip"><div>Phase<strong data-testid={`pdf-phase-${jid}`}>{s.phase}</strong></div><div>Bytes<strong data-testid={`pdf-byte-progress-${jid}`}>{s.bytes_received} / {s.file_size}</strong></div><div>Analysis pages<strong data-testid={`pdf-page-progress-${jid}`}>{s.pages_processed} / {s.total_pages??'Unknown'}</strong></div><div>Detected products<strong data-testid={`pdf-product-count-${jid}`}>{s.product_count}</strong></div></div>}
   <Notice id={`pdf-job-error-${jid}`}>{error}</Notice>{['queued','analyzing','error'].includes(phase)&&watchText(watch)&&<p className={`text-sm ${watch?.active?'text-emerald-800':'text-amber-800'}`} data-testid={`pdf-watch-${jid}`}>{watchText(watch)}</p>}
   <div className="mt-4 flex flex-wrap gap-2">
