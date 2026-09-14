@@ -413,26 +413,36 @@ async def test_authenticated_browser_journeys_routed_to_isolated_bff(shared_apps
                 await page.click('[data-testid="pdf-download-authoring-json"]', force=True)
             authoring_download = await authoring_info.value
             assert authoring_download.suggested_filename.endswith(".json")
-            # Reported bug: file chosen but no batch → button disabled with no explanation. Now the reason is shown
-            # prominently, and a batch can be created and auto-selected inline. (Two batches exist so nothing is
-            # auto-selected; with exactly one batch the page selects it by itself.)
+            # Selecting PDFs with no batch chosen creates and selects a batch automatically (named after the files);
+            # the manual "Create & select batch" path still works. (Two batches exist so nothing is pre-selected.)
             await page.set_input_files('[data-testid="pdf-file-input"]', str(PDF_FILE))
             await page.wait_for_selector('[data-testid="pdf-file-summary"]', timeout=10000)
-            assert await page.is_disabled('[data-testid="pdf-upload-start"]')
-            assert "choose a batch" in (await page.inner_text('[data-testid="pdf-upload-blocker"]')).lower()
-            assert "required" in (await page.inner_text('[data-testid="pdf-batch-row"]')).lower()
+            await page.wait_for_selector('[data-testid="pdf-auto-batch"]', timeout=15000)
+            await page.wait_for_function("document.querySelector('[data-testid=\"pdf-batch\"]').value !== ''", timeout=15000)
+            auto_batch = await shared_apps["canonical_db"].batches.find_one({"name": {"$regex": r"^sample · "}}, {"_id": 0})
+            assert auto_batch and auto_batch["metal_type"] == "silver", "auto-created batch named after the selected file"
+            assert (await page.input_value('[data-testid="pdf-batch"]')) == auto_batch["id"]
+            assert await page.is_enabled('[data-testid="pdf-upload-start"]')
+            assert await page.locator('[data-testid="pdf-upload-blocker"]').count() == 0
             await page.fill('[data-testid="pdf-new-batch"]', "TEST Import batch")
             await page.click('[data-testid="pdf-create-batch"]', force=True)
-            await page.wait_for_function("document.querySelector('[data-testid=\"pdf-batch\"]').value !== ''", timeout=15000)
-            await page.wait_for_selector('[data-testid="pdf-upload-blocker"]', state="hidden", timeout=10000)
+            await page.wait_for_function("document.querySelector('[data-testid=\"pdf-batch\"] option:checked').textContent === 'TEST Import batch'", timeout=15000)
             assert await page.is_enabled('[data-testid="pdf-upload-start"]')
             assert await shared_apps["canonical_db"].batches.count_documents({"name": "TEST Import batch"}) == 1
-            await page.select_option('[data-testid="pdf-batch"]', "b1")
             # Multi-file queue: two distinct PDFs (same content, different bytes → different job ids) upload one after
-            # another; both reach review, the first review opens automatically with a green completion banner.
-            second_pdf = Path("/app/evidence/shared-v1/sample-second-copy.pdf")
+            # another; with the batch cleared, selecting them auto-creates "sample (2 files) · <date>" (digit suffixes
+            # stripped from the common prefix). Both reach review, the first review opens automatically.
+            first_pdf = Path("/app/evidence/shared-v1/sample_01.pdf")
+            second_pdf = Path("/app/evidence/shared-v1/sample_02.pdf")
+            first_pdf.write_bytes(PDF_FILE.read_bytes())
             second_pdf.write_bytes(PDF_FILE.read_bytes() + b"\n%second copy for the queue test\n")
-            await page.set_input_files('[data-testid="pdf-file-input"]', [str(PDF_FILE), str(second_pdf)])
+            await page.select_option('[data-testid="pdf-batch"]', "")
+            await page.set_input_files('[data-testid="pdf-file-input"]', [str(first_pdf), str(second_pdf)])
+            await page.wait_for_selector('[data-testid="pdf-auto-batch"]', timeout=15000)
+            await page.wait_for_function("document.querySelector('[data-testid=\"pdf-batch\"]').value !== ''", timeout=15000)
+            queue_batch = await shared_apps["canonical_db"].batches.find_one({"name": {"$regex": r"^sample \(2 files\) · "}}, {"_id": 0})
+            assert queue_batch, sorted(b["name"] for b in await shared_apps["canonical_db"].batches.find({}, {"_id": 0, "name": 1}).to_list(20))
+            assert (await page.input_value('[data-testid="pdf-batch"]')) == queue_batch["id"]
             assert "2 files" in await page.inner_text('[data-testid="pdf-upload-start"]')
             await page.click('[data-testid="pdf-upload-start"]', force=True)
             try:
