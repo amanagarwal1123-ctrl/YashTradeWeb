@@ -2,7 +2,8 @@ import React,{useCallback,useEffect,useState} from 'react';
 import {CheckCircle2,AlertTriangle,Loader2,PauseCircle,XCircle} from 'lucide-react';
 import {State,useResource,Notice} from './SharedUI';
 import {PdfReview} from './PdfReview';
-import {api,shared,errMsg} from '@/lib/api';
+import {api,shared} from '@/lib/api';
+import {busyMsg} from '@/lib/pdfImport';
 import {Button} from '@/components/ui/button';
 
 const TONE={ok:'bg-emerald-50 text-emerald-900 border-emerald-300',warn:'bg-amber-50 text-amber-900 border-amber-300',info:'bg-sky-50 text-sky-900 border-sky-300',muted:'bg-slate-50 text-slate-700 border-slate-300'};
@@ -28,7 +29,7 @@ export function banner(s,transfer,watch){
   case 'uploading':return {tone:'warn',text:`Transfer incomplete (${s.bytes_received} of ${s.file_size} bytes). Select this same file again and click Upload to resume.`};
   case 'queued':return {tone:'ok',text:'Upload complete ✓ — waiting for the app to start the analysis (imports are analysed one after another).'};
   case 'analyzing':return {tone:'info',text:`Upload complete ✓ — analysing page ${s.pages_processed} of ${s.total_pages??'?'} · ${products} detected so far.`};
-  case 'review':return {tone:'ok',text:`Upload and analysis complete ✓ — ${products} detected on ${s.total_pages} pages. Review the rows below and commit to create them.`};
+  case 'review':{const f=s.result?.failed;if(f>0)return {tone:'warn',text:`Last commit finished with ${f} failed row${f===1?'':'s'} — products already created are kept. Open the review and commit again; only the failed rows are retried.`};return {tone:'ok',text:`Upload and analysis complete ✓ — ${products} detected on ${s.total_pages} pages. Review the rows below and commit to create them.`};}
   case 'committed':{const r=s.result||{};return {tone:'ok',text:`Import committed ✓ — ${r.created??0} created · ${r.updated??0} updated · ${r.skipped??0} skipped · ${r.failed??0} failed.`};}
   case 'paused':return {tone:'muted',text:'Paused. Resume analysis to continue.'};
   case 'error':return {tone:'warn',text:`Stopped at page ${s.pages_processed} of ${s.total_pages??'?'}: ${s.error||'error'}`};
@@ -51,7 +52,7 @@ export function ImportJob({job,batchName,capabilities,transfer,reviewOpen,onTogg
  useEffect(()=>{if(!working)return;const t=setInterval(()=>{if(!document.hidden){status.load();loadWatch();}},3000);return()=>clearInterval(t);},[working,status.load,loadWatch]); // eslint-disable-line react-hooks/exhaustive-deps
  useEffect(()=>{if(transfer?.done){status.load();loadWatch();}},[transfer?.done]); // eslint-disable-line react-hooks/exhaustive-deps
  useEffect(()=>{onChanged?.(jid,status.error&&!s?'missing':phase);},[jid,phase,status.error]); // eslint-disable-line react-hooks/exhaustive-deps
- const act=async kind=>{if(kind==='cancel'&&!window.confirm('Cancel this import permanently? A paused import can resume; a cancelled one cannot.'))return;setBusy(true);setError('');try{await shared.write('post',`/pdf-upload/${jid}/${kind}`,{});await status.load();await loadWatch();}catch(e){setError(errMsg(e));}finally{setBusy(false);}};
+ const act=async kind=>{if(kind==='cancel'&&!window.confirm('Cancel this import permanently? A paused import can resume; a cancelled one cannot.'))return;setBusy(true);setError('');try{await shared.write('post',`/pdf-upload/${jid}/${kind}`,{});await status.load();await loadWatch();}catch(e){setError(busyMsg(e));}finally{setBusy(false);}};
  const b=banner(s,transfer,watch),Icon=ICON[b.tone],done=['committed','cancelled','expired'].includes(phase);
  return <section className="app-dialog" data-testid={`pdf-job-${jid}`}>
   <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="!mb-1" data-testid={`pdf-job-title-${jid}`}>{job.filename}</h2><p className="text-xs text-slate-500 break-all" data-testid={`pdf-resume-identity-${jid}`}>{job.file_size} bytes · batch {batchName||job.batch_id} · {job.mode==='legacy_pages'?'legacy pages':'template v1'} · Job {jid}</p></div><State resource={status} id={`pdf-job-status-${jid}`}/></div>

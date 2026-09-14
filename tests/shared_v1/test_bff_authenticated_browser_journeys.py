@@ -6,7 +6,8 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -14,6 +15,10 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from test_bff_auth_session import shared_apps
+
+if "/app/backend" not in sys.path:
+    sys.path.insert(0, "/app/backend")
+from bff import proxy  # noqa: E402
 
 try:
     from playwright.async_api import async_playwright
@@ -90,7 +95,7 @@ async def _assert_no_overflow(page, width: int, height: int, label: str):
 
 
 @pytest.mark.anyio
-async def test_authenticated_browser_journeys_routed_to_isolated_bff(shared_apps):  # noqa: F811 - imported pytest fixture
+async def test_authenticated_browser_journeys_routed_to_isolated_bff(shared_apps, monkeypatch):  # noqa: F811 - imported pytest fixture
     if async_playwright is None:
         pytest.skip("Playwright not installed")
 
@@ -223,7 +228,16 @@ async def test_authenticated_browser_journeys_routed_to_isolated_bff(shared_apps
                     projection={'_id':0},return_document=ReturnDocument.AFTER)
                 if job:
                     await pdf_jobs.process_job(job)
-            api_events.append({"method": method, "path": path, "status": response.status_code})
+            if '/chunk' in path and response.status_code == 409:
+                # The simulated "other writer" finishes right after the browser has seen one busy answer.
+                await shared_apps['canonical_db'].operation_locks.delete_one({'_id': 'media-budget', 'owner': 'test-other-writer'})
+            failure = {}
+            if response.status_code >= 400:
+                try:
+                    failure = {"code": response.json().get("code"), "detail": str(response.json().get("detail"))[:200]}
+                except ValueError:
+                    failure = {"body": response.text[:200]}
+            api_events.append({"method": method, "path": path, "status": response.status_code, **failure})
             bridge_events.append(
                 {
                     "method": method,
@@ -464,8 +478,16 @@ async def test_authenticated_browser_journeys_routed_to_isolated_bff(shared_apps
             assert queue_batch, sorted(b["name"] for b in await shared_apps["canonical_db"].batches.find({}, {"_id": 0, "name": 1}).to_list(20))
             assert (await page.input_value('[data-testid="pdf-batch"]')) == queue_batch["id"]
             assert "2 files" in await page.inner_text('[data-testid="pdf-upload-start"]')
+            # Reported: chunks answered "Another update is in progress; retry shortly" — the app holds ONE storage
+            # lock for every write (another import being analysed/committed). Hold it like that writer would and
+            # send the 409 straight to the browser (proxy retries off) so the page's own retry loop is exercised.
+            monkeypatch.setattr(proxy, "CHUNK_BUSY_RETRIES", 0)
+            await shared_apps["canonical_db"].operation_locks.replace_one({"_id": "media-budget"}, {"_id": "media-budget", "owner": "test-other-writer",
+                "expires_at": datetime.now(timezone.utc) + timedelta(seconds=60)}, upsert=True)
             await page.click('[data-testid="pdf-upload-start"]', force=True)
             try:
+                await page.wait_for_function("(document.querySelector('[data-testid=\"pdf-file-0\"]')?.innerText || '').includes('App server busy')", timeout=10000)
+                assert "retrying chunk 1 of" in await page.inner_text('[data-testid="pdf-file-0"]')
                 # Reported: "the button just disables" → a live progress panel + bars must be visible while transferring.
                 await page.wait_for_selector('[data-testid="pdf-queue-progress"]', timeout=15000)
                 assert "Uploading file 1 of 2" in await page.inner_text('[data-testid="pdf-queue-progress-text"]')
@@ -499,8 +521,18 @@ async def test_authenticated_browser_journeys_routed_to_isolated_bff(shared_apps
                 await page.get_by_test_id('pdf-row-save').click()
                 await page.get_by_test_id('pdf-row-editor').wait_for(state='hidden')
                 await page.get_by_test_id('pdf-confirm').check()
+                # Reported: "Another update is in progress" blocked the commit — the earlier commit request was still
+                # running on the app under the per-import lock after the browser gave up. Hold that lock; the page must
+                # wait for the outcome instead of failing.
+                async for review_job in shared_apps['canonical_db'].import_jobs.find({'phase': 'review'}, {'_id': 0, 'id': 1}):
+                    await shared_apps['canonical_db'].operation_locks.replace_one({'_id': 'import:' + review_job['id']}, {'_id': 'import:' + review_job['id'],
+                        'owner': 'test-earlier-commit', 'expires_at': datetime.now(timezone.utc) + timedelta(seconds=4)}, upsert=True)
                 await page.get_by_test_id('pdf-commit').click()
-                await page.get_by_test_id('pdf-result').wait_for(state='visible',timeout=20000)
+                await page.get_by_test_id('pdf-commit-progress').wait_for(state='visible', timeout=10000)
+                assert 'still committing this import' in await page.get_by_test_id('pdf-commit-progress').inner_text()
+                assert await page.get_by_test_id('pdf-commit-error').count() == 0
+                await page.get_by_test_id('pdf-result').wait_for(state='visible',timeout=40000)
+                assert await page.get_by_test_id('pdf-commit-progress').count() == 0
                 assert await page.get_by_test_id('pdf-result-created').inner_text() == '3'
                 imported = await shared_apps['canonical_db'].products.find({'source_upload_id':{'$exists':True}},{'_id':0}).to_list(20)
                 assert len(imported)==3 and {p['metal_type'] for p in imported}=={'silver','gold','diamond'}

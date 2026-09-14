@@ -1,4 +1,5 @@
 """Explicit method/resource allowlist; no user-selected privileged destination."""
+import asyncio
 import re
 from fastapi import APIRouter, Request, Depends
 from .security import staff_session, STAFF, rate_limit
@@ -6,6 +7,10 @@ from .canonical import fail, UpstreamError
 from .readiness import ensure_capability
 
 router = APIRouter(prefix='/api/bff')
+# The app serialises every storage write on one lock and answers 409 OPERATION_IN_PROGRESS at once; a
+# checksum-bound chunk that was rejected before any write is safe to resend after a short wait.
+CHUNK_BUSY_RETRIES = 5
+CHUNK_BUSY_BACKOFF = 0.5
 A = {'admin'}
 T = {'admin', 'telecaller'}
 B = {'admin', 'billing_executive'}
@@ -95,8 +100,14 @@ async def proxy(path: str, request: Request, session=Depends(staff_session)):
                 fail(415, 'UNSUPPORTED_UPLOAD', 'Use the reviewed upload operation.')
             cap = (2 if path.endswith('/chunk') else 11)*1024*1024
             payload = await bounded_body(request, cap)
-            return await upstream.binary(request.method, '/'+path, token=session['token'], params=params,
-                                         content=payload, content_type=request.headers['content-type'], extra=extra)
+            for attempt in range(CHUNK_BUSY_RETRIES + 1):
+                try:
+                    return await upstream.binary(request.method, '/'+path, token=session['token'], params=params,
+                                                 content=payload, content_type=request.headers['content-type'], extra=extra)
+                except UpstreamError as e:
+                    if not (path.endswith('/chunk') and e.status == 409 and e.code == 'OPERATION_IN_PROGRESS') or attempt == CHUNK_BUSY_RETRIES:
+                        raise
+                    await asyncio.sleep(CHUNK_BUSY_BACKOFF * (attempt + 1))
         body = None
         if request.method in ('POST', 'PUT', 'PATCH'):
             import json

@@ -4,7 +4,7 @@ import {PageTitle,State,useResource,Notice,Field} from '@/components/admin/Share
 import {ImportJob,ProgressBar} from '@/components/admin/ImportJob';
 import {useAdmin} from '@/components/admin/AdminLayout';
 import {shared,download,errMsg} from '@/lib/api';
-import {loadJobs,saveJobs,transferFile,fileProblem,DONE,MAX_ACTIVE} from '@/lib/pdfImport';
+import {loadJobs,saveJobs,transferFile,fileProblem,busyMsg,DONE,MAX_ACTIVE} from '@/lib/pdfImport';
 import {Button} from '@/components/ui/button';
 
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -22,6 +22,8 @@ export default function PdfImport(){
  useEffect(()=>{phasesRef.current=phases;},[phases]);
  useEffect(()=>{reviewRef.current=reviewOpen;},[reviewOpen]);
  useEffect(()=>()=>{stop.current=true;},[]);
+ // The transfer lives in this tab: leaving the page mid-upload is what leaves imports at "Transfer incomplete".
+ useEffect(()=>{if(!running)return;const warn=e=>{e.preventDefault();e.returnValue='';};window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn);},[running]);
  const list=batches.data?.batches;
  useEffect(()=>{if(!list)return;if(batch&&!list.some(b=>b.id===batch))setBatchState('');else if(!batch&&list.length===1)setBatch(list[0].id);},[list]); // eslint-disable-line react-hooks/exhaustive-deps
  const activeCount=()=>jobsRef.current.filter(j=>!DONE.includes(phasesRef.current[j.upload_id])&&phasesRef.current[j.upload_id]!=='missing').length;
@@ -40,7 +42,7 @@ export default function PdfImport(){
     note(file.name,{upload_id:record.upload_id,done:outcome!=='stopped',bytes:outcome==='stopped'?undefined:file.size,text:outcome==='stopped'?'Transfer stopped — select the file again to resume.':outcome==='queued'?'Upload complete ✓ — queued for analysis.':`Already ${outcome.slice(8)} on the app — nothing to upload.`});
    }catch(e){
     if(e.response?.data?.code==='ACTIVE_IMPORT_LIMIT'){queue.unshift(file);index-=1;note(file.name,{text:'Waiting for a free import slot…'});setWaiting(true);await sleep(5000);continue;}
-    note(file.name,{error:e.response?errMsg(e):e.message,done:true});
+    note(file.name,{error:busyMsg(e),done:true});
    }
   }
   setRunning(false);setWaiting(false);setCurrent(null);
@@ -71,7 +73,7 @@ export default function PdfImport(){
  <div className="flex flex-wrap items-end gap-2 my-2"><Field name="pdf-new-batch" title="Or create a new batch for this import" value={newBatch} onChange={setNewBatch} disabled={creating}/><Button variant="outline" disabled={creating||!newBatch.trim()} data-testid="pdf-create-batch" onClick={createBatch}>{creating?'Creating…':'Create & select batch'}</Button><State resource={batches} id="pdf-batches"/></div>
  <label className="field my-4">Choose PDF(s) — select several to queue them; a batch is created automatically if none is chosen; to resume an interrupted transfer, select the same file again<input type="file" multiple accept="application/pdf,.pdf" disabled={running} data-testid="pdf-file-input" onChange={e=>chooseFiles(Array.from(e.target.files||[]))}/></label>
  {autoNote&&<p className="text-sm text-emerald-800 -mt-2 mb-3" role="status" data-testid="pdf-auto-batch">{autoNote}</p>}
- {files.length>0&&<ul className="text-sm -mt-2 mb-3 space-y-2" data-testid="pdf-file-summary">{files.map((f,i)=>{const p=progress[f.name],bad=fileProblem(f,lim),pct=p?.done?100:Math.round(Math.min(p?.bytes||0,f.size)/f.size*100);return <li key={f.name+f.size} data-testid={`pdf-file-${i}`}><div><span className="font-medium">{f.name}</span> · {mib(f.size)} MiB{lim?` · ${Math.ceil(f.size/lim.chunk_bytes)} chunks`:''}{bad&&<span className="text-amber-800"> · {bad}</span>}{p?.error&&<span className="text-red-700" role="alert"> · {p.error}</span>}{p?.text&&!p.error&&<span className={p.done?'text-emerald-800':'text-sky-800'}> · {p.text}</span>}</div>{p&&!p.error&&<ProgressBar id={`pdf-file-progress-${i}`} value={pct} done={p.done}/>}</li>;})}</ul>}
+ {files.length>0&&<ul className="text-sm -mt-2 mb-3 space-y-2" data-testid="pdf-file-summary">{files.map((f,i)=>{const p=progress[f.name],bad=fileProblem(f,lim),pct=p?.done?100:Math.round(Math.min(p?.bytes||0,f.size)/f.size*100),resumes=!p&&jobs.some(j=>j.filename===f.name&&j.file_size===f.size&&phases[j.upload_id]==='uploading');return <li key={f.name+f.size} data-testid={`pdf-file-${i}`}><div><span className="font-medium">{f.name}</span> · {mib(f.size)} MiB{lim?` · ${Math.ceil(f.size/lim.chunk_bytes)} chunks`:''}{bad&&<span className="text-amber-800"> · {bad}</span>}{resumes&&<span className="text-emerald-800" data-testid={`pdf-file-resumes-${i}`}> · resumes the interrupted transfer below (received chunks are kept)</span>}{p?.error&&<span className="text-red-700" role="alert"> · {p.error}</span>}{p?.text&&!p.error&&<span className={p.done?'text-emerald-800':'text-sky-800'}> · {p.text}</span>}</div>{p&&!p.error&&<ProgressBar id={`pdf-file-progress-${i}`} value={pct} done={p.done}/>}</li>;})}</ul>}
  <div className="flex flex-wrap gap-2"><Button disabled={running||!files.length||!batch||!cap.data||problems.length>0} onClick={run} data-testid="pdf-upload-start">{running?'Transferring…':files.length>1?`Upload & analyze ${files.length} files`:'Upload & analyze'}</Button>{running&&<Button variant="outline" data-testid="pdf-queue-stop" onClick={()=>{stop.current=true;}}>Stop after current file</Button>}</div>
  {running&&current&&<div className="mt-3 rounded-md border border-sky-300 bg-sky-50 px-4 py-3 text-sm text-sky-900" role="status" data-testid="pdf-queue-progress"><div className="flex flex-wrap justify-between gap-2"><span data-testid="pdf-queue-progress-text">Uploading file {current.index} of {current.total}: <strong>{current.name}</strong>{progress[current.name]?.text?` · ${progress[current.name].text}`:''}</span><span data-testid="pdf-queue-progress-percent">{totalBytes?Math.round(doneBytes/totalBytes*100):0}% overall · {mib(doneBytes)} / {mib(totalBytes)} MiB</span></div><ProgressBar id="pdf-queue-progress-bar" value={totalBytes?Math.round(doneBytes/totalBytes*100):0}/></div>}
  {blocker&&!running&&<p className={`flex items-start gap-2 text-sm mt-3 ${needBatch||(!batch&&!list?.length)?'rounded-md border border-amber-400 bg-amber-50 px-4 py-3 text-amber-900 font-medium':'text-amber-800'}`} role="status" data-testid="pdf-upload-blocker">{(needBatch||(!batch&&!list?.length))&&<AlertTriangle size={18} className="mt-0.5 shrink-0" aria-hidden="true"/>}<span>{blocker}</span></p>}

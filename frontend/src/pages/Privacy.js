@@ -40,7 +40,7 @@ const H2 = ({ id, children }) => (
   <h2 id={id} className="font-heading text-xl font-semibold text-[#0B1F3B] pt-6 scroll-mt-24">{children}</h2>
 );
 const H3 = ({ children }) => <p className="text-sm font-semibold text-[#0B1F3B] pt-2">{children}</p>;
-const P = ({ children, testid }) => <p className="text-sm leading-relaxed text-slate-700" data-testid={testid}>{children}</p>;
+const P = ({ children, testid }) => <p className="text-sm leading-relaxed text-slate-700 break-words" data-testid={testid}>{children}</p>;
 const UL = ({ items, testid }) => (
   <ul className="list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-slate-700" data-testid={testid}>
     {items.map((it, i) => <li key={i}>{it}</li>)}

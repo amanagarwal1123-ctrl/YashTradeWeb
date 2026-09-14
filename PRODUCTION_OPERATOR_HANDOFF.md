@@ -154,3 +154,25 @@ server's** per-page budget (`page_timeout_seconds = 25`, worker CPU 22 s / 512 M
 - App team (owner to request in the app chat): raise `page_timeout_seconds` to ~90 s and/or give the
   app container more CPU; optionally cache the opened document per job instead of reopening the 24 MB
   file for every page. Until then a page that consistently needs > 25 s will exhaust the 5 attempts.
+
+
+## "Another update is in progress; retry shortly" during upload and commit (14 Sep 2026)
+Observed on production: resuming `Silver_Upload_03/04.pdf` failed on every chunk with that message, and
+*Commit* on a reviewed import showed the same message. Both are the app's `409 OPERATION_IN_PROGRESS`.
+- Root cause (app): `shared/media_lifecycle.py::tracked_put` takes ONE global Mongo lock `media-budget`
+  for **every** storage write — PDF chunks, analysis preview crops and the two product images written per
+  committed row — with `wait_seconds=0`, so any concurrent write is refused instantly. The commit itself
+  (`pdf_jobs.commit`) runs all rows in one request under `import:<jid>`; for 300 rows that is 600 image
+  writes and several minutes on the live server, longer than the browser (45 s) or website proxy (90 s)
+  wait, so a second click meets the still-held lock. A commit that races with another import's analysis
+  can also mark rows "Storage/database operation failed; row remains recoverable" — committing again
+  retries only those rows (already-created products are kept).
+- Website build `website-shared-v1-import-busy-2026-09-14`: the proxy resends a refused chunk up to 5×
+  (0.5–2.5 s), the page keeps retrying each chunk with backoff for up to 4 min and shows "App server busy
+  writing another import — retrying chunk k of N…"; *Commit* now waits for the outcome (status poll every
+  5 s, idempotent re-attempt, 30 min budget) instead of failing, and explains failed rows + re-commit; the
+  tab warns before leaving mid-upload; re-selected files are labelled "resumes the interrupted transfer".
+  Needs Save to GitHub → BUILD_COMMIT → Republish (production still serves an older build).
+- App team (owner to request in the app chat): make `tracked_put` wait for the lock (e.g. `wait_seconds=30`)
+  or scope it per job instead of globally; return `202` + progress for commits of more than ~50 rows (or
+  commit in the background worker) so the browser never has to hold a multi-minute request.

@@ -18,7 +18,7 @@ import pytest
 ORIGINS = ("https://register.yashsilver.com", "https://yash-register.emergent.host")
 EXPECTED = {
     "WEBSITE_CHECK_ORIGINS": ",".join(ORIGINS),
-    "EXPECTED_WEBSITE_BUILD": "website-shared-v1-privacy-2026-09-14",
+    "EXPECTED_WEBSITE_BUILD": "website-shared-v1-import-busy-2026-09-14",
     "EXPECTED_WEBSITE_COMMIT": "c1ef7d84609e0d0eff0258601b2fc1a84076189e",
     "EXPECTED_APP_CONTRACT_COMMIT": "281067bb04bd8bd82a01cb7a34099bd8762de611",
     "EXPECTED_UPSTREAM_BUILD": "shared-v1-store-submission-2026-09-13",
