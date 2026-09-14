@@ -113,7 +113,7 @@ requirement only; login is not blocked by it) and the deployed build is still
    stop and report to the app chat (`flows.owner_admin.issues` names the reason); never fix it on the website.
 4. Genuine admin login (owner only): open `<origin>/admin/login`, enter `9999813334`, **Send OTP**
    (one SMS), enter the received code on the page (never in chat). Expect `/admin` with role badge
-   `admin`; in the same tab `<origin>/api/admin/auth/me` → `id=bcdf18c9-dc87-4d46-b580-30cf519103df`,
+   `admin`; in the same tab `<origin>/api/admin/auth/me` → `id=enrollment-bff`,
    `role=admin`. Reload (session persists), open `/admin/users` → a customer → complete enquiry
    history; `/admin/queries`; `/admin/rates`; **Sign out** → `/api/admin/auth/me` = 401. Repeat on
    the second origin (separate cookie, second SMS). Record dispatch / receipt / verification /

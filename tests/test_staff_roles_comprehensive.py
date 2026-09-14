@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", "backend", ".env"))
 
 # Use the PUBLIC endpoint from frontend/.env
-BASE = "https://silver-checkout-1.preview.emergentagent.com/api"
+BASE = "https://enrollment-bff.preview.emergentagent.com/api"
 MONGO_URL = os.environ["MONGO_URL"]
 DB_NAME = os.environ["DB_NAME"]
 
