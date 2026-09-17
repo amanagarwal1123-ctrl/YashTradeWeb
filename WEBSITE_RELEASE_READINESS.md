@@ -29,7 +29,7 @@ Protected app PDF capabilities returned401 without login. Configured64MiB/200pag
 | BFF_INGRESS_ORIGINS |Present |Exact observed preview ingressalias only. Alias requires browser X-Website-Origin + CSRF/Fetch-Metadata; no wildcard/missing-Origin fallback |
 | TRUSTED_INGRESS_CIDRS |Absent |Verify actual peer chain and configure trustedCIDRs. Do not trust arbitraryXFF |
 | FORWARD_CANONICAL_CLIENT_IP |Disabled |Only enable after canonical proxy trust is configured for exactBFFpeer; absent trust currentlymayaggregate legitimateusersunderoneIP |
-| ANDROID_APP_URL / IOS_APP_URL |Legacy unverified values retained but ignored |Genuine releases plus ANDROID_RELEASE_VERIFIED/IOS_RELEASE_VERIFIED=true only afterverification; unavailablelabelsnow |
+| ANDROID_APP_URL / IOS_APP_URL |Android: live Google Play listing `com.emergent.yashtryontest.lt5e6b` is the code default (owner-confirmed 14 Sep 2026; ANDROID_RELEASE_VERIFIED=false hides). iOS: placeholder ignored |iOS link only after IOS_RELEASE_VERIFIED=true with the published App Store URL; "iOS release unavailable" label until then |
 | IDENTITY_EXPORT_READONLY_MONGO_URL / IDENTITY_EXPORT_DIR |Not provisioned |Read-only websiteDB credential/private0700outside-repo path, approvedrecipient/retention; no chatsecrets |
 
 The website never uses app JWT_SECRET, appMongo access, MSG91 secrets or provider storage credentials. Old website environment keys are retained privately but ignored by migrated flows, not rotated or sent upstream. No setting in this website configures the app's half.

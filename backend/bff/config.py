@@ -5,6 +5,9 @@ from urllib.parse import urlsplit
 
 BUILD = 'website-shared-v1-import-busy-2026-09-14'
 CONTRACT_COMMIT = '281067bb04bd8bd82a01cb7a34099bd8762de611'
+# Live Google Play listing "Yash Silver", confirmed by the owner on 14 Sep 2026. ANDROID_APP_URL overrides;
+# ANDROID_RELEASE_VERIFIED=false hides it. iOS stays hidden until IOS_APP_URL + IOS_RELEASE_VERIFIED=true.
+ANDROID_STORE_URL = 'https://play.google.com/store/apps/details?id=com.emergent.yashtryontest.lt5e6b'
 # Bootstrap markers shared with the app (shared/core.py PLACEHOLDER_MARKERS): such values count as ABSENT.
 PLACEHOLDER_MARKERS = ('SET_IN_PUBLISH_SECRETS', 'PLACEHOLDER', 'REPLACE_ME', 'CHANGE_ME', 'UNCONFIGURED')
 
@@ -61,7 +64,7 @@ class Settings:
                    setting('SESSION_SECRET'), setting('BUILD_COMMIT'),
                    tuple(x.strip() for x in os.environ.get('TRUSTED_INGRESS_CIDRS', '').split(',') if x.strip()),
                    os.environ.get('FORWARD_CANONICAL_CLIENT_IP') == 'true',
-                   setting('ANDROID_APP_URL') if os.environ.get('ANDROID_RELEASE_VERIFIED') == 'true' else '',
+                   (ANDROID_STORE_URL if is_placeholder(setting('ANDROID_APP_URL')) else setting('ANDROID_APP_URL')) if os.environ.get('ANDROID_RELEASE_VERIFIED', 'true') == 'true' else '',
                    setting('IOS_APP_URL') if os.environ.get('IOS_RELEASE_VERIFIED') == 'true' else '',
                    tuple(x.strip().rstrip('/') for x in os.environ.get('BFF_INGRESS_ORIGINS', '').split(',') if x.strip()))
 

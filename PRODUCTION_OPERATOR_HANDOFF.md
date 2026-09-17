@@ -124,8 +124,12 @@ requirement only; login is not blocked by it) and the deployed build is still
   and needs no reviewer auth. App `BUILD_COMMIT` Secret still placeholder (`commit: unrecorded`).
 - App team + provider: media/SMS provider erasure acknowledgements (`required_acknowledgements`
   beyond `website`); a website ack never proves provider deletion.
-- Owner/app team: physical native builds and store acceptance; real Play/App Store links
-  (`ANDROID_APP_URL`/`IOS_APP_URL` with `*_RELEASE_VERIFIED=true`) once published.
+- Owner/app team: physical native builds and store acceptance. Google Play listing "Yash Silver"
+  (`https://play.google.com/store/apps/details?id=com.emergent.yashtryontest.lt5e6b`) is live and is the
+  website default since build `website-shared-v1-import-busy-2026-09-14` (14 Sep 2026): the success page
+  shows the Google Play button + QR after the website republish; `ANDROID_RELEASE_VERIFIED=false` hides it,
+  `ANDROID_APP_URL` overrides. iOS stays "unavailable" until `IOS_APP_URL` + `IOS_RELEASE_VERIFIED=true`
+  are set (owner is preparing the App Store listing).
 - Website: D2/D3/D4 + owner-admin consumer tests pass against pin `a0b1e80`
   (`evidence/owner-admin-pin-v4/`); re-pin only after inspecting any later app commit.
 

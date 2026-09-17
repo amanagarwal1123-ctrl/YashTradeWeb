@@ -199,6 +199,7 @@ async def shared_apps(monkeypatch):
     if "/app/backend" not in sys.path:
         sys.path.insert(0, "/app/backend")
     website_server = _load_module("website_server_shared_tests", "/app/backend/server.py")
+    from bff.config import ANDROID_STORE_URL
 
     origins = ("https://website.test", FRONTEND_URL) if FRONTEND_URL else ("https://website.test",)
 
@@ -213,6 +214,7 @@ async def shared_apps(monkeypatch):
         build_commit="test-commit",
         trusted_ingress=(),
         forward_client_ip=False,
+        android_url=ANDROID_STORE_URL,  # live listing, as production ships it
         ingress_origins=("https://yash-scheme-hub.cluster-8.preview.emergentcf.cloud",),
     )
     provider = website_server.Canonical(cfg, transport=ASGITransport(app=canonical_server.app))

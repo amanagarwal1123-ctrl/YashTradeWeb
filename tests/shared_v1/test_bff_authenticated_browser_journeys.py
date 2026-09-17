@@ -274,6 +274,13 @@ async def test_authenticated_browser_journeys_routed_to_isolated_bff(shared_apps
             await page.fill('[data-testid="public-otp-input"]', otp_public)
             await page.click('[data-testid="public-otp-verify-button"]', force=True)
             await page.wait_for_selector('[data-testid="public-success-heading"]', timeout=20000)
+            # Store links: the live Google Play listing is shown as button + QR; iOS stays "unavailable" until published.
+            play_url = "https://play.google.com/store/apps/details?id=com.emergent.yashtryontest.lt5e6b"
+            assert await page.get_attribute('[data-testid="public-download-android-button"]', "href") == play_url
+            assert await page.locator('[data-testid="public-success-qr"] svg').count() == 1
+            assert await page.locator('[data-testid="ios-release-unavailable"]').count() == 1
+            assert await page.locator('[data-testid="public-download-ios-button"]').count() == 0
+            await page.screenshot(path=str(evidence_dir / 'public-success-store-links-1440.jpeg'), type='jpeg', quality=20, full_page=False)
 
             # Public deletion page: optional win-back opt-in + reason (account still deleted), then "talk to us first" callback.
             now_iso = datetime.now(timezone.utc).isoformat()

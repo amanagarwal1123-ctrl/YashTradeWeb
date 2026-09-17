@@ -497,6 +497,31 @@ def test_from_env_uses_runtime_environment_over_dotenv_and_parses_origins(monkey
     assert Settings.from_env().origins == SITE_ORIGINS, "trailing slashes/whitespace normalised; placeholder entries dropped"
 
 
+def test_store_links_default_to_the_live_google_play_listing_and_keep_ios_hidden(monkeypatch):
+    # module: owner-confirmed Play listing (14 Sep 2026) ships by default; env can override or hide it; iOS stays gated
+    from bff.config import ANDROID_STORE_URL
+    for name in ("ANDROID_APP_URL", "ANDROID_RELEASE_VERIFIED", "IOS_APP_URL", "IOS_RELEASE_VERIFIED"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("MONGO_URL", "mongodb://localhost:27017")
+    monkeypatch.setenv("DB_NAME", "unused")
+    monkeypatch.setenv("SESSION_SECRET", secrets.token_urlsafe(48))
+    assert ANDROID_STORE_URL == "https://play.google.com/store/apps/details?id=com.emergent.yashtryontest.lt5e6b"
+    assert Settings.from_env().downloads() == {"android_url": ANDROID_STORE_URL, "ios_url": None}
+    monkeypatch.setenv("IOS_APP_URL", "https://apps.apple.com/app/yash-trade/id0000000000")
+    monkeypatch.setenv("IOS_RELEASE_VERIFIED", "true")
+    assert Settings.from_env().downloads()["ios_url"] is None, "placeholder App Store id never reaches customers even when flagged"
+    monkeypatch.setenv("IOS_APP_URL", "https://apps.apple.com/in/app/yash-silver/id6740000001")
+    assert Settings.from_env().downloads()["ios_url"] == "https://apps.apple.com/in/app/yash-silver/id6740000001"
+    monkeypatch.setenv("ANDROID_RELEASE_VERIFIED", "false")
+    assert Settings.from_env().downloads()["android_url"] is None
+    monkeypatch.setenv("ANDROID_RELEASE_VERIFIED", "true")
+    monkeypatch.setenv("ANDROID_APP_URL", "http://play.google.com/store/apps/details?id=x")
+    assert Settings.from_env().downloads()["android_url"] is None, "only https play.google.com links are shown"
+    monkeypatch.setenv("ANDROID_APP_URL", "SET_IN_PUBLISH_SECRETS")
+    assert Settings.from_env().downloads()["android_url"] == ANDROID_STORE_URL, "a placeholder override falls back to the live listing"
+
+
+
 def test_actual_backend_dotenv_declares_required_names_once_without_real_secrets_in_placeholders():
     # module: the real backend/.env (gitignored) registers every production setting name exactly once
     from dotenv import dotenv_values
