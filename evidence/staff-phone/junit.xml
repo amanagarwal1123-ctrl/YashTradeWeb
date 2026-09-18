@@ -1,0 +1,291 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="124" time="114.953" timestamp="2026-09-18T16:10:20.163907+00:00" hostname="agent-env-0828ba8a-ed50-4638-8793-7f0d1df2d900"><testcase classname="tests.shared_v1.test_bff_auth_readiness" name="test_missing_config_returns_ready_503_live_200_and_neutral_unavailable_message[asyncio]" time="0.731" /><testcase classname="tests.shared_v1.test_bff_auth_readiness" name="test_staff_missing_key_blocks_staff_only_while_enrollment_and_deletion_remain_available[asyncio]" time="0.339" /><testcase classname="tests.shared_v1.test_bff_auth_readiness" name="test_reused_service_keys_fail_closed_with_auth_service_unavailable_and_no_session[asyncio]" time="0.339" /><testcase classname="tests.shared_v1.test_bff_auth_readiness" name="test_public_auth_status_rejects_unknown_origin_and_masks_flows[asyncio]" time="0.380" /><testcase classname="tests.shared_v1.test_bff_auth_readiness" name="test_readiness_uses_only_documented_get_probes_and_short_cache_no_mutation_calls[asyncio]" time="0.332" /><testcase classname="tests.shared_v1.test_bff_auth_session" name="test_staff_portal_login_sets_secure_session_cookie_only_for_staff[asyncio]" time="0.431" /><testcase classname="tests.shared_v1.test_bff_auth_session" name="test_customer_cannot_create_staff_session_on_portal_flow[asyncio]" time="0.443" /><testcase classname="tests.shared_v1.test_bff_auth_session" name="test_csrf_and_origin_enforced_for_mutations[asyncio]" time="0.363" /><testcase classname="tests.shared_v1.test_bff_auth_session" name="test_same_service_and_enrollment_key_fails_closed[asyncio]" time="0.345" /><testcase classname="tests.shared_v1.test_bff_auth_session" name="test_demotion_revokes_existing_staff_session[asyncio]" time="0.509" /><testcase classname="tests.shared_v1.test_bff_auth_session" name="test_logout_uncertainty_clears_cookie_and_local_session[asyncio]" time="0.425" /><testcase classname="tests.shared_v1.test_bff_auth_session" name="test_concurrent_refresh_across_two_bff_workers_rotates_once[asyncio]" time="0.525" /><testcase classname="tests.shared_v1.test_bff_authenticated_browser_journeys" name="test_authenticated_browser_journeys_routed_to_isolated_bff[asyncio]" time="65.457" /><testcase classname="tests.shared_v1.test_bff_feature_matrix" name="test_ingress_alias_requires_matching_x_website_origin[asyncio]" time="0.337" /><testcase classname="tests.shared_v1.test_bff_feature_matrix" name="test_ingress_alias_with_matching_x_website_origin_is_accepted[asyncio]" time="0.382" /><testcase classname="tests.shared_v1.test_bff_feature_matrix" name="test_admin_invalid_phone_rejected_with_422[asyncio]" time="0.419" /><testcase classname="tests.shared_v1.test_bff_feature_matrix" name="test_enrollment_persists_once_and_verify_replay_returns_same_customer[asyncio]" time="0.388" /><testcase classname="tests.shared_v1.test_bff_feature_matrix" name="test_enrollment_grant_expired_transitions_to_verification_required[asyncio]" time="0.403" /><testcase classname="tests.shared_v1.test_bff_feature_matrix" name="test_billing_role_session_and_mutation_restrictions[asyncio]" time="0.481" /><testcase classname="tests.shared_v1.test_bff_feature_matrix" name="test_telecaller_cannot_mutate_rates[asyncio]" time="0.438" /><testcase classname="tests.shared_v1.test_bff_feature_matrix" name="test_admin_customer_phone_patch_blocked_at_bff[asyncio]" time="0.450" /><testcase classname="tests.shared_v1.test_bff_feature_matrix" name="test_requests_claim_race_and_stale_version_guard[asyncio]" time="0.558" /><testcase classname="tests.shared_v1.test_bff_feature_matrix" name="test_products_upload_and_crud_roundtrip_preserves_media_path[asyncio]" time="0.476" /><testcase classname="tests.shared_v1.test_bff_feature_matrix" name="test_pdf_sample_download_and_chunk_acknowledgement[asyncio]" time="0.477" /><testcase classname="tests.shared_v1.test_bff_followup_core_regressions" name="test_rates_changed_only_preserves_untouched_gold_and_enforces_version_conflict_409[asyncio]" time="0.514" /><testcase classname="tests.shared_v1.test_bff_followup_core_regressions" name="test_rate_slabs_labour_ambiguity_structured_basis_edit_and_soft_delete_versioned[asyncio]" time="0.459" /><testcase classname="tests.shared_v1.test_bff_followup_core_regressions" name="test_customers_pagination_search_assignment_and_ist_filters_over_20_records[asyncio]" time="0.440" /><testcase classname="tests.shared_v1.test_bff_followup_core_regressions" name="test_all_7_request_types_visible_as_unassigned_with_consistent_counts_across_roles[asyncio]" time="5.225" /><testcase classname="tests.shared_v1.test_bff_followup_core_regressions" name="test_request_resolution_reopen_idempotency_history_and_today_metrics_cohort[asyncio]" time="0.579" /><testcase classname="tests.shared_v1.test_bff_followup_core_regressions" name="test_deletion_grant_cleanup_ack_and_no_resurrection_via_enrollment[asyncio]" time="0.546" /><testcase classname="tests.shared_v1.test_bff_followup_core_regressions" name="test_media_usage_and_lifecycle_audit_reports_audited_true_zero_remote_deletions[asyncio]" time="0.586" /><testcase classname="tests.shared_v1.test_bff_followup_core_regressions" name="test_d2_customer_search_returns_envelope_for_billing_and_admin_and_denies_telecaller[asyncio]" time="0.540" /><testcase classname="tests.shared_v1.test_bff_followup_core_regressions" name="test_d3_customer_id_history_is_paginated_complete_and_rejects_malformed_or_unknown_ids[asyncio]" time="0.591" /><testcase classname="tests.shared_v1.test_bff_followup_core_regressions" name="test_d3_history_is_withheld_when_the_app_lacks_customer_id_capability[asyncio]" time="0.564" /><testcase classname="tests.shared_v1.test_bff_followup_core_regressions" name="test_owner_admin_bootstrap_on_pinned_app_promotes_same_record_and_website_routes_canonical_role_admin[asyncio]" time="0.516" /><testcase classname="tests.shared_v1.test_bff_followup_core_regressions" name="test_d4_deletion_feed_cursor_consumer_acknowledges_all_events_beyond_100_and_is_idempotent[asyncio]" time="1.844" /><testcase classname="tests.shared_v1.test_bff_followup_core_regressions" name="test_d4_partial_failure_restart_and_retry_only_acknowledge_completed_cleanup[asyncio]" time="1.844" /><testcase classname="tests.shared_v1.test_bff_followup_core_regressions" name="test_identity_export_projection_function_uses_stored_links_only_and_no_extra_fields" time="0.002" /><testcase classname="tests.shared_v1.test_bff_import_busy" name="test_chunk_upload_waits_out_the_app_storage_lock[asyncio]" time="2.344" /><testcase classname="tests.shared_v1.test_bff_import_busy" name="test_persistent_app_lock_is_reported_and_the_same_chunk_resumes_later[asyncio]" time="0.801" /><testcase classname="tests.shared_v1.test_bff_import_busy" name="test_other_busy_mutations_are_not_retried_by_the_proxy[asyncio]" time="0.477" /><testcase classname="tests.shared_v1.test_bff_pdf_watch" name="test_page_budget_timeout_is_resumed_from_checkpoint_until_review[asyncio]" time="5.672" /><testcase classname="tests.shared_v1.test_bff_pdf_watch" name="test_per_page_budget_then_operator_resume_restarts_and_pause_stops[asyncio]" time="3.246" /><testcase classname="tests.shared_v1.test_bff_pdf_watch" name="test_source_errors_are_not_retried_and_records_are_owner_scoped[asyncio]" time="4.650"><failure message="pymongo.errors.AutoReconnect: localhost:27017: connection closed (configured timeouts: connectTimeoutMS: 20000.0ms)">self = Connection(&lt;socket.socket [closed] fd=-1, family=2, type=1, proto=6&gt;) CLOSED at 272784308545040
+dbname = 'website_test_4bc0aa8c'
+spec = SON([('insert', 'bff_sessions'), ('ordered', True), ('lsid', {'id': Binary(b'\x1b\x06\x0fn\xc6\xa5E\x9d\x89\xa8Gh\x15E...1789747923.3568616, 'expires_at': datetime.datetime(2026, 10, 18, 16, 12, 3, 356862, tzinfo=datetime.timezone.utc)}])])
+read_preference = Primary()
+codec_options = CodecOptions(document_class=dict, tz_aware=False, uuid_representation=UuidRepresentation.UNSPECIFIED, unicode_decode_e...ne, type_registry=TypeRegistry(type_codecs=[], fallback_encoder=None), datetime_conversion=DatetimeConversion.DATETIME)
+check = True, allowable_errors = None, read_concern = None
+write_concern = WriteConcern(), parse_write_concern_error = False
+collation = None
+session = &lt;pymongo.client_session.ClientSession object at 0xf81965ad0190&gt;
+client = MongoClient(host=['localhost:27017'], document_class=dict, tz_aware=False, connect=False, driver=DriverInfo(name='Motor', version='3.3.1', platform='asyncio'))
+retryable_write = False, publish_events = True, user_fields = None
+exhaust_allowed = False
+
+    @_handle_reauth
+    def command(
+        self,
+        dbname: str,
+        spec: MutableMapping[str, Any],
+        read_preference: _ServerMode = ReadPreference.PRIMARY,
+        codec_options: CodecOptions = DEFAULT_CODEC_OPTIONS,
+        check: bool = True,
+        allowable_errors: Optional[Sequence[Union[str, int]]] = None,
+        read_concern: Optional[ReadConcern] = None,
+        write_concern: Optional[WriteConcern] = None,
+        parse_write_concern_error: bool = False,
+        collation: Optional[_CollationIn] = None,
+        session: Optional[ClientSession] = None,
+        client: Optional[MongoClient] = None,
+        retryable_write: bool = False,
+        publish_events: bool = True,
+        user_fields: Optional[Mapping[str, Any]] = None,
+        exhaust_allowed: bool = False,
+    ) -&gt; dict[str, Any]:
+        """Execute a command or raise an error.
+    
+        :Parameters:
+          - `dbname`: name of the database on which to run the command
+          - `spec`: a command document as a dict, SON, or mapping object
+          - `read_preference`: a read preference
+          - `codec_options`: a CodecOptions instance
+          - `check`: raise OperationFailure if there are errors
+          - `allowable_errors`: errors to ignore if `check` is True
+          - `read_concern`: The read concern for this command.
+          - `write_concern`: The write concern for this command.
+          - `parse_write_concern_error`: Whether to parse the
+            ``writeConcernError`` field in the command response.
+          - `collation`: The collation for this command.
+          - `session`: optional ClientSession instance.
+          - `client`: optional MongoClient for gossipping $clusterTime.
+          - `retryable_write`: True if this command is a retryable write.
+          - `publish_events`: Should we publish events for this command?
+          - `user_fields` (optional): Response fields that should be decoded
+            using the TypeDecoders from codec_options, passed to
+            bson._decode_all_selective.
+        """
+        self.validate_session(client, session)
+        session = _validate_session_write_concern(session, write_concern)
+    
+        # Ensure command name remains in first place.
+        if not isinstance(spec, ORDERED_TYPES):  # type:ignore[arg-type]
+            spec = SON(spec)
+    
+        if not (write_concern is None or write_concern.acknowledged or collation is None):
+            raise ConfigurationError("Collation is unsupported for unacknowledged writes.")
+    
+        self.add_server_api(spec)
+        if session:
+            session._apply_to(spec, retryable_write, read_preference, self)
+        self.send_cluster_time(spec, session, client)
+        listeners = self.listeners if publish_events else None
+        unacknowledged = bool(write_concern and not write_concern.acknowledged)
+        if self.op_msg_enabled:
+            self._raise_if_not_writable(unacknowledged)
+        try:
+&gt;           return command(
+                self,
+                dbname,
+                spec,
+                self.is_mongos,
+                read_preference,
+                codec_options,
+                session,
+                client,
+                check,
+                allowable_errors,
+                self.address,
+                listeners,
+                self.max_bson_size,
+                read_concern,
+                parse_write_concern_error=parse_write_concern_error,
+                collation=collation,
+                compression_ctx=self.compression_context,
+                use_op_msg=self.op_msg_enabled,
+                unacknowledged=unacknowledged,
+                user_fields=user_fields,
+                exhaust_allowed=exhaust_allowed,
+                write_concern=write_concern,
+            )
+
+/root/.venv/lib/python3.11/site-packages/pymongo/pool.py:968: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/root/.venv/lib/python3.11/site-packages/pymongo/network.py:182: in command
+    reply = receive_message(conn, request_id)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/pymongo/network.py:257: in receive_message
+    length, _, response_to, op_code = _UNPACK_HEADER(_receive_data_on_socket(conn, 16, deadline))
+                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+conn = Connection(&lt;socket.socket [closed] fd=-1, family=2, type=1, proto=6&gt;) CLOSED at 272784308545040
+length = 16, deadline = None
+
+    def _receive_data_on_socket(conn: Connection, length: int, deadline: Optional[float]) -&gt; memoryview:
+        buf = bytearray(length)
+        mv = memoryview(buf)
+        bytes_read = 0
+        while bytes_read &lt; length:
+            try:
+                wait_for_read(conn, deadline)
+                # CSOT: Update timeout. When the timeout has expired perform one
+                # final non-blocking recv. This helps avoid spurious timeouts when
+                # the response is actually already buffered on the client.
+                if _csot.get_timeout() and deadline is not None:
+                    conn.set_conn_timeout(max(deadline - time.monotonic(), 0))
+                chunk_length = conn.conn.recv_into(mv[bytes_read:])
+            except BLOCKING_IO_ERRORS:
+                raise socket.timeout("timed out") from None
+            except OSError as exc:
+                if _errno_from_exception(exc) == errno.EINTR:
+                    continue
+                raise
+            if chunk_length == 0:
+&gt;               raise OSError("connection closed")
+E               OSError: connection closed
+
+/root/.venv/lib/python3.11/site-packages/pymongo/network.py:348: OSError
+
+The above exception was the direct cause of the following exception:
+
+bff_client = &lt;httpx.AsyncClient object at 0xf818d43be8d0&gt;
+shared_apps = {'mongo': AsyncIOMotorClient(MongoClient(host=['localhost:27017'], document_class=dict, tz_aware=False, connect=False,...connect=False, driver=DriverInfo(name='Motor', version='3.3.1', platform='asyncio')), 'canonical_test_3bbf4774')), ...}
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0xf818dfe40110&gt;
+fast_watch = None
+
+    @pytest.mark.anyio
+    async def test_source_errors_are_not_retried_and_records_are_owner_scoped(bff_client, shared_apps, monkeypatch, fast_watch):
+        watch, website_db = shared_apps["bff_app"].state.pdf_watch, shared_apps["website_db"]
+        try:
+&gt;           await _login_staff(bff_client, shared_apps["sent_otps"], "9000000101")
+
+tests/shared_v1/test_bff_pdf_watch.py:172: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/shared_v1/test_bff_auth_session.py:58: in _login_staff
+    verify = await client.post(
+/root/.venv/lib/python3.11/site-packages/httpx/_client.py:1859: in post
+    return await self.request(
+/root/.venv/lib/python3.11/site-packages/httpx/_client.py:1540: in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/httpx/_client.py:1629: in send
+    response = await self._send_handling_auth(
+/root/.venv/lib/python3.11/site-packages/httpx/_client.py:1657: in _send_handling_auth
+    response = await self._send_handling_redirects(
+/root/.venv/lib/python3.11/site-packages/httpx/_client.py:1694: in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/httpx/_client.py:1730: in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/httpx/_transports/asgi.py:170: in handle_async_request
+    await self.app(scope, receive, send)
+/root/.venv/lib/python3.11/site-packages/fastapi/applications.py:1054: in __call__
+    await super().__call__(scope, receive, send)
+/root/.venv/lib/python3.11/site-packages/starlette/applications.py:123: in __call__
+    await self.middleware_stack(scope, receive, send)
+/root/.venv/lib/python3.11/site-packages/starlette/middleware/errors.py:186: in __call__
+    raise exc
+/root/.venv/lib/python3.11/site-packages/starlette/middleware/errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+/root/.venv/lib/python3.11/site-packages/starlette/middleware/base.py:189: in __call__
+    with collapse_excgroups():
+/usr/local/lib/python3.11/contextlib.py:158: in __exit__
+    self.gen.throw(typ, value, traceback)
+/root/.venv/lib/python3.11/site-packages/starlette/_utils.py:93: in collapse_excgroups
+    raise exc
+/root/.venv/lib/python3.11/site-packages/starlette/middleware/base.py:191: in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/bff/security.py:88: in security_middleware
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/starlette/middleware/base.py:165: in call_next
+    raise app_exc
+/root/.venv/lib/python3.11/site-packages/starlette/middleware/base.py:151: in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+/root/.venv/lib/python3.11/site-packages/starlette/middleware/exceptions.py:65: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+/root/.venv/lib/python3.11/site-packages/starlette/_exception_handler.py:64: in wrapped_app
+    raise exc
+/root/.venv/lib/python3.11/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    await app(scope, receive, sender)
+/root/.venv/lib/python3.11/site-packages/starlette/routing.py:756: in __call__
+    await self.middleware_stack(scope, receive, send)
+/root/.venv/lib/python3.11/site-packages/starlette/routing.py:776: in app
+    await route.handle(scope, receive, send)
+/root/.venv/lib/python3.11/site-packages/starlette/routing.py:297: in handle
+    await self.app(scope, receive, send)
+/root/.venv/lib/python3.11/site-packages/starlette/routing.py:77: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+/root/.venv/lib/python3.11/site-packages/starlette/_exception_handler.py:64: in wrapped_app
+    raise exc
+/root/.venv/lib/python3.11/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    await app(scope, receive, sender)
+/root/.venv/lib/python3.11/site-packages/starlette/routing.py:72: in app
+    response = await func(request)
+               ^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/fastapi/routing.py:278: in app
+    raw_response = await run_endpoint_function(
+/root/.venv/lib/python3.11/site-packages/fastapi/routing.py:191: in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/bff/routes.py:139: in staff_verify
+    await db.bff_sessions.insert_one({'_id': digest(raw), 'canonical_user_id': me['id'], 'phone': me['phone'],
+/usr/local/lib/python3.11/concurrent/futures/thread.py:58: in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/pymongo/collection.py:669: in insert_one
+    self._insert_one(
+/root/.venv/lib/python3.11/site-packages/pymongo/collection.py:609: in _insert_one
+    self.__database.client._retryable_write(acknowledged, _insert_command, session)
+/root/.venv/lib/python3.11/site-packages/pymongo/mongo_client.py:1523: in _retryable_write
+    return self._retry_with_session(retryable, func, s, bulk)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/pymongo/mongo_client.py:1421: in _retry_with_session
+    return self._retry_internal(
+/root/.venv/lib/python3.11/site-packages/pymongo/_csot.py:107: in csot_wrapper
+    return func(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/pymongo/mongo_client.py:1462: in _retry_internal
+    ).run()
+      ^^^^^
+/root/.venv/lib/python3.11/site-packages/pymongo/mongo_client.py:2315: in run
+    return self._read() if self._is_read else self._write()
+                                              ^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/pymongo/mongo_client.py:2423: in _write
+    return self._func(self._session, conn, self._retryable)  # type: ignore
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/pymongo/collection.py:597: in _insert_command
+    result = conn.command(
+/root/.venv/lib/python3.11/site-packages/pymongo/helpers.py:322: in inner
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/pymongo/pool.py:996: in command
+    self._raise_connection_failure(error)
+/root/.venv/lib/python3.11/site-packages/pymongo/pool.py:1171: in _raise_connection_failure
+    _raise_connection_failure(self.address, error, timeout_details=details)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+address = ('localhost', 27017), error = OSError('connection closed')
+msg_prefix = None, timeout_details = {'connectTimeoutMS': 20000.0}
+
+    def _raise_connection_failure(
+        address: Any,
+        error: Exception,
+        msg_prefix: Optional[str] = None,
+        timeout_details: Optional[dict[str, float]] = None,
+    ) -&gt; NoReturn:
+        """Convert a socket.error to ConnectionFailure and raise it."""
+        host, port = address
+        # If connecting to a Unix socket, port will be None.
+        if port is not None:
+            msg = "%s:%d: %s" % (host, port, error)
+        else:
+            msg = f"{host}: {error}"
+        if msg_prefix:
+            msg = msg_prefix + msg
+        if "configured timeouts" not in msg:
+            msg += format_timeout_details(timeout_details)
+        if isinstance(error, socket.timeout):
+            raise NetworkTimeout(msg) from error
+        elif isinstance(error, SSLError) and "timed out" in str(error):
+            # Eventlet does not distinguish TLS network timeouts from other
+            # SSLErrors (https://github.com/eventlet/eventlet/issues/692).
+            # Luckily, we can work around this limitation because the phrase
+            # 'timed out' appears in all the timeout related SSLErrors raised.
+            raise NetworkTimeout(msg) from error
+        else:
+&gt;           raise AutoReconnect(msg) from error
+E           pymongo.errors.AutoReconnect: localhost:27017: connection closed (configured timeouts: connectTimeoutMS: 20000.0ms)
+
+/root/.venv/lib/python3.11/site-packages/pymongo/pool.py:411: AutoReconnect</failure></testcase><testcase classname="tests.shared_v1.test_bff_pdf_watch" name="test_watcher_stops_when_the_website_session_ends[asyncio]" time="2.187" /><testcase classname="tests.shared_v1.test_bff_readiness_adapter" name="test_full_readiness_verifies_both_credentials_once_each[asyncio]" time="0.002" /><testcase classname="tests.shared_v1.test_bff_readiness_adapter" name="test_staff_only_503_keeps_enrollment_and_deletion_ready_without_sending_staff_key[asyncio]" time="0.001" /><testcase classname="tests.shared_v1.test_bff_readiness_adapter" name="test_owner_admin_bootstrap_state_is_surfaced_read_only_and_never_gates_website_flows[asyncio]" time="0.003" /><testcase classname="tests.shared_v1.test_bff_readiness_adapter" name="test_missing_local_enrollment_settings_disable_enrollment_and_deletion_but_not_staff[asyncio]" time="0.001" /><testcase classname="tests.shared_v1.test_bff_readiness_adapter" name="test_database_outage_marks_every_flow_unavailable_and_sends_no_credentials[asyncio]" time="0.001" /><testcase classname="tests.shared_v1.test_bff_readiness_adapter" name="test_unexpected_health_responses_fail_every_flow_closed[asyncio-html]" time="0.001" /><testcase classname="tests.shared_v1.test_bff_readiness_adapter" name="test_unexpected_health_responses_fail_every_flow_closed[asyncio-malformed-json]" time="0.001" /><testcase classname="tests.shared_v1.test_bff_readiness_adapter" name="test_unexpected_health_responses_fail_every_flow_closed[asyncio-json-array]" time="0.001" /><testcase classname="tests.shared_v1.test_bff_readiness_adapter" name="test_unexpected_health_responses_fail_every_flow_closed[asyncio-arbitrary-503]" time="0.001" /><testcase classname="tests.shared_v1.test_bff_readiness_adapter" name="test_unexpected_health_responses_fail_every_flow_closed[asyncio-text-503]" time="0.001" /><testcase classname="tests.shared_v1.test_bff_readiness_adapter" name="test_unexpected_health_responses_fail_every_flow_closed[asyncio-liveness-body]" time="0.001" /><testcase classname="tests.shared_v1.test_bff_readiness_adapter" name="test_unexpected_health_responses_fail_every_flow_closed[asyncio-bad-flow-type]" time="0.001" /><testcase classname="tests.shared_v1.test_bff_readiness_adapter" name="test_unexpected_health_responses_fail_every_flow_closed[asyncio-unsafe-issue-text]" time="0.001" /><testcase classname="tests.shared_v1.test_bff_readiness_adapter" name="test_unexpected_health_responses_fail_every_flow_closed[asyncio-status-mismatch-503]" time="0.001" /><testcase classname="tests.shared_v1.test_bff_readiness_adapter" name="test_unexpected_health_responses_fail_every_flow_closed[asyncio-status-mismatch-200]" time="0.001" /><testcase classname="tests.shared_v1.test_bff_readiness_adapter" name="test_unexpected_health_responses_fail_every_flow_closed[asyncio-http-500]" time="0.001" /><testcase classname="tests.shared_v1.test_bff_readiness_adapter" name="test_unexpected_health_responses_fail_every_flow_closed[asyncio-redirect]" time="0.001" /><testcase classname="tests.shared_v1.test_bff_readiness_adapter" name="test_present_but_wrong_staff_key_disables_staff_only_with_redacted_report[asyncio]" time="0.029" /><testcase classname="tests.shared_v1.test_bff_readiness_adapter" name="test_wrong_enrollment_key_disables_enrollment_and_deletion_together[asyncio]" time="0.001" /><testcase classname="tests.shared_v1.test_bff_readiness_adapter" name="test_app_side_unconfigured_credential_route_503_is_reported_as_configuration_issue[asyncio]" time="0.001" /><testcase classname="tests.shared_v1.test_bff_readiness_adapter" name="test_forbidden_credential_routing_is_rejected_before_any_request[asyncio]" time="0.001" /><testcase classname="tests.shared_v1.test_bff_readiness_adapter" name="test_credential_probe_never_follows_redirect_or_leaks_secret_to_another_origin[asyncio]" time="0.001" /><testcase classname="tests.shared_v1.test_bff_readiness_adapter" name="test_timeout_then_recovery_honours_unready_cache_window[asyncio]" time="0.002" /><testcase classname="tests.shared_v1.test_bff_readiness_adapter" name="test_concurrent_snapshot_requests_coalesce_into_one_probe_set[asyncio]" time="0.102" /><testcase classname="tests.shared_v1.test_bff_readiness_adapter" name="test_old_public_health_contract_is_interpreted_without_claiming_key_matching[asyncio]" time="0.001" /><testcase classname="tests.shared_v1.test_bff_readiness_adapter" name="test_declared_credential_readiness_without_flows_never_falls_back_to_public_booleans[asyncio]" time="0.001" /><testcase classname="tests.shared_v1.test_bff_readiness_adapter" name="test_failed_or_missing_staff_credential_probe_leaves_staff_unavailable[asyncio-route-missing-404]" time="0.001" /><testcase classname="tests.shared_v1.test_bff_readiness_adapter" name="test_failed_or_missing_staff_credential_probe_leaves_staff_unavailable[asyncio-verified-flag-absent]" time="0.001" /><testcase classname="tests.shared_v1.test_bff_readiness_adapter" name="test_failed_or_missing_staff_credential_probe_leaves_staff_unavailable[asyncio-wrong-flow-name]" time="0.001" /><testcase classname="tests.shared_v1.test_bff_readiness_adapter" name="test_failed_or_missing_staff_credential_probe_leaves_staff_unavailable[asyncio-html-200]" time="0.001" /><testcase classname="tests.shared_v1.test_bff_readiness_adapter" name="test_failed_or_missing_staff_credential_probe_leaves_staff_unavailable[asyncio-read-timeout]" time="0.001" /><testcase classname="tests.shared_v1.test_bff_readiness_adapter" name="test_both_production_website_origins_allowed_and_unrelated_origin_rejected[asyncio]" time="0.020" /><testcase classname="tests.shared_v1.test_bff_readiness_adapter" name="test_placeholder_settings_report_invalid_not_present" time="0.000" /><testcase classname="tests.shared_v1.test_bff_readiness_adapter" name="test_origin_entries_explain_each_rejected_allowlist_entry_without_echoing_values" time="0.000" /><testcase classname="tests.shared_v1.test_bff_readiness_adapter" name="test_from_env_uses_runtime_environment_over_dotenv_and_parses_origins" time="0.003" /><testcase classname="tests.shared_v1.test_bff_readiness_adapter" name="test_store_links_default_to_the_live_google_play_listing_and_keep_ios_hidden" time="0.000" /><testcase classname="tests.shared_v1.test_bff_readiness_adapter" name="test_actual_backend_dotenv_declares_required_names_once_without_real_secrets_in_placeholders" time="0.002" /><testcase classname="tests.shared_v1.test_bff_staff_phone" name="test_adding_staff_with_a_customer_number_needs_conversion_which_keeps_the_identity[asyncio]" time="0.492" /><testcase classname="tests.shared_v1.test_bff_staff_phone" name="test_admin_cannot_set_another_staff_number_but_the_holder_changes_it_with_an_otp[asyncio]" time="0.684" /><testcase classname="tests.shared_v1.test_bff_winback" name="test_deletion_optin_keeps_only_consented_contact_plus_anonymous_churn_and_number_hash[asyncio]" time="0.529" /><testcase classname="tests.shared_v1.test_bff_winback" name="test_deletion_without_optin_keeps_no_contact_but_still_counts_churn[asyncio]" time="0.457" /><testcase classname="tests.shared_v1.test_bff_winback" name="test_callback_before_deletion_keeps_the_account_and_records_a_consented_callback[asyncio]" time="0.503" /><testcase classname="tests.shared_v1.test_bff_winback" name="test_staff_console_rbac_actions_history_and_opt_out_erasure[asyncio]" time="0.713" /><testcase classname="tests.shared_v1.test_bff_winback" name="test_returning_registration_is_flagged_from_the_keyed_hash_only_and_cleared_on_later_deletion[asyncio]" time="0.684" /><testcase classname="tests.shared_v1.test_bff_winback" name="test_in_app_deletion_consumed_by_d4_records_the_hash_from_the_websites_own_enrollment_draft[asyncio]" time="0.710" /><testcase classname="tests.shared_v1.test_release_gate_tool" name="test_gate_passes_only_with_credential_verified_readiness_on_both_origins" time="0.001" /><testcase classname="tests.shared_v1.test_release_gate_tool" name="test_gate_fails_on_unverified_or_mismatched_readiness[false-key-match]" time="0.001" /><testcase classname="tests.shared_v1.test_release_gate_tool" name="test_gate_fails_on_unverified_or_mismatched_readiness[null-key-match]" time="0.001" /><testcase classname="tests.shared_v1.test_release_gate_tool" name="test_gate_fails_on_unverified_or_mismatched_readiness[null-flow-verification]" time="0.001" /><testcase classname="tests.shared_v1.test_release_gate_tool" name="test_gate_fails_on_unverified_or_mismatched_readiness[false-flow-verification]" time="0.001" /><testcase classname="tests.shared_v1.test_release_gate_tool" name="test_gate_fails_on_unverified_or_mismatched_readiness[flow-issue]" time="0.001" /><testcase classname="tests.shared_v1.test_release_gate_tool" name="test_gate_fails_on_unverified_or_mismatched_readiness[legacy-contract]" time="0.001" /><testcase classname="tests.shared_v1.test_release_gate_tool" name="test_gate_fails_on_unverified_or_mismatched_readiness[unrecorded-commit]" time="0.001" /><testcase classname="tests.shared_v1.test_release_gate_tool" name="test_gate_fails_on_unverified_or_mismatched_readiness[wrong-build]" time="0.001" /><testcase classname="tests.shared_v1.test_release_gate_tool" name="test_gate_fails_on_unverified_or_mismatched_readiness[wrong-pin]" time="0.001" /><testcase classname="tests.shared_v1.test_release_gate_tool" name="test_gate_fails_on_unverified_or_mismatched_readiness[wrong-upstream-build]" time="0.001" /><testcase classname="tests.shared_v1.test_release_gate_tool" name="test_gate_fails_on_unverified_or_mismatched_readiness[unrecorded-upstream-commit]" time="0.001" /><testcase classname="tests.shared_v1.test_release_gate_tool" name="test_gate_fails_on_unverified_or_mismatched_readiness[not-ready]" time="0.001" /><testcase classname="tests.shared_v1.test_release_gate_tool" name="test_gate_fails_on_unverified_or_mismatched_readiness[flows-missing]" time="0.001" /><testcase classname="tests.shared_v1.test_release_gate_tool" name="test_gate_fails_on_unverified_or_mismatched_readiness[upstream-not-object]" time="0.001" /><testcase classname="tests.shared_v1.test_release_gate_tool" name="test_gate_fails_when_ready_is_structured_503" time="0.001" /><testcase classname="tests.shared_v1.test_release_gate_tool" name="test_gate_fails_on_origin_rejection_or_contradictory_public_status[origin-rejected]" time="0.001" /><testcase classname="tests.shared_v1.test_release_gate_tool" name="test_gate_fails_on_origin_rejection_or_contradictory_public_status[inconsistent-public-status]" time="0.001" /><testcase classname="tests.shared_v1.test_release_gate_tool" name="test_gate_fails_on_origin_rejection_or_contradictory_public_status[public-flows-missing]" time="0.001" /><testcase classname="tests.shared_v1.test_release_gate_tool" name="test_gate_fails_on_origin_rejection_or_contradictory_public_status[public-not-object]" time="0.001" /><testcase classname="tests.shared_v1.test_release_gate_tool" name="test_gate_fails_on_origin_rejection_or_contradictory_public_status[public-503]" time="0.001" /><testcase classname="tests.shared_v1.test_release_gate_tool" name="test_gate_fails_on_malformed_ready_bodies[html]" time="0.001" /><testcase classname="tests.shared_v1.test_release_gate_tool" name="test_gate_fails_on_malformed_ready_bodies[truncated-json]" time="0.001" /><testcase classname="tests.shared_v1.test_release_gate_tool" name="test_gate_fails_on_malformed_ready_bodies[array]" time="0.001" /><testcase classname="tests.shared_v1.test_release_gate_tool" name="test_gate_fails_on_malformed_ready_bodies[string]" time="0.001" /><testcase classname="tests.shared_v1.test_release_gate_tool" name="test_gate_fails_when_one_domain_is_unreachable" time="0.001" /><testcase classname="tests.shared_v1.test_release_gate_tool" name="test_absent_expectation_is_a_failure_not_a_wildcard[EXPECTED_WEBSITE_COMMIT]" time="0.001" /><testcase classname="tests.shared_v1.test_release_gate_tool" name="test_absent_expectation_is_a_failure_not_a_wildcard[EXPECTED_UPSTREAM_COMMIT]" time="0.001" /><testcase classname="tests.shared_v1.test_release_gate_tool" name="test_absent_expectation_is_a_failure_not_a_wildcard[EXPECTED_APP_CONTRACT_COMMIT]" time="0.001" /><testcase classname="tests.shared_v1.test_release_gate_tool" name="test_absent_expectation_is_a_failure_not_a_wildcard[EXPECTED_WEBSITE_BUILD]" time="0.001" /><testcase classname="tests.shared_v1.test_release_gate_tool" name="test_absent_expectation_is_a_failure_not_a_wildcard[EXPECTED_UPSTREAM_BUILD]" time="0.001" /><testcase classname="tests.shared_v1.test_release_gate_tool" name="test_absent_expectation_is_a_failure_not_a_wildcard[PUBLICATION_RECEIPT]" time="0.001" /><testcase classname="tests.shared_v1.test_release_gate_tool" name="test_non_hex_expected_commit_is_rejected" time="0.001" /><testcase classname="tests.shared_v1.test_release_gate_tool" name="test_evaluate_is_pure_and_lists_every_failed_check" time="0.000" /></testsuite></testsuites>
