@@ -180,3 +180,18 @@ Observed on production: resuming `Silver_Upload_03/04.pdf` failed on every chunk
 - App team (owner to request in the app chat): make `tracked_put` wait for the lock (e.g. `wait_seconds=30`)
   or scope it per job instead of globally; return `202` + progress for commits of more than ~50 rows (or
   commit in the background worker) so the browser never has to hold a multi-minute request.
+
+## Staff directory: "Use the admin conversion operation; customer ID must be preserved" (14 Sep 2026)
+Observed when adding staff whose number already belongs to a **customer** record: the app keeps ONE identity per
+number and refuses a second one (`409 EXPLICIT_CONVERSION_REQUIRED`); the same person must be *converted*
+(`POST /integrations/staff/{id}/convert`, keeps the ID and history). The website now explains this in plain words,
+finds the customer by number and offers the conversion with the ID prefilled (reason ≥ 10 characters), and
+reports "already a staff account — nothing new created" / "number already belongs to staff X with role Y".
+- Login numbers: the app changes a number only for the **signed-in person** after an OTP to the NEW number
+  (`/auth/phone-change/request|verify`, `409 PHONE_VERIFICATION_REQUIRED` on any admin PATCH of `phone`). The
+  website therefore has **My account → Change my login number** for every staff role (code goes to the new
+  number, all sessions are signed out, sign in again with the new number). An administrator cannot set another
+  person's number; the Edit form says so and links the admin's own record to My account.
+- App team (owner to request in the app chat) if admin-set numbers are wanted: an audited
+  `POST /integrations/staff/{id}/phone-change` that sends the OTP to the new number and lets the admin confirm
+  it, or accepts the change on the holder's next login. The website will adopt it when published.

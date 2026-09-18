@@ -109,6 +109,10 @@ async def test_authenticated_browser_journeys_routed_to_isolated_bff(shared_apps
 
     async with AsyncClient(transport=ASGITransport(app=shared_apps["bff_app"]), base_url="https://website.test") as asgi_client:
         pw = await async_playwright().start()
+        if not Path(pw.chromium.executable_path).exists():
+            # /pw-browsers does not survive pod restarts; fetch the pinned Chromium once instead of failing cold.
+            import subprocess
+            subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], check=True, timeout=600)
         browser = await pw.chromium.launch(headless=True, args=["--disable-dev-shm-usage"])
         context = await browser.new_context(viewport={"width": 1440, "height": 1080}, accept_downloads=True)
         await context.add_init_script(
@@ -347,6 +351,44 @@ async def test_authenticated_browser_journeys_routed_to_isolated_bff(shared_apps
             await page.fill('[data-testid="admin-otp-input"]', otp_admin)
             await page.click('[data-testid="admin-otp-verify-button"]', force=True)
             await page.wait_for_selector('[data-testid="nav-overview"]', timeout=20000)
+
+            # Staff directory — reported: "Use the admin conversion operation; customer ID must be preserved" when adding
+            # staff with a number that already belongs to a customer. The page must explain it and offer the conversion
+            # with the customer found by number (no canonical ID typing), keeping the identity.
+            await shared_apps["canonical_db"].users.insert_one({"id": "u_ui_shop", "phone": "9000000142", "phone_normalized": "9000000142", "name": "TEST Shop Owner",
+                "role": "customer", "status": "active", "account_status": "active", "session_version": 0, "phone_verified": True, "onboarding_status": "completed",
+                "shop_name": "TEST Silver Mart", "location": "Agra", "created_at": datetime.now(timezone.utc).isoformat(), "updated_at": datetime.now(timezone.utc).isoformat()})
+            await page.click('[data-testid="nav-staff"]', force=True)
+            await page.wait_for_selector('[data-testid="staff-table"]', timeout=15000)
+            await page.click('[data-testid="staff-add"]', force=True)
+            await page.fill('[data-testid="staff-name"]', "TEST Shop Owner")
+            await page.fill('[data-testid="staff-phone"]', "9000000142")
+            await page.click('[data-testid="staff-save"]', force=True)
+            await page.wait_for_selector('[data-testid="staff-error"]', timeout=15000)
+            assert "already registered as a customer" in await page.inner_text('[data-testid="staff-error"]')
+            await page.wait_for_selector('[data-testid="conversion-customer"]', timeout=15000)
+            conversion_text = await page.inner_text('[data-testid="conversion-customer"]')
+            assert "9000000142" in conversion_text and "TEST Silver Mart" in conversion_text and "u_ui_shop" in conversion_text
+            assert await page.locator('[data-testid="conversion-id"]').count() == 0, "no canonical ID typing when the customer was found"
+            await page.fill('[data-testid="conversion-reason"]', "Joined as telecaller today")
+            await page.click('[data-testid="conversion-submit"]', force=True)
+            await page.wait_for_selector('[data-testid="staff-info"]', timeout=15000)
+            assert "TEST Shop Owner is now a Telecaller" in await page.inner_text('[data-testid="staff-info"]')
+            await page.wait_for_selector('[data-testid="staff-row-u_ui_shop"]', timeout=15000)
+            converted_doc = await shared_apps["canonical_db"].users.find_one({"phone": "9000000142"}, {"_id": 0, "id": 1, "role": 1})
+            assert converted_doc == {"id": "u_ui_shop", "role": "telecaller"}
+            # Editing keeps the number read-only and explains the holder-verified change; own record links to My account.
+            await page.click('[data-testid="staff-edit-u_admin"]', force=True)
+            await page.wait_for_selector('[data-testid="staff-phone-rule"]', timeout=15000)
+            assert await page.is_disabled('[data-testid="staff-phone"]')
+            await page.click('[data-testid="staff-change-own-phone"]', force=True)
+            await page.wait_for_selector('[data-testid="account-phone-change"]', timeout=15000)
+            assert (await page.inner_text('[data-testid="account-phone"]')).strip() == "+91 9000000101"
+            assert "cannot set another person's number" in await page.inner_text('[data-testid="account-phone-rule"]')
+            await page.fill('[data-testid="account-new-phone"]', "9000000101")
+            assert await page.is_disabled('[data-testid="account-send-code"]'), "same number is not a change"
+            await page.screenshot(path=str(evidence_dir / "admin-account-1440.jpeg"), type="jpeg", quality=20, full_page=False)
+
 
             await page.click('[data-testid="nav-users"]', force=True)
             await page.wait_for_selector('[data-testid="customers-table"]', timeout=15000)

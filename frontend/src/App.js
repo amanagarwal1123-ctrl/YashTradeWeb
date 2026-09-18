@@ -23,6 +23,7 @@ import MediaUsage from '@/pages/admin/MediaUsage';
 import Leads from '@/pages/admin/Leads';
 import Rewards from '@/pages/admin/Rewards';
 import Winback from '@/pages/admin/Winback';
+import Account from '@/pages/admin/Account';
 import "@/App.css";
 import '@/shared.css';
 
@@ -53,6 +54,7 @@ export default function App() {
           <Route path="content" element={<Content />} />
           <Route path="media" element={<MediaUsage />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="account" element={<Account />} />
         </Route>
       </Routes>
       <Toaster position="top-center" richColors closeButton />

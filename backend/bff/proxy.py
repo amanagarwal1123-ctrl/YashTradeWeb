@@ -45,6 +45,8 @@ RULES = [
     ('GET|POST', 'about|schemes|brands|showroom|exhibitions|knowledge|stories', A),
     ('PUT|DELETE', rf'(schemes|brands|showroom|exhibitions)/{ID}', A),
     ('DELETE', rf'about/{ID}', A), ('GET', 'admin/deletion-requests|admin/ai/reports', A),
+    # Self-service only: the app changes a login number for the CALLER after an OTP to the new number.
+    ('POST', 'auth/phone-change/request|auth/phone-change/verify', STAFF),
 ]
 
 
@@ -125,6 +127,10 @@ async def proxy(path: str, request: Request, session=Depends(staff_session)):
         if media:
             return await upstream.binary(request.method, '/'+path, token=session['token'], json=body, params=params)
         result = await upstream.request(request.method, '/'+path, token=session['token'], json=body, params=params, extra=extra)
+        if path == 'auth/phone-change/verify':
+            # The app revoked every session of this identity; the website lease must not outlive it.
+            await request.app.state.db.bff_sessions.delete_one({'_id': session['sid']})
+            return {**result, 'website_session_ended': True}
         watched = re.fullmatch(rf'pdf-upload/({ID})/(complete|resume|pause|cancel|commit)', path)
         if watched and request.method == 'POST':
             jid, action = watched.groups()
