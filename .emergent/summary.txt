@@ -1,17 +1,151 @@
-<analysis>CANONICAL_API_BASE_URLENROLLMENT_INTEGRATION_KEYSTAFF_SERVICE_KEY.env/api/health/readyconfiguration_stateorigin_entries/api/health/readyBFF_ALLOWED_ORIGINSBFF_ALLOWED_ORIGINSorigin_entries/api/health/readyBFF_ALLOWED_ORIGINShttps://register.yashsilver.com,https://yash-register.emergent.host/api/health/ready9999813334adminApp.js9999813334/api/health/readybackend/.env/api/health/readyconfiguration_stateorigin_entriesZoneInfo.envtext
+<analysis>**original_problem_statement**: 
+Build a new Yash Ornaments customer enrollment website, its backend integration, and a private web administration panel. The architecture uses a strict Backend-for-Frontend (BFF) proxy model. The website must not act as an independent authority for OTPs, sessions, roles, or product records; it must proxy all authentication (via HTTPOnly cookies), customer enrollment, queries, product management, and chunked PDF uploads to the canonical Yash Trade App API.
+PRODUCT REQUIREMENTS: 
+1. Two-step public customer enrollment.
+2. Staff login routing based on canonical roles.
+3. D2, D3, and D4 consumers.
+4. Secure production deployments managed via platform secrets.
+5. Chunked PDF uploads with progress, multi-file queuing, and automated batching.
+6. Privacy policy & data safety alignment with app ecosystem.
+
+**User's preferred language**: 
+English
+(INSTRUCT: Next agent MUST respond in English only)
+
+**what currently exists?** 
+A React frontend connected to a FastAPI BFF proxying the Yash Trade App API. Features include strict proxy-based authentication, chunked PDF uploading with queuing/batching, and PII-compliant win-back/churn monitoring. The privacy policy and D4 deletion acknowledgement sync logic have been fully implemented. Additionally, the application now includes robust retry mechanisms for chunked PDF uploads (to prevent 409 errors), real Android Google Play store links, and capabilities for administrators to modify staff phone numbers using OTP verification.
+
+**Last working item**: 
+    - Last item agent was working: Fixing an issue with adding/editing staff and implementing a feature to allow admins to change staff phone numbers via OTP. This included creating  and updating  views and backend auth logic for phone-number changes.
+    - Status: USER VERIFICATION PENDING
+    - Agent Testing Done: Y
+    - Which testing method agent to use? testing agent (Iteration 23 passed)
+    - User Testing Done: N
+
+**All Pending/In progress Issue list**: 
+  - Issue 1: Production Login Blocked due to malformed  secret (P0)
+     - Attempted fixes: Agent previously updated  to expose origin diagnostic data.
+     - Next debug checklist: Waiting on the user to fix the secret in the Emergent platform (must be exactly ).
+     - Why fix this issue and what will be achieved with the fix? Unblocks the BFF fail-closed 503 state on production.
+     - Status: USER VERIFICATION PENDING
+     - Is recurring issue? Y
+     - Should Test frontend/backend/both after fix? both
+     - Blocked on other issue: User action required in the Emergent Platform UI.
+
+**In progress Task List**: 
+  None
+
+**Upcoming and Future Tasks**
+    Upcoming Tasks:
+    - Test real SMS login flow with owner's number () ONLY ONCE Issue 1 is resolved and  returns 200 (P0). Use exactly one SMS and one resend maximum.
+    - Replace Placeholder iOS App Store URL in the frontend/backend config with the actual store link once the user provides it (P1).
+    - Set up an SMS or WhatsApp notification alert to administrators whenever a new customer completes enrollment (P2).
+    
+    Future Tasks:
+    - Build out a feature in Admin settings for a daily rate reminder to nudge billing executives if today's silver/gold rates haven't been published.
+    - Live whats connected to the app" checklist in Admin Settings (Waiting on user live-testing).
+
+**Completed work in this session**
+- Fixed PDF chunk upload 409 errors ("Another update is in progress") by implementing frontend retry loops and BFF short retries for chunks, complete, commit, and row-save endpoints (DONE).
+- Fixed 320px UI table overflow in the Privacy policy page (DONE).
+- Updated Android Google Play Store URL from placeholder to the actual live store link provided by the user (DONE).
+- Fixed staff addition/editing error and implemented the ability for Admins/Staff to update staff phone numbers via a new Account settings page with OTP verification (DONE).
+
+**Earlier issues found/mentioned but not fixed**
+  - None. (Placeholder links partially addressed; awaiting iOS link).
+
+**Known issue recurrence from previous fork**
+  - Issue recurrence in previous fork: Production deployment fail-closed due to environment variable/secret mismanagement by the user.
+  - Recurrence count: 3
+  - Status: USER VERIFICATION PENDING
+  - Note: Wait for the user to manage secrets in the platform. DO NOT put actual keys in `.env`.
+
+**Code Architecture**
+```text
 /app/
 ├── backend/
-│   ├── server.py         (FastAPI BFF entry point)
+│   ├── server.py         
 │   ├── bff/
-│   │   ├── canonical.py  
-│   │   ├── config.py     (Env parsing and origin validation)
-│   │   └── readiness.py  (Health probes and diagnostics)
-│   ├── shared/
-│   │   └── people.py     (D2, D3, D4 consumer logic)
-│   └── .env              (Contains PLACEHOLDERS only)
+│   │   ├── proxy.py
+│   │   ├── config.py     
+│   │   ├── readiness.py  
+│   │   ├── routes.py     
+│   │   └── pdf_watch.py  
+│   └── shared/
+│       ├── core.py       
+│       └── people.py
 ├── frontend/
-│   ├── src/pages/admin/  (React UI components)
-│   └── .env
+│   ├── src/pages/admin/
+│   │   ├── PdfImport.js
+│   │   ├── Account.js    (New: Phone changing module)
+│   │   └── Staff.js      (Updated: Staff management)
+│   ├── src/lib/pdfImport.js 
+│   ├── src/components/admin/PdfReview.js
+│   └── src/pages/
+│       └── Privacy.js
 ├── tests/
-│   ├── shared_v1/        (106 passing regression tests)
-bff_sessions/app/backend/bff/readiness.py/app/backend/bff/config.py/app/backend/shared/people.py/app/backend/.env/app/tools/check_auth_readiness.py/app/PRODUCTION_OPERATOR_HANDOFF.md/app/test_reports/iteration_12.jsoniteration_13.jsonGET /api/health/readyGET /api/customers/searchGET /api/requestsPOST /api/bff/deletions/reconcile.envBFF_ALLOWED_ORIGINS.env9999813334/api/health/ready/app/test_reports/iteration_12.json/app/test_reports/iteration_13.json/app/PRODUCTION_OPERATOR_HANDOFF.md/app/evidence/d2d3d4-consumers-v3/RUN_SUMMARY.json.envconfiguration_stateBFF_ALLOWED_ORIGINSorigin_entriesBFF_ALLOWED_ORIGINSENROLLMENT_INTEGRATION_KEYSTAFF_SERVICE_KEY/app/tests/shared_v1/test_bff_readiness_adapter.py/app/tests/shared_v1/test_release_gate_tool.py9999813334BFF_ALLOWED_ORIGINScurl -s https://register.yashsilver.com/api/health/ready | python -m json.toolorigin_entries</analysis>
+│   ├── shared_v1/        (120+ regression tests)
+```
+
+**Key Technical Concepts**
+Backend-for-Frontend (BFF), FastAPI, React, Canonical API Proxying, Chunked Multipart Uploads, Playwright Testing, Asynchronous Task Watchers, Role-Based Access Control, Data Safety / Deletion Acknowledgement.
+
+**key DB schema**
+  - Canonical DB holds exact records. Website `bff_sessions` holds minimal auth info.
+
+**changes in tech stack**
+  - None
+
+**All files of reference** 
+  - `/app/frontend/src/lib/pdfImport.js` (Modified for chunk upload retry logic)
+  - `/app/frontend/src/components/admin/PdfReview.js` (Modified for commit retries)
+  - `/app/frontend/src/pages/admin/Account.js` (Created for staff phone number updates)
+  - `/app/frontend/src/pages/admin/Staff.js` (Updated for inline conversion & staff edits)
+  - `/app/tests/shared_v1/test_bff_import_busy.py` (New test for PDF upload concurrency)
+  - `/app/tests/shared_v1/test_bff_staff_phone.py` (New test for staff phone updates)
+  - `/app/PRODUCTION_OPERATOR_HANDOFF.md`
+
+**Areas that need refactoring**
+  - None currently.
+
+**key api endpoints**
+  - `POST /api/bff/pdf-upload/init`
+  - `POST /api/bff/pdf-upload/{jid}/chunk`
+  - `POST /api/bff/auth/phone-change/verify`
+  - `POST /api/admin/auth/send-otp`
+
+**Critical Info for New Agent** 
+  - **Do NOT execute real SMS commands against `9999813334` in your automated tests**. Only mocked testing is allowed during automated iterations.
+  - Wait for the user to verify Issue 1 (`BFF_ALLOWED_ORIGINS` secrets configuration) before doing any live production testing of SMS login.
+  - The Android app link is active and configured. The iOS app link is currently a placeholder (`https://apps.apple.com/app/yash-trade/id0000000000`) and the user has promised to provide the correct one shortly.
+
+**documents and test reports created in this job**
+  - `/app/test_reports/iteration_22.json` (Passed - PDF Retry & Privacy page fixes)
+  - `/app/test_reports/iteration_23.json` (Passed - Staff Phone Change feature)
+  - `/app/PRODUCTION_OPERATOR_HANDOFF.md` (Updated)
+
+**Last 10 User Messages and any pending HUMAN messages** 
+ 1. (User): "What happened to these two? should i cancel and upload again or can it resume on its own" (Image removed) - COMPLETED
+ 2. (User): "what is this bug? it is not letting me commit" (Image removed) - COMPLETED
+ 3. (User): "same error in uploading" (Image removed) - COMPLETED
+ 4. (User): Provided Play store URL and asked to update placeholders while waiting for iOS URL. - COMPLETED
+ 5. (User): "Editing or adding staff is giving this error, what does it mean? Also let admin change staffs number too. (Images removed) - COMPLETED
+
+**Project Health Check:**
+  - Broken: Production preview blocked by user secret misconfiguration ().
+  - Mocked: SMS routes inside Playwright/pytest tests.
+
+**3rd Party Integrations** 
+  - Canonical Yash Trade App API (Requires ,  - DO NOT OVERWRITE IN )
+
+**Testing status**
+  - Testing agent used after significant changes: YES (Iterations 22, 23)
+  - Troubleshoot agent used after agent stuck in loop: NO
+  - Test files created: , 
+  - Known regressions: Occasional flaky pymongo connection observed in tests, but test suite gracefully recovers and passes.
+
+**Credentials to test flow:**
+  - Phone  (Default Admin).
+
+**What agent forgot to execute**
+  - Nothing was overlooked in this session. (Waiting for the user to supply the iOS app store link).</analysis>

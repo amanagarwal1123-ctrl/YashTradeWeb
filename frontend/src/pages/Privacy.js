@@ -12,7 +12,7 @@ const FALLBACK = {
   support_email: "info@yashornaments.in",
   support_phone: "+91 97118 81372, +91 99998 13334",
 };
-export const PRIVACY_EFFECTIVE = "2026-09-14";
+export const PRIVACY_EFFECTIVE = "2026-09-21";
 
 const SECTIONS = [
   ["who", "1. Who we are and what this policy covers"],
@@ -103,8 +103,9 @@ export default function Privacy() {
           <div className="rounded-lg border border-[#C8A96A]/40 bg-[#FBF7F0] p-4 text-sm text-slate-700" data-testid="privacy-changes-summary">
             <p className="font-semibold text-[#0B1F3B]">What changed on {fmtDate(PRIVACY_EFFECTIVE)}</p>
             <UL items={[
-              <>The AI assistant section now says plainly that whatever you type is sent as written — including any name or number you choose to type. Profile fields are not attached automatically.</>,
-              <>Account deletion is described exactly as it works: the app and this website delete or anonymise their copies and the deletion is recorded as complete when this website acknowledges it; copies held by our SMS and AI providers are <strong>not</strong> erased by the request. The former blanket 30-day completion statement has been removed; the 30-day period now applies to this website's own systems only.</>,
+              <>Facts added for the app's optional notifications (push token, preference, inbox and delivery records via the Expo Push Service), for the product-view impressions that order unseen catalogue items first, for the upload-executive staff role, and for administrator-made login-number changes of ordinary staff (Sections 3, 4, 9, 13 and 15).</>,
+              <>Earlier (14 September 2026): the AI assistant section says plainly that whatever you type is sent as written — including any name or number you choose to type. Profile fields are not attached automatically.</>,
+              <>Account deletion is described exactly as it works: the app and this website delete or anonymise their copies and the app-and-website cleanup is recorded as complete when this website acknowledges it (provider copies are a separate, manually requested outcome); copies held by our SMS and AI providers are <strong>not</strong> erased by the request. The former blanket 30-day completion statement has been removed; the 30-day period now applies to this website's own systems only.</>,
               <>New sections on photos and documents uploaded by staff, staff accounts and store review accounts.</>,
               <>Retention periods are stated only where they are enforced by our systems; periods that depend on our hosting provider are marked as pending confirmation rather than guessed.</>,
             ]} />
@@ -149,6 +150,7 @@ export default function Privacy() {
             <><strong>Business activity in the app:</strong> product enquiries and call-back requests with any notes and preferred time you add, cart and wishlist contents, reward points and reward history, appointment or exhibition requests.</>,
             <><strong>AI assistant messages (optional):</strong> the text of each message or quick prompt you send to the assistant, and its replies — only after you allow the assistant (Section 7).</>,
             <><strong>Consents:</strong> your acceptance of our Terms &amp; Conditions and this Privacy Policy, your AI-assistant consent version, and — on this website's deletion page only — any optional win-back or callback consent you give (Section 11).</>,
+            <><strong>Notifications (app, optional):</strong> if you allow notifications, the push-notification token your device issues for the app, the platform (Android/iOS), app version and device name, and your choice whether promotional alerts may be sent (operational alerts such as query updates follow your role and cannot be switched off separately). The token is unlinked when you sign out and deleted with your account.</>,
           ]} />
           <H3>3.2 Information we create about you</H3>
           <UL items={[
@@ -156,11 +158,14 @@ export default function Privacy() {
             <>Reward points, scheme status and the customer code assigned to your account.</>,
             <>A server-generated account ID (not a device identifier), carried in your sign-in token and in every record about you.</>,
             <>Delivery status of one-time-code SMS messages, as reported by our SMS provider (kept 90 days).</>,
+            <>Notification records in the app: the alerts placed in your in-app inbox (title, text, read time; kept 180 days) and, per message we send, the acceptance ticket and receipt reported by the push service.</>,
+            <>Product-view impressions in the app: which catalogue items were actually shown on your screen and when. They are used only to order items you have not yet seen first on the Home screen; the short-lived ordering session expires after 6 hours and the impressions are deleted with your account.</>,
           ]} />
           <H3>3.3 Information we do not collect</H3>
           <P>
             We do not collect email addresses, government identification numbers, payment-card details or payment history, precise GPS location, your contact list,
             call logs, the content of your SMS messages, photos or files from customers, crash logs or performance diagnostics, or hardware or advertising identifiers.
+            The only device-issued value we hold is the optional push-notification token described in Section 3.1.
             Catalogue and customer searches are answered from our database and not stored. Payment for goods is arranged directly with {CO} outside the app.
           </P>
           <P>
@@ -176,7 +181,8 @@ export default function Privacy() {
               ["Internet / network", "Required — loading catalogues, rates, enquiries and syncing your account over HTTPS only."],
               ["Camera, photos, files", "No permission is requested from customers. Customers cannot upload photos or files. Authorised staff choose files with the system file picker (no storage permission) to build the catalogue — see Section 8."],
               ["Location (GPS)", "Not requested. The location you type at enrollment is free text."],
-              ["SMS, contacts, call logs, microphone, notifications", "Not requested. One-time-code autofill, where offered, is performed by your operating system and does not give us access to your messages."],
+              ["SMS, contacts, call logs, microphone", "Not requested. One-time-code autofill, where offered, is performed by your operating system and does not give us access to your messages."],
+              ["Notifications", "Optional. The app asks for permission before showing notifications; alerts are delivered through the Expo Push Service using a token your device issues for the app (Section 3.1). Promotional alerts can be switched off in the app; query and account alerts follow your role."],
               ["Analytics, advertising, crash-reporting or attribution SDKs", "None. The app embeds no such SDK and emits no behavioural analytics events."],
             ]}
             testid="privacy-permissions-table"
@@ -260,11 +266,12 @@ export default function Privacy() {
               ["Emergent LLM gateway → Anthropic PBC", "AI-assistant message text, conversation context, fixed instruction, our credential", "AI assistant replies (consent-based, app only)", "United States"],
               ["Emergent Managed Object Storage", "staff-uploaded photos, banners, PDF catalogues and derived images", "Catalogue storage", <Pending>Region as stated by Emergent — pending the owner's confirmation with the provider</Pending>],
               ["Emergent (hosting)", "all server-side data, operational logs, database backups", "Hosting of the app backend and this website", <Pending>Region as stated by Emergent — pending the owner's confirmation with the provider</Pending>],
+              ["Expo Push Service (Expo)", "push-notification token, notification title and short text (never your phone number or free-text notes), delivery ticket and receipt", "Delivering app notifications you allowed", <Pending>Region as stated by Expo — pending the owner's confirmation with the provider</Pending>],
             ]}
             testid="privacy-providers-table"
           />
           <UL items={[
-            <><strong>{CO} staff</strong> (administrators, telecallers, billing executives) see your account, enquiry and reward information to serve you. Access is role-based, one-time-code protected and recorded.</>,
+            <><strong>{CO} staff</strong> (administrators, telecallers, billing executives, upload executives) see the information their role needs: telecallers and billing staff see your account, enquiry and reward information to serve you; upload executives work only on the catalogue content and see no customer records. Access is role-based, one-time-code protected and recorded.</>,
             <><strong>Legal and regulatory authorities</strong> receive information only under a valid legal request.</>,
             <><strong>A successor business</strong> would receive business records, with notice to you, only in a merger, acquisition or restructuring.</>,
             <><strong>Google Play and the Apple App Store</strong> collect their own install statistics under their own policies; we embed no store analytics SDK.</>,
@@ -348,6 +355,10 @@ export default function Privacy() {
               ["AI chat history and AI consent record (app)", "Until you withdraw AI consent or delete your account — then deleted immediately."],
               ["One-time codes and sign-in grants", "10 minutes."],
               ["SMS-delivery diagnostics for your number (app)", "90 days; deleted immediately on account deletion."],
+              ["Push-notification token and notification preference (app)", "While the device stays linked to your account; the token is unlinked at sign-out, when the account is disabled or its role changes, and deleted with the account."],
+              ["In-app notification inbox (app)", "180 days (enforced by the database); deleted immediately on account deletion."],
+              ["Notification delivery records (app)", "Acceptance tickets and receipts reported by the push service are kept as operational records without personal text; messages not yet sent to a deleted account are removed."],
+              ["Product-view impressions (app)", "While your account exists (deleted with it); the Home-screen ordering session that uses them expires after 6 hours."],
               ["Rate-limiting counters", "App: 10 minutes. Website: 10-minute windows expiring after 20 minutes. Keyed hashes only."],
               ["After deletion (app)", "Keyed hash of the phone number + deletion time; deletion reference and timestamps; anonymised enquiry statistics; the erasure event record (IDs only). Kept as the deletion record itself."],
               ["After deletion (this website)", "Win-back contact only with your consent — 12 months or until withdrawn; keyed deleted-number hash — 24 months; anonymous churn statistics — kept."],
@@ -371,10 +382,13 @@ export default function Privacy() {
 
           <H2 id="staff">15. Staff accounts and store review accounts</H2>
           <P testid="privacy-staff-accounts">
-            <strong>Staff accounts.</strong> {CO} staff (administrators, telecallers, billing executives) sign in with their phone number and a
+            <strong>Staff accounts.</strong> {CO} staff (administrators, telecallers, billing executives and upload executives) sign in with their phone number and a
             one-time code. Their name, phone number and the actions they take in the app (assignments, notes, uploads) are kept as the business's
-            staff record and are not covered by the customer self-service deletion above; a staff account is deactivated by the owner and its
-            record removed on written request to {CO}.
+            staff record and are not covered by the customer self-service deletion above. An administrator may change the login number of a
+            telecaller, billing executive or upload executive after the app has checked who holds the new number; the change is recorded with a reason,
+            signs that staff member out everywhere and requires a one-time code at their next sign-in. Administrators change their own number only
+            themselves, with a one-time code sent to the new number. A staff account is disabled (reversibly) or deleted by an administrator; deletion
+            removes or anonymises the personal data through the same process as customer deletion while completion attribution stays in the business ledger.
           </P>
           <P testid="privacy-review-accounts">
             <strong>Store review accounts.</strong> App-store review teams may sign in to the app with a Reviewer ID and access key issued privately by

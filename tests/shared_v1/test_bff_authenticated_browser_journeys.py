@@ -123,7 +123,7 @@ async def test_authenticated_browser_journeys_routed_to_isolated_bff(shared_apps
                 const nativeOpen = XMLHttpRequest.prototype.open;
                 const nativeSend = XMLHttpRequest.prototype.send;
                 XMLHttpRequest.prototype.open = function(method, url, ...rest) {
-                    this.__testMethod = method; this.__testUrl = new URL(url, location.href).href;
+                    this.__testMethod = method; try { this.__testUrl = new URL(url, location.href).href; } catch (_) { this.__testUrl = String(url); }
                     return nativeOpen.call(this, method, url, ...rest);
                 };
                 XMLHttpRequest.prototype.send = function(body) {
@@ -132,10 +132,18 @@ async def test_authenticated_browser_journeys_routed_to_isolated_bff(shared_apps
                     // routed post_data_buffer omits file parts, including file inputs
                     // immediately cleared by the UI. This is TEST TRANSPORT ONLY.
                     const xhr = this;
+                    window.__testXhrTrace = window.__testXhrTrace || [];
+                    const trace = {url: xhr.__testUrl, stage: 'snapshot'};
+                    window.__testXhrTrace.push(trace);
                     const req = new Request(xhr.__testUrl, {method: xhr.__testMethod, body});
                     req.clone().arrayBuffer().then(ab => {
+                        trace.stage = 'sent'; trace.bytes = ab.byteLength;
                         window.__asgiRouteMultipartQueue.push({url:req.url, method:req.method,
                             headers:Array.from(req.headers.entries()), bytes:Array.from(new Uint8Array(ab))});
+                        nativeSend.call(xhr, body);
+                    }).catch(err => {
+                        // Surface a snapshot failure instead of leaving the XHR pending forever.
+                        trace.stage = 'failed'; trace.error = String(err);
                         nativeSend.call(xhr, body);
                     });
                 };
@@ -161,8 +169,17 @@ async def test_authenticated_browser_journeys_routed_to_isolated_bff(shared_apps
             })();"""
         )
         page = await context.new_page()
+        page.on("pageerror", lambda err: api_events.append({"method": "PAGEERROR", "path": page.url, "status": "pageerror", "detail": str(err)[:300]}))
+        page.on("console", lambda msg: msg.type in ("error", "warning") and api_events.append({"method": "CONSOLE", "path": page.url, "status": msg.type, "detail": msg.text[:300]}))
 
         async def route_to_asgi(route, request):
+            try:
+                await forward_to_asgi(route, request)
+            except Exception as exc:  # a bridge failure must be visible in the evidence, not a silent browser network error
+                api_events.append({"method": request.method.upper(), "path": urlparse(request.url).path, "status": "bridge_error", "detail": repr(exc)[:300]})
+                await route.abort()
+
+        async def forward_to_asgi(route, request):
             parsed = urlparse(request.url)
             path = parsed.path + (f"?{parsed.query}" if parsed.query else "")
             headers = {k: v for k, v in request.headers.items() if k.lower() != "host"}
@@ -306,19 +323,22 @@ async def test_authenticated_browser_journeys_routed_to_isolated_bff(shared_apps
             # 14 Sep privacy handoff: distinct states — app erased, website cleaned + acknowledged (deletion complete), providers NOT erased.
             assert (await page.inner_text('[data-testid="deletion-result-heading"]')).strip() == "Your account has been deleted"
             website_state = await page.inner_text('[data-testid="deletion-website-status"]')
-            assert "cleaned up and acknowledged" in website_state and "deletion recorded as complete" in website_state
+            assert "cleaned up and acknowledged" in website_state and "cleanup recorded as complete" in website_state
             assert await page.locator('[data-testid="deletion-awaiting"]').count() == 0
             provider_state = await page.inner_text('[data-testid="deletion-provider-status"]')
             assert "Not erased by this request" in provider_state and "MSG91" in provider_state
             assert "DEL-u_ui_leaver" in await page.inner_text('[data-testid="deletion-reference"]')
             await page.screenshot(path=str(evidence_dir / "public-deletion-winback-1440.jpeg"), type="jpeg", quality=20, full_page=False)
             assert (await shared_apps["canonical_db"].users.find_one({"id": "u_ui_leaver"}))["account_status"] == "deleted"
-            assert (await shared_apps["canonical_db"].deletion_requests.find_one({"reference": "DEL-u_ui_leaver"}))["status"] == "completed"
+            # 21 Sep contract: the website ack completes CLEANUP only; provider erasure stays outstanding in the app ledger.
+            deletion_row = await shared_apps["canonical_db"].deletion_requests.find_one({"reference": "DEL-u_ui_leaver"})
+            assert deletion_row["status"] == "cleanup_completed" and deletion_row.get("cleanup", {}).get("completed_at")
+            assert deletion_row.get("providers"), "provider-erasure ledger is never marked erased by the website ack"
 
             # Privacy policy carries the replacement wording and no unpublished [OWNER: …] placeholder.
             await page.goto(f"{FRONTEND_URL}/privacy", wait_until="domcontentloaded")
             await page.wait_for_selector('[data-testid="privacy-deletion-section"]', timeout=30000)
-            assert "14 September 2026" in await page.inner_text('[data-testid="privacy-effective-date"]')
+            assert "21 September 2026" in await page.inner_text('[data-testid="privacy-effective-date"]')
             privacy_text = await page.inner_text("body")
             assert "[OWNER" not in privacy_text and "completed within 30 days" not in privacy_text
             assert "including any name, phone number, address or other detail you choose to write in it" in privacy_text
@@ -417,7 +437,7 @@ async def test_authenticated_browser_journeys_routed_to_isolated_bff(shared_apps
             await page.click('[data-testid="nav-settings"]', force=True)
             await page.wait_for_selector('[data-testid="canonical-connection"]', timeout=15000)
             await page.wait_for_selector('[data-testid="upstream-capabilities-row-owner_admin_bootstrap"]', timeout=15000)
-            assert "281067bb04bd8bd82a01cb7a34099bd8762de611" in await page.inner_text('[data-testid="contract-commit"]')
+            assert "8438b3bb6a71ae5c952228b05417d448347a98a1" in await page.inner_text('[data-testid="contract-commit"]')
             assert (await page.inner_text('[data-testid="upstream-capabilities-owner_admin_bootstrap-state"]')).strip() == "Advertised"
             owner_state = await page.inner_text('[data-testid="owner-admin-state"]')
             assert "Default administrator bootstrap" in owner_state and "u_" not in owner_state
@@ -531,6 +551,11 @@ async def test_authenticated_browser_journeys_routed_to_isolated_bff(shared_apps
             # lock for every write (another import being analysed/committed). Hold it like that writer would and
             # send the 409 straight to the browser (proxy retries off) so the page's own retry loop is exercised.
             monkeypatch.setattr(proxy, "CHUNK_BUSY_RETRIES", 0)
+            # app ≥ 8438b3b: tracked_put now WAITS up to 30 s for `media-budget` before answering 409 (the earlier
+            # app-side ask). Simulate a writer that outlasts that wait without spending 30 s of test time.
+            from shared import core as app_core
+            patient_lock = app_core.lock
+            monkeypatch.setattr(app_core, "lock", lambda key, seconds=30, wait_seconds=0: patient_lock(key, seconds, 0 if key == "media-budget" else wait_seconds))
             await shared_apps["canonical_db"].operation_locks.replace_one({"_id": "media-budget"}, {"_id": "media-budget", "owner": "test-other-writer",
                 "expires_at": datetime.now(timezone.utc) + timedelta(seconds=60)}, upsert=True)
             await page.click('[data-testid="pdf-upload-start"]', force=True)
@@ -607,6 +632,8 @@ async def test_authenticated_browser_journeys_routed_to_isolated_bff(shared_apps
                         "flow": "admin pdf upload",
                         "status": "resume_or_progress_missing",
                         "body": str(exc)[:500],
+                        "page_state": {tid: await page.locator(f'[data-testid="{tid}"]').all_inner_texts() for tid in ("pdf-file-0", "pdf-file-1", "pdf-queue-progress-text", "pdf-upload-error", "pdf-upload-blocker")},
+                        "xhr_trace": await page.evaluate("() => window.__testXhrTrace || []"),
                         "jobs": await shared_apps['canonical_db'].import_jobs.find({}, {'_id':0,'phase':1,'error':1}).to_list(10),
                     }
                 )

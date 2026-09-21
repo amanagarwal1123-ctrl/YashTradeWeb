@@ -3,7 +3,7 @@
 # module: reproduces "Use the admin conversion operation; customer ID must be preserved" when adding staff with a
 #         number that is already a customer, proves the website's conversion path keeps the canonical ID, and
 #         proves the self-service login-number change (OTP to the NEW number, caller only) ends the website
-#         session so the person signs in again with the new number — the admin cannot set another's number.
+#         session so the person signs in again with the new number. (Admin renumbering of ORDINARY staff: test_bff_operations_v2.)
 """
 
 # ruff: noqa: F811 -- pytest fixtures are imported for discovery and named as test arguments
@@ -48,12 +48,13 @@ async def test_adding_staff_with_a_customer_number_needs_conversion_which_keeps_
 
 
 @pytest.mark.anyio
-async def test_admin_cannot_set_another_staff_number_but_the_holder_changes_it_with_an_otp(bff_client, shared_apps):
+async def test_plain_patch_never_renumbers_but_the_holder_changes_it_with_an_otp(bff_client, shared_apps):
     sent = shared_apps["sent_otps"]
     await _login_staff(bff_client, sent, "9000000101")
     denied = await bff_client.patch("/api/bff/integrations/staff/u_tele", json={"phone": "9000000141"}, headers=_headers(await _csrf(bff_client)))
-    assert denied.status_code == 409 and denied.json()["code"] == "PHONE_VERIFICATION_REQUIRED", denied.text
-    # Nor can the admin's own session start a change for someone else: the route always acts on the caller.
+    assert denied.status_code == 409 and denied.json()["code"] == "PHONE_CHANGE_OPERATION_REQUIRED", denied.text
+    # A plain PATCH never renumbers; the audited preview → phone operation (test_bff_operations_v2) or the holder's own flow does.
+    # The admin's own self-service session cannot start a change for someone else either: the route always acts on the caller.
     await _post(bff_client, "/api/admin/auth/logout", {})
 
     login = await _login_staff(bff_client, sent, "9000000102")

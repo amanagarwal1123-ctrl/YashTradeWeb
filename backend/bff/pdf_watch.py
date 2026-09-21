@@ -131,10 +131,13 @@ def public(doc):
             **{k: doc.get(k) for k in PUBLIC}}
 
 
+CONTENT_ROLES = ('admin', 'upload_executive')
+
+
 async def owned(request, jid, session):
-    """Admin-only, owner-scoped read of the watch record as plain JSON fields (the key is the upload id string)."""
-    if session['user']['role'] != 'admin':
-        fail(403, 'PERMISSION_DENIED', 'Administrators only.')
+    """Content roles only (admin / Upload Executive), owner-scoped read of the watch record as plain JSON fields."""
+    if session['user']['role'] not in CONTENT_ROLES:
+        fail(403, 'PERMISSION_DENIED', 'Content roles only.')
     fields = ('owner_id', 'active', *PUBLIC)
     doc = await request.app.state.pdf_watch.db.find_one({'_id': jid}, {'_id': 0, **{k: 1 for k in fields}})
     if not doc or doc.get('owner_id') != session['user']['id']:

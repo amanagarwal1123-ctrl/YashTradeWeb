@@ -1,5 +1,5 @@
 {
-  "summary": "Backend-only independent confirmation of the deployed-preview readiness contract (owner-admin-pin-v4) and regression re-run of tests/shared_v1. All 5 requested backend GET/POST checks passed against REACT_APP_BACKEND_URL=https://enrollment-bff.preview.emergentagent.com. Regression suite: 108 passed on retry (initial run had 1 flaky failure that passed in isolation and passed on full re-run).",
+  "summary": "Backend-only independent confirmation of the deployed-preview readiness contract (owner-admin-pin-v4) and regression re-run of tests/shared_v1. All 5 requested backend GET/POST checks passed against REACT_APP_BACKEND_URL=https://enroll-preview-2.preview.emergentagent.com. Regression suite: 108 passed on retry (initial run had 1 flaky failure that passed in isolation and passed on full re-run).",
   "backend_issues": {
     "critical": [],
     "minor": [

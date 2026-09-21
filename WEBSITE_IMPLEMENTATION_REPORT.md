@@ -5,7 +5,7 @@ Date: 11 September 2026. This report describes WEBSITE work, not the app's histo
 ## Provenance and scope
 - Website branch: `main`. Starting/reviewed HEAD: `bf7808e27129de2b6ec8a5d521c1705f44fa7725`. That is **NOT** this implementation's SHA. Final read-only GitHub API check returned200 and the same baselineSHA on remote main: **these implementation changes are not synced to GitHub**. No new implementation commit/link exists at verification. Git write actions were not performed.
 - Website build: `website-shared-v1-staging-2026-09-11`; `BUILD_COMMIT` is absent and health truthfully returns `unrecorded`.
-- Website preview: https://enrollment-bff.preview.emergentagent.com
+- Website preview: https://enroll-preview-2.preview.emergentagent.com
 - App contract pinned to **c4ee70d8134625a1a4e04073c43b9460c3c4e40d**, not3079699 and not a claim about deployed source.
 - Fetched the exact app archive from GitHub and read all six requested Markdown documents, OpenAPI, relevant `backend/shared`, catalog fixtures/generator and follow-up test reports. Historical statements about unavailable GitHub commits were not treated as current blockers.
 - Pinned OpenAPI copied to `contracts/openapi.shared-v1.json`:116paths; file SHA256 `e70f4703fcc8ce95b9ba10fe619557749d2a8db54b653a2b7ba5483c48a1e24f`.

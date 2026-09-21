@@ -560,7 +560,7 @@ async def test_both_production_website_origins_allowed_and_unrelated_origin_reje
         assert missing.status_code == 403 and missing.json()["code"] == "ORIGIN_REJECTED"
         ready = await client.get("/api/health/ready")
         assert ready.status_code == 200 and ready.json()["integration_ready"] is True
-        assert ready.json()["app_contract_commit"] == "281067bb04bd8bd82a01cb7a34099bd8762de611"
+        assert ready.json()["app_contract_commit"] == "8438b3bb6a71ae5c952228b05417d448347a98a1"
         assert ready.json()["key_matching_verified_by_this_check"] is True
         assert ready.json()["real_login_verified_by_this_check"] is False
         live = await client.get("/api/health/live")

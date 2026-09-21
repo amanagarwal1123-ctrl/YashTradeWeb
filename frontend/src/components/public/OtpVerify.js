@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { api, errMsg } from '@/lib/api';
+import { phoneDisplay } from '@/lib/phone';
 
 export const OtpVerify = ({ phone, challenge, sentAt, onResent, onVerified, onChangeDetails, pending = false, prefix = 'public', verifyPath = '/enroll/verify-otp', resendPath = '/enroll/resend-otp' }) => {
   const [otp, setOtp] = useState(''); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
@@ -30,7 +31,7 @@ export const OtpVerify = ({ phone, challenge, sentAt, onResent, onVerified, onCh
   };
   return <div className="space-y-4">
     <h2 className="font-heading text-lg font-semibold" data-testid={`${prefix}-otp-heading`}>{retry ? 'Registration awaiting confirmation' : 'Verify your phone'}</h2>
-    <p className="text-sm" data-testid={`${prefix}-otp-phone-display`}>+91 {phone}</p>
+    <p className="text-sm" data-testid={`${prefix}-otp-phone-display`}>{phoneDisplay(phone)}</p>
     {!retry && <><label htmlFor={`${prefix}-otp`} className="text-sm">{length}-digit OTP</label><Input id={`${prefix}-otp`} data-testid={`${prefix}-otp-input`} inputMode="numeric" autoComplete="one-time-code" maxLength={length} value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, ''))} />
       <p className="text-xs text-slate-500" data-testid={`${prefix}-otp-timer`}>Expires in {Math.floor(ttl / 60)}:{String(ttl % 60).padStart(2, '0')}</p></>}
     {error && <p role="alert" className="text-sm text-red-700" data-testid={`${prefix}-otp-error`}>{error}</p>}

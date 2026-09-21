@@ -243,7 +243,8 @@ async def test_request_resolution_reopen_idempotency_history_and_today_metrics_c
         json={"version": claimed["version"], "idempotency_key": "cohort-claim-1"},
         headers=_headers(await _csrf(bff_client)),
     )
-    assert claim_replay.status_code in {409, 422}
+    # app ≥ 8438b3b: a repeated claim by the CURRENT holder is an idempotent double tap (200, already_claimed), not a conflict.
+    assert claim_replay.status_code == 200 and claim_replay.json().get("already_claimed") is True, claim_replay.text
 
     # Idempotent key support is guaranteed on PATCH /requests/{rid} mutations.
     respond = await bff_client.patch(
@@ -270,9 +271,18 @@ async def test_request_resolution_reopen_idempotency_history_and_today_metrics_c
     resolved = resolve.json()
     assert resolved["status"] == "resolved"
 
+    # app ≥ 8438b3b: reopening a completed query is an administrator action with a recorded reason (permissions.can_reopen).
+    denied = await bff_client.patch(
+        f"/api/bff/requests/{rid}",
+        json={"action": "reopen", "status": "pending", "version": resolved["version"], "idempotency_key": "cohort-reopen-0"},
+        headers=_headers(await _csrf(bff_client)),
+    )
+    assert denied.status_code == 403 and denied.json().get("code") == "REOPEN_DENIED", denied.text
+
+    await _login_role(bff_client, shared_apps, "9000000101")
     reopen = await bff_client.patch(
         f"/api/bff/requests/{rid}",
-        json={"action": "reopen", "status": "pending", "version": resolved["version"], "idempotency_key": "cohort-reopen-1"},
+        json={"action": "reopen", "status": "pending", "reason": "customer called back", "version": resolved["version"], "idempotency_key": "cohort-reopen-1"},
         headers=_headers(await _csrf(bff_client)),
     )
     assert reopen.status_code == 200, reopen.text
@@ -286,7 +296,6 @@ async def test_request_resolution_reopen_idempotency_history_and_today_metrics_c
     assert "reopening" in types
 
     today = datetime.now(ZoneInfo("Asia/Kolkata")).date().isoformat()  # the app reports periods in IST, not container time
-    await _login_role(bff_client, shared_apps, "9000000101")
     metrics = await bff_client.get(f"/api/bff/requests/metrics/summary?start={today}&end={today}")
     assert metrics.status_code == 200, metrics.text
     body = metrics.json()
@@ -348,9 +357,12 @@ async def test_deletion_grant_cleanup_ack_and_no_resurrection_via_enrollment(bff
     assert outbox["status"] == "acknowledged" and outbox["required_acknowledgements"] == ["website"] and outbox["acknowledged"] == ["website"]
     assert outbox.get("completed_at")
     request_row = await shared_apps["canonical_db"].deletion_requests.find_one({"reference": deleted["reference"]}, {"_id": 0})
-    assert request_row["status"] == "completed" and request_row.get("completed_at"), "app marks the deletion complete on the website ack"
+    # app ≥ 8438b3b two-outcome model: the website ack completes the app + website CLEANUP outcome only; provider copies are a separate ledger.
+    assert request_row["status"] == "cleanup_completed" and request_row.get("cleanup", {}).get("completed_at"), "app marks the cleanup complete on the website ack"
+    assert request_row.get("providers"), "provider-erasure ledger exists and is never marked erased by the website ack"
 
-    # No resurrection via enrollment with same deleted phone.
+    # app ≥ 8438b3b (`stale_after_deletion`): the deleted account is never resurrected, but a FRESH OTP after the deletion
+    # is the person's explicit new request and starts a NEW account (new id). The website flags it as returning.
     enroll_payload = {
         "phone": number,
         "name": "TEST Again",
@@ -360,17 +372,19 @@ async def test_deletion_grant_cleanup_ack_and_no_resurrection_via_enrollment(bff
         "consent_privacy": True,
     }
     sent2 = await bff_client.post("/api/enroll/send-otp", json=enroll_payload, headers=_headers(await _csrf(bff_client)))
-    if sent2.status_code >= 400:
-        assert sent2.json().get("code") in {"DELETED_IDENTITY", "VERIFICATION_REQUIRED", "GRANT_INVALID", "GRANT_EXPIRED"}
-    else:
-        otp2 = shared_apps["sent_otps"][(number, "enrollment")]
-        verify2 = await bff_client.post(
-            "/api/enroll/verify-otp",
-            json={"phone": number, "otp": otp2, "challenge_id": sent2.json()["challenge_id"]},
-            headers=_headers(await _csrf(bff_client)),
-        )
-        assert verify2.status_code >= 400
-        assert verify2.json().get("code") in {"DELETED_IDENTITY", "VERIFICATION_REQUIRED", "GRANT_INVALID", "GRANT_EXPIRED"}
+    assert sent2.status_code == 200, sent2.text
+    otp2 = shared_apps["sent_otps"][(number, "enrollment")]
+    verify2 = await bff_client.post(
+        "/api/enroll/verify-otp",
+        json={"phone": number, "otp": otp2, "challenge_id": sent2.json()["challenge_id"]},
+        headers=_headers(await _csrf(bff_client)),
+    )
+    assert verify2.status_code == 200, verify2.text
+    fresh = await shared_apps["canonical_db"].users.find_one({"phone_normalized": number, "account_status": "active"}, {"_id": 0})
+    assert fresh and fresh["id"] != "u_delete_me" and fresh["name"] == "TEST Again", "a new identity, never the erased one"
+    erased = await shared_apps["canonical_db"].users.find_one({"id": "u_delete_me"}, {"_id": 0})
+    assert erased["account_status"] == "deleted" and erased.get("phone_normalized") != number
+    assert await shared_apps["website_db"].bff_returning.find_one({"_id": fresh["id"]}), "website records the returning customer"
 
 
 @pytest.mark.anyio
@@ -521,7 +535,7 @@ async def test_owner_admin_bootstrap_on_pinned_app_promotes_same_record_and_webs
     assert upstream["capabilities"]["owner_admin_bootstrap"] is True
     assert upstream["owner_admin"] == {"reported": True, "ready": True, "issues": [], "state": "already_admin", "phone_suffix": "0106"}
     assert "u_owner_fixture" not in ready.text
-    assert ready.json()["app_contract_commit"] == "281067bb04bd8bd82a01cb7a34099bd8762de611"
+    assert ready.json()["app_contract_commit"] == "8438b3bb6a71ae5c952228b05417d448347a98a1"
 
     # Canonical role → website admin experience (routes by /auth/me, not by phone or key).
     me = await _login_role(bff_client, shared_apps, "9000000106")

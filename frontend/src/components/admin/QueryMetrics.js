@@ -1,11 +1,21 @@
-import React from 'react';
-import {useResource,State,Field,Table} from './SharedUI';
+import React,{useState} from 'react';
+import {useResource,State,Field,Table,Pager,ist,todayIST,label} from './SharedUI';
 import {Button} from '@/components/ui/button';
-export const QueryMetrics=({range,setRange,search,requestType,onDrill})=>{
-  const r=useResource('/requests/metrics/summary',{start:range.start,end:range.end,search,request_type:requestType},true),d=r.data;
-  return <section className="detail-section"><h2>Enquiry reporting · IST</h2><div className="filters"><Field name="metrics-start" type="date" title="Reporting from" value={range.start} onChange={v=>setRange({...range,start:v})}/><Field name="metrics-end" type="date" title="Reporting to" value={range.end} onChange={v=>setRange({...range,end:v})}/></div><State resource={r} id="query-metrics"/>
-    {d&&<><div className="metrics-strip">{Object.entries(d.received_cohort||{}).map(([k,v])=><div key={k}><span>Received cohort · {k}</span><strong data-testid={`cohort-${k}`}>{v}</strong></div>)}<div><span>Resolved in period · including older receipts</span><strong data-testid="period-throughput">{d.period_throughput}</strong></div></div>
-    <p className="text-xs text-slate-500" data-testid="metrics-denominator">Status filters change the list only. Work-event days are not attendance. Reporting windows are at most 366 days, not lifetime totals.</p>
-    <Table id="telecaller-metrics" rows={d.telecallers||[]} columns={[{key:'name',title:'Telecaller',render:u=><div className={u.top_performer?'top-performer':''}><Button variant="link" data-testid={`metric-open-${u.id}`} onClick={()=>onDrill(u.id,range.start,range.end)}>{u.name}</Button>{u.top_performer&&<p data-testid={`top-performer-${u.id}`}>Highest nonzero result</p>}</div>},{key:'resolved',title:'Handled / Team handled',render:u=>`${u.resolved} / ${u.team_resolved}`},{key:'resolved_from_assigned',title:'Handled from assigned / cohort',render:u=>`${u.resolved_from_assigned} / ${u.assigned_workload}`},{key:'open_workload',title:'Pending assigned cohort'},{key:'active_days',title:'Work days / Calendar days',render:u=>`${u.active_days} / ${u.calendar_days}`},{key:'daily',title:'Daily breakdown',render:u=><div className="space-y-1">{Object.entries(u.daily||{}).map(([day,v])=><Button key={day} variant="outline" data-testid={`metric-day-${u.id}-${day}`} onClick={()=>onDrill(u.id,day,day)}>{day}: {v.resolved} handled · {v.work_events} work events</Button>)}</div>}]}/></>}
+const OUTCOME={converted:'Converted',not_interested:'Not interested',other:'Other'};
+
+/** Completion counts from the app's immutable completion ledger (inclusive IST dates, 1–366 days; reopened completions stop counting). */
+export const CompletionReport=({me,onOpen})=>{
+  const [range,setRange]=useState({start:todayIST(),end:todayIST()}),[telecaller,setTelecaller]=useState(''),[page,setPage]=useState(1);
+  const params={start:range.start,end:range.end,page,limit:50,...(telecaller?{telecaller}:{})};
+  const r=useResource('/requests/reports/completions',params,true),d=r.data;
+  const pick=id=>{setTelecaller(id===telecaller?'':id);setPage(1);};
+  return <section className="detail-section" data-testid="completion-report"><h2>Completion report · IST</h2>
+    <div className="filters"><Field name="report-start" type="date" title="From (inclusive)" value={range.start} onChange={v=>{setRange({...range,start:v});setPage(1);}}/><Field name="report-end" type="date" title="To (inclusive)" value={range.end} onChange={v=>{setRange({...range,end:v});setPage(1);}}/></div>
+    <State resource={r} id="completion-report"/>
+    {d&&<><div className="metrics-strip"><div><span>Completed queries in range</span><strong data-testid="report-total-completed">{d.total_completed}</strong></div><div><span>Calendar days</span><strong data-testid="report-days">{d.calendar_days}</strong></div><div><span>Ledger records</span><strong data-testid="report-total-records">{d.total_records}</strong></div></div>
+    <p className="text-xs text-slate-500" data-testid="report-semantics">{d.semantics?.completed}. {d.semantics?.reopen}. {d.semantics?.retry}. {me.role==='telecaller'?'Telecallers see their own completions only.':'Click a telecaller to narrow the records; click again to clear.'}</p>
+    <Table id="report-telecallers" rows={d.telecallers||[]} columns={[{key:'name',title:'Telecaller',render:u=><Button variant={telecaller===u.id?'default':'link'} data-testid={`report-pick-${u.id}`} onClick={()=>pick(u.id)}>{u.name}</Button>},{key:'role',title:'Role',render:u=>label(u.role)},{key:'completed',title:'Completed (distinct queries)'},{key:'records',title:'Ledger records'},{key:'account_status',title:'Account'}]}/>
+    <Table id="report-records" rows={(d.records||[]).map(x=>({...x,id:x.id||x.key}))} columns={[{key:'completed_at',title:'Completed · IST',render:x=>ist(x.completed_at)},{key:'actor_name',title:'By'},{key:'request_type',title:'Type',render:x=>label(x.request_type)},{key:'customer_name',title:'Customer',render:x=>`${x.customer_name||'—'}${x.shop_name?` · ${x.shop_name}`:''}`},{key:'outcome',title:'Outcome',render:x=>OUTCOME[x.outcome]||label(x.outcome)},{key:'request_id',title:'Query',render:x=><Button variant="link" data-testid={`report-open-${x.request_id}`} onClick={()=>onOpen(x.request_id)}>Open</Button>}]}/>
+    <Pager id="report-records" total={d.total_records} pages={d.pages} page={page} onPage={setPage}/></>}
   </section>;
 };

@@ -12,7 +12,7 @@ from .canonical import fail, UpstreamError
 
 COOKIE = '__Host-yash_session'
 BROWSER = '__Host-yash_browser'
-STAFF = {'admin', 'telecaller', 'billing_executive'}
+STAFF = {'admin', 'telecaller', 'billing_executive', 'upload_executive'}
 
 
 def now():

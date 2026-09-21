@@ -1,3 +1,4 @@
+import re
 import secrets
 import time
 from datetime import datetime, timedelta
@@ -10,6 +11,9 @@ from .readiness import ensure_flow
 from . import winback
 
 router = APIRouter(prefix='/api')
+# Staff accounts follow the app's number formats: 10 Indian national digits (default) or an E.164 value with its
+# country code (+1 USA/Canada, +61 Australia, +91). Public enrollment/deletion stay Indian-only (`Phone`).
+STAFF_PHONE = re.compile(r'^(\+[1-9][0-9]{7,14}|[6-9][0-9]{9})$')
 
 
 class Phone(BaseModel):
@@ -17,7 +21,27 @@ class Phone(BaseModel):
     phone: str = Field(pattern=r'^[6-9][0-9]{9}$')
 
 
+class StaffPhone(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    phone: str = Field(min_length=10, max_length=24)
+
+    @field_validator('phone')
+    @classmethod
+    def staff_number(cls, value):
+        text = re.sub(r'[\s()\-\u00a0]', '', value)
+        if text.startswith('00'):
+            text = '+' + text[2:]
+        if not STAFF_PHONE.match(text):
+            raise ValueError('Enter 10 Indian mobile digits or an international number with its country code')
+        return text
+
+
 class Verify(Phone):
+    otp: str = Field(pattern=r'^[0-9]{4}$')
+    challenge_id: str = Field(min_length=1, max_length=160)
+
+
+class StaffVerify(StaffPhone):
     otp: str = Field(pattern=r'^[0-9]{4}$')
     challenge_id: str = Field(min_length=1, max_length=160)
 
@@ -93,7 +117,7 @@ async def send(request, body, purpose):
 
 
 @router.post('/admin/auth/send-otp')
-async def staff_send(body: Phone, request: Request):
+async def staff_send(body: StaffPhone, request: Request):
     return await send(request, body, 'login')
 
 
@@ -125,7 +149,7 @@ async def verify_challenge(request, body, purpose):
 
 
 @router.post('/admin/auth/verify-otp')
-async def staff_verify(body: Verify, request: Request, response: Response):
+async def staff_verify(body: StaffVerify, request: Request, response: Response):
     did, _, tokens = await verify_challenge(request, body, 'login')
     # No privileged website session is created until /me succeeds with an active staff role.
     me = public_staff(await request.app.state.canonical.request('GET', '/auth/me', token=tokens['token']))
@@ -238,7 +262,7 @@ async def enrollment_state(request: Request):
 async def public_config(request: Request):
     return {'company_name': 'Yash Ornaments', 'legal_entity': 'Yash Silver House Pvt. Ltd.',
             'support_email': 'info@yashornaments.in', 'download': request.app.state.cfg.downloads(),
-            'privacy_updated': '2026-09-14', 'deletion_sla_days': 30,
+            'privacy_updated': '2026-09-21', 'deletion_sla_days': 30,
             'deletion_url': 'https://register.yashsilver.com/delete-account', 'privacy_url': 'https://register.yashsilver.com/privacy'}
 
 

@@ -5,6 +5,7 @@ from fastapi import APIRouter, Request, Depends
 from .security import staff_session, STAFF, rate_limit
 from .canonical import fail, UpstreamError
 from .readiness import ensure_capability
+from .routes import consume_deletions
 
 router = APIRouter(prefix='/api/bff')
 # The app serialises every storage write on one lock and answers 409 OPERATION_IN_PROGRESS at once; a
@@ -14,38 +15,46 @@ CHUNK_BUSY_BACKOFF = 0.5
 A = {'admin'}
 T = {'admin', 'telecaller'}
 B = {'admin', 'billing_executive'}
+# Content domain (catalogue, imports, banners, Contents pages): administrators and Upload Executives — mirrors the
+# app's `content` gate. Nothing else is granted to upload_executive through the generic STAFF set.
+C = {'admin', 'upload_executive'}
+# Central query workspace readers: administrators, telecallers and billing (billing reads only; work actions are T).
+O = {'admin', 'telecaller', 'billing_executive'}
 ID = r'[A-Za-z0-9_-]+'
 RULES = [
     # Static search precedes the dynamic customer reference so 'search' is never treated as an ID (D2).
     ('GET', r'customers', A), ('GET', 'customers/search', B), ('GET|PATCH', rf'customers/{ID}', A),
+    ('POST', rf'customers/{ID}/delete', A),
     ('GET|POST', 'integrations/staff', A), ('PATCH|DELETE', rf'integrations/staff/{ID}', A),
-    ('POST', rf'integrations/staff/{ID}/convert', A),
-    ('GET', r'requests|requests/catalog|requests/staff-options', STAFF),
-    ('GET', rf'requests/{ID}/history', STAFF), ('GET', 'requests/metrics/summary', T),
+    ('POST', rf'integrations/staff/{ID}/(convert|delete|phone|phone/preview)', A),
+    ('GET', r'requests|requests/catalog|requests/staff-options|requests/queue/status', O),
+    ('GET', rf'requests/{ID}|requests/{ID}/history', O), ('GET', 'requests/metrics/summary|requests/reports/completions', T),
     ('PATCH', rf'requests/{ID}', T), ('POST', rf'requests/{ID}/claim', T),
+    # Account-specific query alerts (the app writes them durably); reading or marking read never claims a query.
+    ('GET', 'notifications/inbox', O), ('POST', rf'notifications/inbox/{ID}/read|notifications/inbox/read-all', O),
     ('GET', 'rates/latest|rates/audit|rates/history|rate-list', B), ('POST', 'rates|rate-list', B),
     ('PUT|DELETE', rf'rate-list/{ID}', B),
-    ('GET|POST', 'products', A), ('GET|PUT', rf'products/{ID}', A), ('POST', 'products/upload-image', A),
-    ('GET', 'categories|analytics/dashboard|admin/media/usage', A), ('POST', 'admin/media/lifecycle-audit', A),
+    ('GET|POST', 'products', C), ('GET|PUT', rf'products/{ID}', C), ('POST', 'products/upload-image', C),
+    ('GET', 'categories|admin/media/usage', C), ('GET', 'analytics/dashboard', A), ('POST', 'admin/media/lifecycle-audit', C),
     ('GET', r'files/[A-Za-z0-9_./-]+', STAFF),
-    ('GET', r'pdf-template/capabilities|pdf-template/sample.pdf|pdf-template/authoring.json', A),
-    ('POST', 'pdf-template/export|pdf-upload/init', A),
-    ('GET', rf'pdf-upload/{ID}/(status|preview)', A),
-    ('POST', rf'pdf-upload/{ID}/(chunk|complete|pause|resume|cancel|commit)', A),
-    ('GET', rf'pdf-upload/{ID}/rows/{ID}/image|pdf-upload/{ID}/pages/[0-9]+/image', A),
-    ('PATCH', rf'pdf-upload/{ID}/rows/{ID}', A),
-    ('GET|POST', 'batches', A), ('GET|PUT|DELETE', rf'batches/{ID}', A),
-    ('GET', rf'batches/{ID}/images', A), ('PATCH', rf'batches/{ID}/visibility', A),
-    ('POST', rf'batches/{ID}/images/delete', A),
-    ('GET', 'banners/all|banners', A), ('POST', 'banners|banners/upload', A), ('PUT|DELETE', rf'banners/{ID}', A),
+    ('GET', r'pdf-template/capabilities|pdf-template/sample.pdf|pdf-template/authoring.json', C),
+    ('POST', 'pdf-template/export|pdf-upload/init', C),
+    ('GET', rf'pdf-upload/{ID}/(status|preview)', C),
+    ('POST', rf'pdf-upload/{ID}/(chunk|complete|pause|resume|cancel|commit)', C),
+    ('GET', rf'pdf-upload/{ID}/rows/{ID}/image|pdf-upload/{ID}/pages/[0-9]+/image', C),
+    ('PATCH', rf'pdf-upload/{ID}/rows/{ID}', C),
+    ('GET|POST', 'batches', C), ('GET|PUT|DELETE', rf'batches/{ID}', C),
+    ('GET', rf'batches/{ID}/images', C), ('PATCH', rf'batches/{ID}/visibility', C),
+    ('POST', rf'batches/{ID}/images/delete', C),
+    ('GET', 'banners/all|banners', C), ('POST', 'banners|banners/upload', C), ('PUT|DELETE', rf'banners/{ID}', C),
     ('GET', 'telecaller/customers|telecaller/summary', T),
     ('GET', rf'telecaller/customers/{ID}/activity', T), ('POST', rf'telecaller/customers/{ID}/action', T),
     ('GET|POST', 'rewards/config', A), ('POST', 'rewards/credit|rewards/deduct', B),
     ('GET', rf'rewards/customer/{ID}', B),
-    ('GET|POST', 'about|schemes|brands|showroom|exhibitions|knowledge|stories', A),
-    ('PUT|DELETE', rf'(schemes|brands|showroom|exhibitions)/{ID}', A),
-    ('DELETE', rf'about/{ID}', A), ('GET', 'admin/deletion-requests|admin/ai/reports', A),
-    # Self-service only: the app changes a login number for the CALLER after an OTP to the new number.
+    ('GET|POST', 'about|schemes|brands|showroom|exhibitions|knowledge|stories', C),
+    ('PUT|DELETE', rf'(schemes|brands|showroom|exhibitions)/{ID}', C),
+    ('DELETE', rf'about/{ID}', C), ('GET', 'admin/deletion-requests|admin/ai/reports', A),
+    # Self-service: the app changes a login number for the CALLER after an OTP to the new number.
     ('POST', 'auth/phone-change/request|auth/phone-change/verify', STAFF),
 ]
 
@@ -68,6 +77,18 @@ async def bounded_body(request, maximum):
         if len(data) > maximum:
             fail(413, 'BODY_TOO_LARGE', 'Request exceeds the bounded transfer limit.')
     return bytes(data)
+
+
+def revoked_identity(method, path, result):
+    """Canonical ID whose app sessions the upstream just revoked (renumbered, edited/disabled or deleted account)."""
+    if method == 'POST' and re.fullmatch(rf'integrations/staff/{ID}/phone', path):
+        return (result.get('user') or {}).get('id')
+    if method == 'POST' and re.fullmatch(rf'(integrations/staff|customers)/{ID}/delete', path):
+        reference = str(result.get('reference') or '')
+        return reference[4:] if reference.startswith('DEL-') else None
+    if method in ('PATCH', 'DELETE') and re.fullmatch(rf'integrations/staff/{ID}', path) and result.get('sessions_revoked'):
+        return (result.get('user') or {}).get('id')
+    return None
 
 
 @router.api_route('/{path:path}', methods=['GET', 'POST', 'PUT', 'PATCH', 'DELETE'])
@@ -131,6 +152,16 @@ async def proxy(path: str, request: Request, session=Depends(staff_session)):
             # The app revoked every session of this identity; the website lease must not outlive it.
             await request.app.state.db.bff_sessions.delete_one({'_id': session['sid']})
             return {**result, 'website_session_ended': True}
+        revoked = revoked_identity(request.method, path, result) if isinstance(result, dict) else None
+        if revoked:
+            # Same rule for accounts the administrator renumbered, disabled or deleted: their website leases end now.
+            ended = await request.app.state.db.bff_sessions.delete_many({'canonical_user_id': revoked})
+            result = {**result, 'website_sessions_ended': ended.deleted_count}
+            if path.endswith('/delete') and result.get('deleted'):
+                # The app raised an account_erased outbox event; the existing D4 consumer cleans and acknowledges it.
+                result['website_cleanup'] = await consume_deletions(request)
+                result['website_acknowledged'] = result.get('reference') in result['website_cleanup']['acknowledged_events']
+                result['provider_copies_erased'] = False
         watched = re.fullmatch(rf'pdf-upload/({ID})/(complete|resume|pause|cancel|commit)', path)
         if watched and request.method == 'POST':
             jid, action = watched.groups()

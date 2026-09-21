@@ -27,7 +27,7 @@ export function DeletionOutcome({result,phone}){
    {typeof result.erasure?.local_personal_records_remaining==='number'&&<p data-testid="deletion-app-remaining">Personal records remaining in the app: <strong>{result.erasure.local_personal_records_remaining}</strong>{result.erasure.requests_anonymized!==undefined?` · enquiries anonymised: ${result.erasure.requests_anonymized}`:''}</p>}
   </Row>
   {acked
-   ?<Row tone="ok" testid="deletion-website-status" title={complete?'This website: cleaned up and acknowledged — deletion recorded as complete':'This website: cleaned up and acknowledged'}>
+   ?<Row tone="ok" testid="deletion-website-status" title={complete?'This website: cleaned up and acknowledged — app and website cleanup recorded as complete':'This website: cleaned up and acknowledged'}>
      <p>Your enrolment record, drafts, cached data and sessions on this website were removed and verified gone before we acknowledged the app's erasure event.</p>
      {complete?<p>The app has recorded your deletion as <strong>complete</strong>.</p>:awaiting.length>0&&<p data-testid="deletion-awaiting">The app is still waiting for: {awaiting.join(', ')}. This website cannot acknowledge on their behalf.</p>}
     </Row>

@@ -18,11 +18,11 @@ import pytest
 ORIGINS = ("https://register.yashsilver.com", "https://yash-register.emergent.host")
 EXPECTED = {
     "WEBSITE_CHECK_ORIGINS": ",".join(ORIGINS),
-    "EXPECTED_WEBSITE_BUILD": "website-shared-v1-import-busy-2026-09-14",
+    "EXPECTED_WEBSITE_BUILD": "website-shared-v2-operations-2026-09-21",
     "EXPECTED_WEBSITE_COMMIT": "c1ef7d84609e0d0eff0258601b2fc1a84076189e",
-    "EXPECTED_APP_CONTRACT_COMMIT": "281067bb04bd8bd82a01cb7a34099bd8762de611",
-    "EXPECTED_UPSTREAM_BUILD": "shared-v1-store-submission-2026-09-13",
-    "EXPECTED_UPSTREAM_COMMIT": "281067bb04bd8bd82a01cb7a34099bd8762de611",
+    "EXPECTED_APP_CONTRACT_COMMIT": "8438b3bb6a71ae5c952228b05417d448347a98a1",
+    "EXPECTED_UPSTREAM_BUILD": "shared-v2-operations-2026-09-20",
+    "EXPECTED_UPSTREAM_COMMIT": "8438b3bb6a71ae5c952228b05417d448347a98a1",
     "PUBLICATION_RECEIPT": "publish-2026-09-12-website-3",
 }
 

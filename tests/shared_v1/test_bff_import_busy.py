@@ -71,12 +71,13 @@ async def test_persistent_app_lock_is_reported_and_the_same_chunk_resumes_later(
     monkeypatch.setattr(proxy, "CHUNK_BUSY_BACKOFF", 0.01)
     await _login_staff(bff_client, shared_apps["sent_otps"], "9000000101")
     jid, sample = await _init(bff_client, shared_apps)
-    await _hold_lock(shared_apps, "media-budget", 60)
+    # app ≥ 8438b3b waits up to 30 s for the media budget itself; the per-chunk lock still refuses at once (wait_seconds=0).
+    await _hold_lock(shared_apps, f"chunk:{jid}:0", 60)
     busy = await _chunk(bff_client, jid, sample, 0)
     assert busy.status_code == 409 and busy.json()["code"] == "OPERATION_IN_PROGRESS", busy.text
     status = await bff_client.get(f"/api/bff/pdf-upload/{jid}/status")
     assert status.json()["phase"] == "uploading" and status.json()["received_chunk_indices"] == [] and status.json()["bytes_received"] == 0
-    await shared_apps["canonical_db"].operation_locks.delete_one({"_id": "media-budget"})
+    await shared_apps["canonical_db"].operation_locks.delete_one({"_id": f"chunk:{jid}:0"})
     sent = await _chunk(bff_client, jid, sample, 0)  # the browser's own retry loop
     assert sent.status_code == 200 and sent.json()["received"] == 0, sent.text
     again = await _chunk(bff_client, jid, sample, 0)

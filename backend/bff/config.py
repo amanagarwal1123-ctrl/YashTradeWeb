@@ -3,8 +3,8 @@ import re
 from dataclasses import dataclass
 from urllib.parse import urlsplit
 
-BUILD = 'website-shared-v1-import-busy-2026-09-14'
-CONTRACT_COMMIT = '281067bb04bd8bd82a01cb7a34099bd8762de611'
+BUILD = 'website-shared-v2-operations-2026-09-21'
+CONTRACT_COMMIT = '8438b3bb6a71ae5c952228b05417d448347a98a1'
 # Live Google Play listing "Yash Silver", confirmed by the owner on 14 Sep 2026. ANDROID_APP_URL overrides;
 # ANDROID_RELEASE_VERIFIED=false hides it. iOS stays hidden until IOS_APP_URL + IOS_RELEASE_VERIFIED=true.
 ANDROID_STORE_URL = 'https://play.google.com/store/apps/details?id=com.emergent.yashtryontest.lt5e6b'
