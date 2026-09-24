@@ -118,7 +118,7 @@ export default function Privacy() {
             information when you use:
           </P>
           <UL items={[
-            <><strong>{APP}</strong> – our mobile application for jewellery trade customers, published on Google Play and the Apple App Store by {CO};</>,
+            <><strong>{APP}</strong> – our mobile application for jewellery trade customers, published by {CO};</>,
             <>the <strong>{CO} customer enrollment website</strong> (this website, register.yashsilver.com), where trade customers register, verify their mobile number and can delete their account;</>,
             <>related services such as one-time-code SMS messages, customer support, telecalling and reward programmes ("Services").</>,
           ]} />
@@ -274,7 +274,7 @@ export default function Privacy() {
             <><strong>{CO} staff</strong> (administrators, telecallers, billing executives, upload executives) see the information their role needs: telecallers and billing staff see your account, enquiry and reward information to serve you; upload executives work only on the catalogue content and see no customer records. Access is role-based, one-time-code protected and recorded.</>,
             <><strong>Legal and regulatory authorities</strong> receive information only under a valid legal request.</>,
             <><strong>A successor business</strong> would receive business records, with notice to you, only in a merger, acquisition or restructuring.</>,
-            <><strong>Google Play and the Apple App Store</strong> collect their own install statistics under their own policies; we embed no store analytics SDK.</>,
+            <><strong>App marketplaces</strong> collect their own installation statistics under their own policies; we embed no store analytics SDK.</>,
           ]} />
 
           <H2 id="security">10. How we protect your information</H2>
